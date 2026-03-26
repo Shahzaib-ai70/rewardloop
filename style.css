@@ -3158,3 +3158,70 @@ footer {
 [data-theme='dark'] .close-modal:hover {
     color: #fff;
 }
+
+@media (max-width: 768px) {
+    .landing-page .navbar .container {
+        flex-wrap: wrap;
+        gap: 10px;
+    }
+
+    .landing-page .logo {
+        font-size: 1.35rem;
+    }
+
+    .landing-page .nav-links {
+        flex-wrap: wrap;
+        justify-content: center;
+        width: 100%;
+        gap: 12px;
+    }
+
+    .landing-page .nav-right {
+        flex-wrap: wrap;
+        justify-content: center;
+        width: 100%;
+        gap: 10px;
+    }
+
+    .landing-page .hero {
+        padding-top: 90px;
+    }
+
+    .landing-page .hero-container {
+        flex-direction: column;
+        text-align: center;
+        gap: 24px;
+    }
+
+    .landing-page .hero-content {
+        padding-right: 0;
+    }
+
+    .landing-page .hero-content h1 {
+        font-size: clamp(2rem, 9vw, 2.6rem);
+        line-height: 1.15;
+    }
+
+    .landing-page .hero-content p {
+        font-size: 1rem;
+        margin-bottom: 24px;
+        max-width: 100%;
+    }
+
+    .landing-page .hero-image {
+        width: 100%;
+        align-items: center;
+    }
+
+    .landing-page .circle-bg {
+        width: min(70vw, 320px);
+        height: min(70vw, 320px);
+    }
+
+    .landing-page .hero-image img {
+        max-height: 42vh;
+        width: 100%;
+        height: auto;
+        object-fit: cover;
+    }
+}
