@@ -1,4 +1,4 @@
-﻿﻿<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -321,7 +321,7 @@
             }
         }
 
-        document.getElementById('registerForm').addEventListener('submit', function(e) {
+        document.getElementById('registerForm').addEventListener('submit', async function(e) {
             e.preventDefault();
             
             const password = document.getElementById('password').value;
@@ -340,27 +340,44 @@
             btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Creating Account...';
             btn.disabled = true;
 
-            fetch('/register', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(data)
-            })
-            .then(res => res.json())
-            .then(result => {
-                if (result.success) {
-                    showToast('Account created! Redirecting...', 'success');
-                    setTimeout(() => window.location.href = result.redirect, 1000);
-                } else {
-                    showToast(result.error || 'Registration failed', 'error');
+            const safeToast = (msg, type) => {
+                try { showToast(msg, type); } catch (_) {}
+            };
+
+            const controller = new AbortController();
+            const timer = setTimeout(() => controller.abort(), 15000);
+            let success = false;
+
+            try {
+                const res = await fetch('/register', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'same-origin',
+                    body: JSON.stringify(data),
+                    signal: controller.signal
+                });
+
+                const text = await res.text();
+                let result = {};
+                try { result = text ? JSON.parse(text) : {}; } catch { result = { error: text || 'Unexpected response' }; }
+
+                if (res.ok && result && result.success) {
+                    success = true;
+                    safeToast('Account created! Redirecting...', 'success');
+                    setTimeout(() => window.location.href = result.redirect || '/dashboard.html', 500);
+                    return;
+                }
+
+                safeToast((result && result.error) || 'Registration failed', 'error');
+            } catch (err) {
+                safeToast(err && err.name === 'AbortError' ? 'Request timeout' : 'Connection error', 'error');
+            } finally {
+                clearTimeout(timer);
+                if (!success) {
                     btn.innerHTML = originalText;
                     btn.disabled = false;
                 }
-            })
-            .catch(err => {
-                showToast('Connection error', 'error');
-                btn.innerHTML = originalText;
-                btn.disabled = false;
-            });
+            }
         });
         
         // Initialize on load

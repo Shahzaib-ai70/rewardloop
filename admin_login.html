@@ -198,27 +198,44 @@
             btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Authenticating...';
             btn.disabled = true;
 
-            fetch('/admin/login', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(data)
-            })
-            .then(res => res.json())
-            .then(result => {
-                if (result.success) {
-                    showToast('Welcome back, Admin!', 'success');
-                    setTimeout(() => window.location.href = result.redirect, 1000);
-                } else {
-                    showToast(result.error || 'Access Denied', 'error');
+            const safeToast = (msg, type) => {
+                try { showToast(msg, type); } catch (_) {}
+            };
+
+            const controller = new AbortController();
+            const timer = setTimeout(() => controller.abort(), 15000);
+            let success = false;
+
+            try {
+                const res = await fetch('/admin/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'same-origin',
+                    body: JSON.stringify(data),
+                    signal: controller.signal
+                });
+
+                const text = await res.text();
+                let result = {};
+                try { result = text ? JSON.parse(text) : {}; } catch { result = { error: text || 'Unexpected response' }; }
+
+                if (res.ok && result && result.success) {
+                    success = true;
+                    safeToast('Welcome back, Admin!', 'success');
+                    setTimeout(() => window.location.href = result.redirect || '/admin_dashboard.html', 500);
+                    return;
+                }
+
+                safeToast((result && result.error) || 'Access Denied', 'error');
+            } catch (err) {
+                safeToast(err && err.name === 'AbortError' ? 'Request timeout' : 'Connection error', 'error');
+            } finally {
+                clearTimeout(timer);
+                if (!success) {
                     btn.innerHTML = originalText;
                     btn.disabled = false;
                 }
-            })
-            .catch(err => {
-                showToast('Connection error', 'error');
-                btn.innerHTML = originalText;
-                btn.disabled = false;
-            });
+            }
         });
     </script>
     <script src="js/translation.js"></script>
