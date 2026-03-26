@@ -1,0 +1,368 @@
+﻿﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard - RewardLoop</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body class="dashboard-body">
+    
+    <!-- Sidebar -->
+    <aside class="sidebar">
+        <div class="sidebar-header">
+            <div class="logo">
+                <i class="fas fa-coins"></i> RewardLoop
+            </div>
+            <div class="close-sidebar">
+                <i class="fas fa-times"></i>
+            </div>
+        </div>
+        <ul class="sidebar-menu">
+            <li><a href="dashboard.html" class="active"><i class="fas fa-th-large"></i> Dashboard</a></li>
+            <li><a href="subscriptions.html"><i class="fas fa-crown"></i> Subscriptions</a></li>
+
+            <li><a href="fund_transfer.html"><i class="fas fa-exchange-alt"></i> Fund Transfer</a></li>
+            <li><a href="ads.html?tab=my-earnings"><i class="fas fa-dollar-sign"></i> My Earnings</a></li>
+            <li><a href="ads.html"><i class="fas fa-ad"></i> All Ads</a></li>
+            <li><a href="transactions.html"><i class="fas fa-history"></i> Transactions</a></li>
+            <li><a href="withdraw.html"><i class="fas fa-money-check-alt"></i> Withdraw</a></li>
+            <li><a href="referral.html"><i class="fas fa-users"></i> Referral</a></li>
+            <li><a href="portfolios.html"><i class="fas fa-briefcase"></i> Portfolios</a></li>
+            <li><a href="support.html"><i class="fas fa-headset"></i> Support</a></li>
+            <li><a href="rewards.html"><i class="fas fa-gift"></i> Rewards</a></li>
+            <li><a href="settings.html"><i class="fas fa-cog"></i> Settings</a></li>
+        </ul>
+        <div class="sidebar-footer">
+            <a href="/logout" class="logout-btn"><i class="fas fa-sign-out-alt"></i> Log Out</a>
+        </div>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="main-content">
+        <!-- Top Header -->
+        <header class="dashboard-header">
+            <div class="menu-toggle">
+                <i class="fas fa-bars"></i>
+            </div>
+            <div class="header-right">
+                <div id="google_translate_element"></div>
+                <div class="theme-toggle">
+                    <i class="fas fa-moon"></i>
+                </div>
+                <div class="user-profile" onclick="toggleProfileDropdown()">
+                    <div class="user-avatar">
+                        <i class="fas fa-user"></i>
+                    </div>
+                    <!-- Profile Dropdown -->
+                    <div class="profile-dropdown" id="profileDropdown">
+                        <a href="settings.html" class="profile-dropdown-item">
+                            <i class="fas fa-cog"></i> Settings
+                        </a>
+                        <a href="change_password.html" class="profile-dropdown-item">
+                            <i class="fas fa-key"></i> Change Password
+                        </a>
+                        <div class="profile-dropdown-divider"></div>
+                        <a href="/logout" class="profile-dropdown-item" style="color: #e74c3c;">
+                            <i class="fas fa-sign-out-alt" style="color: #e74c3c;"></i> Log Out
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <!-- Switch Back Button (Hidden by default) -->
+        <div id="admin-switch-back" style="display: none; background: #e67e22; color: white; padding: 10px; text-align: center; cursor: pointer;">
+            <i class="fas fa-user-shield"></i> You are logged in as a user. <strong>Click here to switch back to Admin.</strong>
+        </div>
+
+        <!-- Dashboard Content -->
+        <div class="content-wrapper">
+            
+
+
+            <div class="stats-grid">
+                <!-- Balance Card (Purple) -->
+                <div class="stat-card card-purple">
+                    <div class="icon-bg"><i class="fas fa-wallet"></i></div>
+                    <h3>Balance</h3>
+                    <div class="value" id="balance-value">PKR 0</div>
+                </div>
+
+                <!-- Current Plan (Blue) -->
+                <div class="stat-card card-blue">
+                    <div class="icon-bg"><i class="fas fa-crown"></i></div>
+                    <h3>Current Plan</h3>
+                    <div class="value" id="plan-value">No Plan</div>
+                    <div class="desc" id="plan-expiry">Upgrade now</div>
+                </div>
+
+                <!-- Viewed Ads (Blue) -->
+                <div class="stat-card card-blue">
+                    <div class="icon-bg"><i class="fas fa-eye"></i></div>
+                    <h3>Viewed Ads</h3>
+                    <div class="value">0</div>
+                    <div class="desc">Total ads you have viewed</div>
+                </div>
+
+                <!-- Transactions (Green) -->
+                <div class="stat-card card-green">
+                    <div class="icon-bg"><i class="fas fa-check-circle"></i></div>
+                    <h3>Transactions</h3>
+                    <div class="value">0</div>
+                    <div class="desc">Total number of transactions</div>
+                </div>
+
+
+
+                <!-- Earnings (Orange) -->
+                <div class="stat-card card-orange">
+                    <div class="icon-bg"><i class="fas fa-coins"></i></div>
+                    <h3>Earnings</h3>
+                    <div class="value">PKR 0</div>
+                    <div class="desc">Total amount earned</div>
+                </div>
+
+                <!-- Referral (Teal) -->
+                <div class="stat-card card-teal">
+                    <div class="icon-bg"><i class="fas fa-users"></i></div>
+                    <h3>Referral</h3>
+                    <div class="value">0</div>
+                    <div class="desc">Total number of referrals</div>
+                </div>
+
+                <!-- Withdraw (Orange - Second Row) -->
+                <div class="stat-card card-orange">
+                    <div class="icon-bg"><i class="fas fa-hand-holding-usd"></i></div>
+                    <h3>Withdraw</h3>
+                    <div class="value">PKR 0</div>
+                    <div class="desc">Total withdrawal amount</div>
+                </div>
+
+                <!-- Support Tickets (Purple - Second Row) -->
+                <div class="stat-card card-purple">
+                    <div class="icon-bg"><i class="fas fa-question-circle"></i></div>
+                    <h3>Support Tickets</h3>
+                    <div class="value">0</div>
+                    <div class="desc">Number of tickets you've submitted</div>
+                </div>
+            </div>
+
+            <!-- Recent Transactions Table -->
+            <div class="card recent-transactions">
+                <div class="card-top-header">
+                    <h3>Recent Transactions</h3>
+                </div>
+                <div class="table-responsive">
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th>Description</th>
+                                <th>Transactions ID</th>
+                                <th>Type</th>
+                                <th>Amount</th>
+                                <th>Charge</th>
+                                <th>Status</th>
+                                <th>Method</th>
+                            </tr>
+                        </thead>
+                        <tbody id="recent-transactions-body">
+                            <tr>
+                                <td colspan="7" class="text-center empty-state">
+                                    <div class="empty-content">
+                                        <i class="fas fa-spinner fa-spin fa-2x"></i>
+                                        <p>Loading...</p>
+                                    </div>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        // Toggle Sidebar for mobile
+        document.querySelector('.menu-toggle').addEventListener('click', function() {
+            document.querySelector('.sidebar').classList.toggle('active');
+        });
+        
+        document.querySelector('.close-sidebar').addEventListener('click', function() {
+            document.querySelector('.sidebar').classList.remove('active');
+        });
+
+        // Profile Dropdown Logic
+        function toggleProfileDropdown() {
+            const dropdown = document.getElementById('profileDropdown');
+            dropdown.classList.toggle('show');
+        }
+
+        // Close dropdown when clicking outside
+        window.addEventListener('click', function(e) {
+            if (!e.target.closest('.user-profile')) {
+                const dropdown = document.getElementById('profileDropdown');
+                if (dropdown && dropdown.classList.contains('show')) {
+                    dropdown.classList.remove('show');
+                }
+            }
+        });
+
+        // Fetch user data with cache busting
+        fetch('/api/user-info?t=' + new Date().getTime())
+            .then(response => response.json())
+            .then(data => {
+                console.log('User Info:', data); // Debugging
+                if (data.error) {
+                    window.location.href = 'login.html';
+                } else {
+                    const balance = data.balance !== undefined ? data.balance : 0;
+                    document.getElementById('balance-value').textContent = `PKR ${balance}`;
+
+                    // Update Plan Info
+                    const planValue = document.getElementById('plan-value');
+                    const planExpiry = document.getElementById('plan-expiry');
+                    if (data.plan_id && data.plan_name) {
+                        planValue.textContent = data.plan_name;
+                        const expiryDate = new Date(data.plan_expiry);
+                        const daysLeft = Math.ceil((expiryDate - new Date()) / (1000 * 60 * 60 * 24));
+                        if (daysLeft > 0) {
+                            planExpiry.textContent = `Expires in ${daysLeft} days`;
+                        } else {
+                            planExpiry.textContent = 'Expired';
+                            planExpiry.style.color = 'red';
+                        }
+                    } else {
+                        planValue.textContent = 'No Plan';
+                        planExpiry.innerHTML = '<a href="subscriptions.html" style="color: white; text-decoration: underline;">Upgrade Now</a>';
+                    }
+                    
+                    // Update Real-time Stats
+                    document.querySelector('.stat-card.card-blue .value').nextElementSibling.textContent === 'Total ads you have viewed' 
+                        ? document.querySelector('.stat-card.card-blue .value').textContent = data.viewedAdsCount || 0 : null;
+
+                    // Transactions
+                    const trxCard = Array.from(document.querySelectorAll('.stat-card')).find(el => el.querySelector('h3').textContent.trim() === 'Transactions');
+                    if (trxCard) trxCard.querySelector('.value').textContent = data.totalTransactions || 0;
+
+                    // Earnings
+                    const earnCard = Array.from(document.querySelectorAll('.stat-card')).find(el => el.querySelector('h3').textContent.trim() === 'Earnings');
+                    if (earnCard) earnCard.querySelector('.value').textContent = `PKR ${data.totalEarnings || 0}`;
+
+                    // Referral
+                    const refCard = Array.from(document.querySelectorAll('.stat-card')).find(el => el.querySelector('h3').textContent.trim() === 'Referral');
+                    if (refCard) refCard.querySelector('.value').textContent = data.referralCount || 0;
+
+                    // Withdraw
+                    const wdCard = Array.from(document.querySelectorAll('.stat-card')).find(el => el.querySelector('h3').textContent.trim() === 'Withdraw');
+                    if (wdCard) wdCard.querySelector('.value').textContent = `PKR ${data.totalWithdraw || 0}`;
+
+                    // Support Tickets
+                    const tickCard = Array.from(document.querySelectorAll('.stat-card')).find(el => el.querySelector('h3').textContent.trim() === 'Support Tickets');
+                    if (tickCard) tickCard.querySelector('.value').textContent = data.ticketCount || 0;
+
+                    // Viewed Ads Specific Selector Fix
+                    const adsCard = Array.from(document.querySelectorAll('.stat-card')).find(el => el.querySelector('h3').textContent.trim() === 'Viewed Ads');
+                    if (adsCard) adsCard.querySelector('.value').textContent = data.viewedAdsCount || 0;
+
+
+                    if (data.isAdminImpersonating) {
+                        const switchBtn = document.getElementById('admin-switch-back');
+                        switchBtn.style.display = 'block';
+                        switchBtn.addEventListener('click', function() {
+                            fetch('/api/switch-to-admin', { method: 'POST' })
+                                .then(res => res.json())
+                                .then(res => {
+                                    if(res.success) window.location.href = '/admin_dashboard.html';
+                                });
+                        });
+                    }
+                }
+            })
+            .catch(err => console.error('Error fetching user info:', err));
+
+        // Load Recent Transactions
+        fetch('/api/user/transactions')
+            .then(res => res.json())
+            .then(transactions => {
+                const tbody = document.getElementById('recent-transactions-body');
+                tbody.innerHTML = '';
+                
+                // Show only last 5 transactions
+                const recent = transactions.slice(0, 5);
+                
+                if (recent.length > 0) {
+                    recent.forEach(trx => {
+                        // Badge Logic
+                        let badgeClass = 'badge-warning'; 
+                        let badgeColor = '#ffc107';
+                        
+                        if (trx.status === 'approved' || trx.status === 'completed') { 
+                            badgeColor = '#28a745'; 
+                        } else if (trx.status === 'rejected' || trx.status === 'failed') { 
+                            badgeColor = '#dc3545'; 
+                        }
+
+                        // Icon Logic
+                        let icon = 'fa-arrow-down';
+                        let amountColor = '#28a745';
+                        let sign = '+';
+                        let typeLabel = trx.type || 'Deposit';
+
+                        if (trx.type === 'Withdraw' || trx.type === 'Transfer Sent') {
+                            icon = trx.type === 'Withdraw' ? 'fa-arrow-up' : 'fa-paper-plane';
+                            amountColor = '#dc3545';
+                            sign = '-';
+                        } else if (trx.type === 'Transfer Received') {
+                            icon = 'fa-hand-holding-usd';
+                            typeLabel = 'Transfer Received';
+                        } else if (trx.method === 'Ad View') {
+                            typeLabel = 'Ad Earning';
+                        }
+
+                        tbody.innerHTML += `
+                            <tr>
+                                <td>
+                                    <div style="display: flex; align-items: center;">
+                                        <div style="width: 35px; height: 35px; border-radius: 50%; background: #e0e6ed; display: flex; align-items: center; justify-content: center; margin-right: 15px; color: #5c6ac4;">
+                                            <i class="fas ${icon}"></i>
+                                        </div>
+                                        <div>
+                                            <div style="font-weight: 600; color: #333;">${typeLabel}</div>
+                                            <div style="font-size: 0.8rem; color: #888;">${new Date(trx.created_at).toLocaleDateString()}</div>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td style="font-family: monospace;">${trx.trx || trx.id}</td>
+                                <td>${trx.type || 'Transaction'}</td>
+                                <td style="font-weight: 700; color: ${amountColor};">${sign}${trx.amount} PKR</td>
+                                <td>${trx.charge || 0} PKR</td>
+                                <td><span style="padding: 5px 12px; border-radius: 20px; font-size: 0.75rem; font-weight: 600; color: white; background-color: ${badgeColor}; text-transform: uppercase;">${trx.status}</span></td>
+                                <td>${trx.method || '-'}</td>
+                            </tr>
+                        `;
+                    });
+                } else {
+                    tbody.innerHTML = `
+                        <tr>
+                            <td colspan="7" class="text-center empty-state">
+                                <div class="empty-content">
+                                    <i class="fas fa-box-open fa-3x" style="color: #ccc; margin-bottom: 10px;"></i>
+                                    <p style="color: #999;">No Data Found</p>
+                                </div>
+                            </td>
+                        </tr>
+                    `;
+                }
+            })
+            .catch(err => {
+                console.error('Error loading transactions:', err);
+                document.getElementById('recent-transactions-body').innerHTML = '<tr><td colspan="7" class="text-center">Error loading data</td></tr>';
+            });
+    </script>
+    <script src="js/theme.js"></script>
+    <script src="js/translation.js"></script>
+</body>
+</html>

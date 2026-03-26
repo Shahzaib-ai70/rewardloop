@@ -1,0 +1,244 @@
+﻿﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Referral - RewardLoop</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script src="js/notifications.js"></script>
+</head>
+<body class="dashboard-body">
+    
+    <!-- Sidebar -->
+    <aside class="sidebar">
+        <div class="sidebar-header">
+            <div class="logo">
+                <i class="fas fa-coins"></i> RewardLoop
+            </div>
+            <div class="close-sidebar">
+                <i class="fas fa-times"></i>
+            </div>
+        </div>
+        <ul class="sidebar-menu">
+            <li><a href="dashboard.html"><i class="fas fa-th-large"></i> Dashboard</a></li>
+            <li><a href="subscriptions.html"><i class="fas fa-crown"></i> Subscriptions</a></li>
+
+            <li><a href="fund_transfer.html"><i class="fas fa-exchange-alt"></i> Fund Transfer</a></li>
+            <li><a href="ads.html?tab=my-earnings"><i class="fas fa-dollar-sign"></i> My Earnings</a></li>
+            <li><a href="ads.html"><i class="fas fa-ad"></i> All Ads</a></li>
+            <li><a href="transactions.html"><i class="fas fa-history"></i> Transactions</a></li>
+            <li><a href="withdraw.html"><i class="fas fa-money-check-alt"></i> Withdraw</a></li>
+            <li><a href="referral.html" class="active"><i class="fas fa-users"></i> Referral</a></li>
+            <li><a href="portfolios.html"><i class="fas fa-briefcase"></i> Portfolios</a></li>
+            <li><a href="support.html"><i class="fas fa-headset"></i> Support</a></li>
+            <li><a href="rewards.html"><i class="fas fa-gift"></i> Rewards</a></li>
+            <li><a href="settings.html"><i class="fas fa-cog"></i> Settings</a></li>
+        </ul>
+        <div class="sidebar-footer">
+            <a href="/logout" class="logout-btn"><i class="fas fa-sign-out-alt"></i> Log Out</a>
+        </div>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="main-content">
+        <!-- Top Header -->
+        <header class="dashboard-header">
+            <div class="menu-toggle">
+                <i class="fas fa-bars"></i>
+            </div>
+            <div class="header-right">
+                <div id="google_translate_element"></div>
+                <div class="theme-toggle">
+                    <i class="fas fa-moon"></i>
+                </div>
+                <div class="user-profile">
+                    <div class="user-avatar">
+                        <i class="fas fa-user"></i>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <!-- Referral Content -->
+        <div class="content-wrapper">
+            <!-- Hero Banner -->
+            <div class="referral-banner">
+                <div class="banner-content">
+                    <h2>Earn 10% commission for every friend who subscribes!</h2>
+                    
+                    <div class="referral-steps">
+                        <div class="step-item">
+                            <div class="step-icon"><i class="fas fa-copy"></i></div>
+                            <h4>Copy the Link</h4>
+                            <p>Copy the link and Send it to whoever you want to invite</p>
+                        </div>
+                        <div class="step-arrow"><i class="fas fa-chevron-right"></i></div>
+                        <div class="step-item">
+                            <div class="step-icon"><i class="fas fa-paper-plane"></i></div>
+                            <h4>Send Invitation</h4>
+                            <p>Send your referral link to friends and tell them how useful it is</p>
+                        </div>
+                        <div class="step-arrow"><i class="fas fa-chevron-right"></i></div>
+                        <div class="step-item">
+                            <div class="step-icon"><i class="fas fa-user-plus"></i></div>
+                            <h4>Registration</h4>
+                            <p>Let your friends register to our services using your personal referral code</p>
+                        </div>
+                        <div class="step-arrow"><i class="fas fa-chevron-right"></i></div>
+                        <div class="step-item">
+                            <div class="step-icon"><i class="fas fa-gift"></i></div>
+                            <h4>Get your Reward</h4>
+                            <p>Invite your friends, When they sign up you will get bonus</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Share Link Section -->
+            <div class="card mt-4">
+                <div class="card-top-header">
+                    <h3>Share Your Referral Link</h3>
+                </div>
+                <div class="card-body">
+                    <p class="text-muted mb-3">You can also share your referral link by copying and sending it or sharing it on your social media</p>
+                    <div class="referral-link-box">
+                        <input type="text" id="referralLink" class="form-control" value="https://solidptc.zdevs.co/register?invite=USER123" readonly>
+                        <div class="copy-action">
+                            <button class="btn btn-purple" onclick="copyReferralLink()"><i class="fas fa-copy"></i> Copy Link</button>
+                            <button class="btn btn-purple"><i class="fas fa-share-alt"></i> Share</button>
+                        </div>
+                    </div>
+                    <div class="text-right mt-2">
+                        <small class="text-muted">0 people join using this link</small>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Referral Tree -->
+            <div class="card mt-4">
+                <div class="card-top-header">
+                    <h3>Referral Tree</h3>
+                </div>
+                <div class="card-body" style="min-height: 100px;">
+                    <!-- Tree visualization placeholder -->
+                </div>
+            </div>
+
+            <!-- Referred Friends List -->
+            <div class="card mt-4">
+                <div class="card-top-header">
+                    <h3>Referred Friends</h3>
+                </div>
+                <div class="table-responsive">
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th>User</th>
+                                <th>Plan</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td colspan="3" class="text-center empty-state">
+                                    <div class="empty-content">
+                                        <i class="fas fa-box-open fa-3x"></i>
+                                        <p>No Data Found</p>
+                                    </div>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        // Toggle Sidebar for mobile
+        document.querySelector('.menu-toggle').addEventListener('click', function() {
+            document.querySelector('.sidebar').classList.toggle('active');
+        });
+        
+        document.querySelector('.close-sidebar').addEventListener('click', function() {
+            document.querySelector('.sidebar').classList.remove('active');
+        });
+
+        // Copy Referral Link
+        function copyReferralLink() {
+            var copyText = document.getElementById("referralLink");
+            copyText.select();
+            copyText.setSelectionRange(0, 99999); /* For mobile devices */
+            navigator.clipboard.writeText(copyText.value);
+            showToast("Referral link copied!", 'success');
+        }
+
+        // Fetch user info for link
+        fetch('/api/user-info')
+            .then(res => res.json())
+            .then(data => {
+                if (data.username) {
+                    const linkInput = document.getElementById('referralLink');
+                    linkInput.value = `${window.location.origin}/register.html?invite=${data.username}`;
+                }
+            });
+
+        // Fetch Referrals
+        fetch('/api/user/referrals')
+            .then(res => res.json())
+            .then(users => {
+                const tbody = document.querySelector('tbody');
+                const countEl = document.querySelector('.text-right small');
+                const treeContainer = document.querySelector('.card-body[style="min-height: 100px;"]'); // Tree container
+
+                if (users.length > 0) {
+                    tbody.innerHTML = '';
+                    countEl.textContent = `${users.length} people joined using this link`;
+                    
+                    let treeHTML = '<ul style="list-style: none; padding-left: 20px;">';
+
+                    users.forEach(user => {
+                        // Table Row
+                        const tr = document.createElement('tr');
+                        tr.innerHTML = `
+                            <td>
+                                <div style="display: flex; align-items: center;">
+                                    <div style="width: 30px; height: 30px; background: #eee; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin-right: 10px;">
+                                        <i class="fas fa-user" style="color: #666;"></i>
+                                    </div>
+                                    <div>
+                                        <div style="font-weight: 600;">${user.username}</div>
+                                        <div style="font-size: 0.8rem; color: #888;">${new Date(user.created_at).toLocaleDateString()}</div>
+                                    </div>
+                                </div>
+                            </td>
+                            <td><span class="badge badge-info" style="background: #e1f5fe; color: #0288d1; padding: 5px 10px; border-radius: 4px;">${user.plan_name || 'No Plan'}</span></td>
+                            <td><span class="badge badge-success" style="background: #e8f5e9; color: #2e7d32; padding: 5px 10px; border-radius: 4px;">Active</span></td>
+                        `;
+                        tbody.appendChild(tr);
+
+                        // Tree Item
+                        treeHTML += `
+                            <li style="margin-bottom: 10px;">
+                                <i class="fas fa-user-circle" style="color: #6c5ce7;"></i> <strong>${user.username}</strong> 
+                                <span style="font-size: 0.85rem; color: #999;">(Joined: ${new Date(user.created_at).toLocaleDateString()})</span>
+                            </li>
+                        `;
+                    });
+                    
+                    treeHTML += '</ul>';
+                    treeContainer.innerHTML = treeHTML;
+
+                } else {
+                    countEl.textContent = '0 people joined using this link';
+                    treeContainer.innerHTML = '<p class="text-muted text-center">No referrals yet.</p>';
+                }
+            })
+            .catch(err => console.error('Error fetching referrals:', err));
+    </script>
+    <script src="js/theme.js"></script>
+    <script src="js/translation.js"></script>
+</body>
+</html>

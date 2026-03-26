@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Referral Management - Admin Panel</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script src="js/notifications.js"></script>
+    <style>
+        .admin-sidebar { background: #2d3436; color: #fff; }
+        .admin-sidebar .logo { color: #fff; }
+        .admin-sidebar .sidebar-menu li a { color: #b2bec3; }
+        .admin-sidebar .sidebar-menu li a:hover, .admin-sidebar .sidebar-menu li a.active { background: rgba(255,255,255,0.1); color: #fff; }
+        .admin-header { background: #fff; box-shadow: 0 2px 10px rgba(0,0,0,0.05); }
+        
+        /* Modal Styles */
+        .modal {
+            display: none; 
+            position: fixed; 
+            z-index: 1000; 
+            left: 0; top: 0; 
+            width: 100%; height: 100%; 
+            background-color: rgba(0,0,0,0.5);
+            align-items: center; justify-content: center;
+        }
+        .modal-content {
+            background-color: #fff;
+            padding: 30px;
+            border-radius: 8px;
+            width: 400px;
+            max-width: 90%;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+            animation: slideIn 0.3s ease-out;
+        }
+        @keyframes slideIn {
+            from { transform: translateY(-20px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+        .close { float: right; font-size: 24px; cursor: pointer; color: #aaa; }
+        .close:hover { color: #000; }
+        
+        .modal-header h3 { margin-top: 0; color: #2d3436; }
+        .modal-body { margin-top: 20px; }
+        
+        .form-group { margin-bottom: 15px; }
+        .form-group label { display: block; margin-bottom: 5px; font-weight: 500; color: #636e72; }
+        .form-control { width: 100%; padding: 10px; border: 1px solid #dfe6e9; border-radius: 5px; font-size: 1rem; }
+        
+        .btn-submit { width: 100%; padding: 12px; background: #00b894; color: white; border: none; border-radius: 5px; cursor: pointer; font-weight: 600; margin-top: 10px; }
+        .btn-submit:hover { background: #00a884; }
+    </style>
+</head>
+<body class="dashboard-body">
+    <aside class="sidebar admin-sidebar">
+        <div class="sidebar-header"><div class="logo"><i class="fas fa-shield-alt"></i> Admin Panel</div></div>
+        <ul class="sidebar-menu">
+            <li><a href="admin_dashboard.html"><i class="fas fa-tachometer-alt"></i> Dashboard</a></li>
+
+            <li><a href="admin_plans.html"><i class="fas fa-crown"></i> Manage Plans</a></li>
+            <li><a href="admin_portfolios.html"><i class="fas fa-briefcase"></i> Manage Portfolios</a></li>
+            <li><a href="admin_ads.html"><i class="fas fa-ad"></i> Manage Ads</a></li>
+            <li><a href="admin_users.html"><i class="fas fa-users"></i> Manage Users</a></li>
+            <li><a href="admin_referrals.html" class="active"><i class="fas fa-users-cog"></i> Referrals & Bonuses</a></li>
+            <li><a href="admin_deposits.html"><i class="fas fa-money-bill-wave"></i> Deposits</a></li>
+            <li><a href="admin_withdrawals.html"><i class="fas fa-hand-holding-usd"></i> Withdrawals</a></li>
+            <li><a href="admin_support.html"><i class="fas fa-ticket-alt"></i> Support Tickets</a></li>
+            <li><a href="admin_settings.html"><i class="fas fa-cogs"></i> System Settings</a></li>
+        </ul>
+        <div class="sidebar-footer"><a href="/admin/logout" class="logout-btn"><i class="fas fa-sign-out-alt"></i> Log Out</a></div>
+    </aside>
+
+    <main class="main-content">
+        <header class="dashboard-header admin-header">
+            <div class="menu-toggle"><i class="fas fa-bars"></i></div>
+            <div class="header-right">
+                <div id="google_translate_element"></div>
+                <div class="theme-toggle">
+                    <i class="fas fa-moon"></i>
+                </div>
+                <div class="user-profile"><span class="mr-2">Administrator</span><div class="user-avatar" style="background: #d63031;"><i class="fas fa-user-shield"></i></div></div>
+            </div>
+        </header>
+
+        <div class="content-wrapper">
+            <div class="card">
+                <div class="card-body">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                        <h3 class="section-title">Top Referrers</h3>
+                        <button onclick="loadReferrers()" class="btn btn-sm btn-primary"><i class="fas fa-sync"></i> Refresh</button>
+                    </div>
+                    
+                    <div class="table-responsive">
+                        <table class="table" id="referrersTable">
+                            <thead>
+                                <tr>
+                                    <th>ID</th>
+                                    <th>Username</th>
+                                    <th>Email</th>
+                                    <th>Total Referrals</th>
+                                    <th>Action</th>
+                                </tr>
+                            </thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+
+                    <div style="margin-top: 40px; display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                        <h3 class="section-title">Referral History</h3>
+                        <button onclick="loadReferralDetails()" class="btn btn-sm btn-secondary"><i class="fas fa-history"></i> Refresh Log</button>
+                    </div>
+                    
+                    <div class="table-responsive">
+                        <table class="table" id="referralDetailsTable">
+                            <thead>
+                                <tr>
+                                    <th>Referred User</th>
+                                    <th>Email</th>
+                                    <th>Referred By</th>
+                                    <th>Joined At</th>
+                                </tr>
+                            </thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Bonus Modal -->
+    <div id="bonusModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <span class="close" onclick="closeModal()">&times;</span>
+                <h3>Send Referral Bonus</h3>
+            </div>
+            <div class="modal-body">
+                <p>Sending bonus to: <strong id="modalUsername">User</strong></p>
+                <form id="bonusForm" onsubmit="sendBonus(event)">
+                    <input type="hidden" id="modalUserId">
+                    <div class="form-group">
+                        <label>Amount (PKR)</label>
+                        <input type="number" id="bonusAmount" class="form-control" placeholder="Enter amount" required min="1" step="0.01">
+                    </div>
+                    <div class="form-group">
+                        <label>Reason (Optional)</label>
+                        <input type="text" id="bonusReason" class="form-control" placeholder="e.g. Referral Reward">
+                    </div>
+                    <button type="submit" class="btn-submit">Send Bonus</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.querySelector('.menu-toggle').addEventListener('click', () => document.querySelector('.sidebar').classList.toggle('active'));
+
+        function loadReferrers() {
+            const tbody = document.querySelector('#referrersTable tbody');
+            tbody.innerHTML = '<tr><td colspan="5" class="text-center">Loading...</td></tr>';
+
+            fetch('/api/admin/referrers')
+                .then(res => {
+                    if (res.status === 401 || res.status === 403) {
+                        window.location.href = '/admin_login.html';
+                        throw new Error('Unauthorized');
+                    }
+                    if (!res.ok) throw new Error('Network response was not ok. Please ensure server.js is updated and restarted.');
+                    return res.json();
+                })
+                .then(users => {
+                    if (users.length === 0) {
+                        tbody.innerHTML = '<tr><td colspan="5" class="text-center">No referrers found</td></tr>';
+                    } else {
+                        tbody.innerHTML = '';
+                        users.forEach(user => {
+                            const tr = document.createElement('tr');
+                            tr.innerHTML = `
+                                <td>${user.id}</td>
+                                <td>${user.username || 'N/A'}</td>
+                                <td>${user.email || 'N/A'}</td>
+                                <td><span class="badge badge-info" style="font-size: 1rem;">${user.referral_count}</span></td>
+                                <td>
+                                    <button onclick="openBonusModal(${user.id}, '${user.username}')" class="btn btn-sm btn-success"><i class="fas fa-gift"></i> Send Bonus</button>
+                                    <a href="admin_user_detail.html?id=${user.id}" class="btn btn-sm btn-primary">Details</a>
+                                </td>
+                            `;
+                            tbody.appendChild(tr);
+                        });
+                    }
+                })
+                .catch(err => {
+                    console.error('Error:', err);
+                    tbody.innerHTML = '<tr><td colspan="5" class="text-center text-danger">Error: ' + err.message + '</td></tr>';
+                });
+        }
+
+        function loadReferralDetails() {
+            const tbody = document.querySelector('#referralDetailsTable tbody');
+            tbody.innerHTML = '<tr><td colspan="4" class="text-center">Loading...</td></tr>';
+
+            fetch('/api/admin/referrals-details')
+                .then(res => {
+                    if (!res.ok) throw new Error('API not found. Update server.js');
+                    return res.json();
+                })
+                .then(rows => {
+                    if (rows.length === 0) {
+                        tbody.innerHTML = '<tr><td colspan="4" class="text-center">No referral history found</td></tr>';
+                    } else {
+                        tbody.innerHTML = '';
+                        rows.forEach(row => {
+                            const tr = document.createElement('tr');
+                            tr.innerHTML = `
+                                <td>${row.referred_user}</td>
+                                <td>${row.referred_email}</td>
+                                <td style="font-weight: bold; color: #6c5ce7;">${row.referrer_user}</td>
+                                <td>${new Date(row.joined_at).toLocaleString()}</td>
+                            `;
+                            tbody.appendChild(tr);
+                        });
+                    }
+                })
+                .catch(err => {
+                    tbody.innerHTML = '<tr><td colspan="4" class="text-center text-danger">Error: ' + err.message + '</td></tr>';
+                });
+        }
+
+        // Modal Functions
+        const modal = document.getElementById('bonusModal');
+        
+        function openBonusModal(userId, username) {
+            document.getElementById('modalUserId').value = userId;
+            document.getElementById('modalUsername').innerText = username;
+            document.getElementById('bonusAmount').value = '';
+            document.getElementById('bonusReason').value = 'Referral Bonus'; // Default reason
+            modal.style.display = 'flex';
+        }
+
+        function closeModal() {
+            modal.style.display = 'none';
+        }
+
+        window.onclick = function(event) {
+            if (event.target == modal) {
+                closeModal();
+            }
+        }
+
+        function sendBonus(event) {
+            event.preventDefault();
+            
+            const userId = document.getElementById('modalUserId').value;
+            const amount = document.getElementById('bonusAmount').value;
+            const reason = document.getElementById('bonusReason').value;
+            const btn = event.target.querySelector('button');
+            
+            if (!amount || amount <= 0) {
+                showToast('Please enter a valid amount', 'warning');
+                return;
+            }
+
+            btn.disabled = true;
+            btn.innerText = 'Sending...';
+
+            fetch(`/api/admin/users/${userId}/bonus`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ amount, reason })
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    showToast('Bonus sent successfully!', 'success');
+                    closeModal();
+                } else {
+                    showToast('Error sending bonus: ' + (data.error || 'Unknown error'), 'error');
+                }
+            })
+            .catch(err => {
+                showToast('Server error: ' + err.message, 'error');
+            })
+            .finally(() => {
+                btn.disabled = false;
+                btn.innerText = 'Send Bonus';
+            });
+        }
+
+        loadReferrers();
+        loadReferralDetails();
+    </script>
+    <script src="js/theme.js"></script>
+    <script src="js/translation.js"></script>
+</body>
+</html>

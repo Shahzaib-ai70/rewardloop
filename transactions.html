@@ -1,0 +1,267 @@
+﻿﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Transactions - RewardLoop</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body class="dashboard-body">
+    
+    <!-- Sidebar -->
+    <aside class="sidebar">
+        <div class="sidebar-header">
+            <div class="logo">
+                <i class="fas fa-coins"></i> RewardLoop
+            </div>
+            <div class="close-sidebar">
+                <i class="fas fa-times"></i>
+            </div>
+        </div>
+        <ul class="sidebar-menu">
+            <li><a href="dashboard.html"><i class="fas fa-th-large"></i> Dashboard</a></li>
+            <li><a href="subscriptions.html"><i class="fas fa-crown"></i> Subscriptions</a></li>
+
+            <li><a href="fund_transfer.html"><i class="fas fa-exchange-alt"></i> Fund Transfer</a></li>
+            <li><a href="ads.html?tab=my-earnings"><i class="fas fa-dollar-sign"></i> My Earnings</a></li>
+            <li><a href="ads.html"><i class="fas fa-ad"></i> All Ads</a></li>
+            <li><a href="transactions.html" class="active"><i class="fas fa-history"></i> Transactions</a></li>
+            <li><a href="withdraw.html"><i class="fas fa-money-check-alt"></i> Withdraw</a></li>
+            <li><a href="referral.html"><i class="fas fa-users"></i> Referral</a></li>
+            <li><a href="portfolios.html"><i class="fas fa-briefcase"></i> Portfolios</a></li>
+            <li><a href="support.html"><i class="fas fa-headset"></i> Support</a></li>
+            <li><a href="rewards.html"><i class="fas fa-gift"></i> Rewards</a></li>
+            <li><a href="settings.html"><i class="fas fa-cog"></i> Settings</a></li>
+        </ul>
+        <div class="sidebar-footer">
+            <a href="/logout" class="logout-btn"><i class="fas fa-sign-out-alt"></i> Log Out</a>
+        </div>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="main-content">
+        <!-- Top Header -->
+        <header class="dashboard-header">
+            <div class="menu-toggle">
+                <i class="fas fa-bars"></i>
+            </div>
+            <div class="header-right">
+                <div id="google_translate_element"></div>
+                <div class="theme-toggle">
+                    <i class="fas fa-moon"></i>
+                </div>
+                <div class="user-profile">
+                    <div class="user-avatar">
+                        <i class="fas fa-user"></i>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <!-- Transactions Content -->
+        <div class="content-wrapper">
+            <div class="card">
+                <div class="card-top-header">
+                    <h3>Transactions</h3>
+                </div>
+                
+                <!-- Filter Bar -->
+                <div class="transactions-filter-bar">
+                    <input type="text" id="search-input" class="form-control" placeholder="Transaction ID">
+                    <select id="filter-type" class="form-control">
+                        <option value="">All Type</option>
+                        <option value="deposit">Deposit</option>
+                        <option value="ads_viewed">Ads Viewed</option>
+                        <!-- <option value="ads_posted">Ads Posted</option> -->
+                        <!-- <option value="received_money">Received Money</option> -->
+                        <!-- <option value="refunded">Refunded</option> -->
+                        <!-- <option value="plan_purchased">Plan Purchased</option> -->
+                        <option value="fund_transfer">Fund Transfer</option>
+                        <option value="withdraw">Withdraw</option>
+                        <!-- <option value="referral">Referral</option> -->
+                    </select>
+                    <button id="search-btn" class="btn btn-purple"><i class="fas fa-search"></i> Search</button>
+                    <!-- <select class="form-control page-size-select">
+                        <option value="15">15</option>
+                        <option value="25">25</option>
+                        <option value="50">50</option>
+                    </select> -->
+                </div>
+
+                <div class="table-responsive mt-4">
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th>Description</th>
+                                <th>Transactions ID</th>
+                                <th>Amount</th>
+                                <th>Charge</th>
+                                <th>Status</th>
+                                <th>Method</th>
+                            </tr>
+                        </thead>
+                        <tbody id="transactions-body">
+                            <!-- Data will be injected here -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        // Toggle Sidebar for mobile
+        document.querySelector('.menu-toggle').addEventListener('click', function() {
+            document.querySelector('.sidebar').classList.toggle('active');
+        });
+        
+        document.querySelector('.close-sidebar').addEventListener('click', function() {
+            document.querySelector('.sidebar').classList.remove('active');
+        });
+
+        // Global data store
+        let allTransactions = [];
+
+        // Load Transactions
+        function loadTransactions() {
+            fetch('/api/user/transactions')
+                .then(res => res.json())
+                .then(transactions => {
+                    allTransactions = transactions;
+                    renderTransactions(allTransactions);
+                })
+                .catch(err => console.error('Error fetching transactions:', err));
+        }
+
+        // Render Transactions
+        function renderTransactions(transactions) {
+            const tbody = document.getElementById('transactions-body');
+            tbody.innerHTML = ''; 
+
+            if (transactions.length > 0) {
+                transactions.forEach(trx => {
+                    // Determine Type & Badge
+                    let badgeClass = 'badge-warning'; // pending
+                    let badgeColor = '#ffc107';
+                    
+                    if (trx.status === 'approved' || trx.status === 'completed') { 
+                        badgeClass = 'badge-success'; 
+                        badgeColor = '#28a745'; 
+                    } else if (trx.status === 'rejected' || trx.status === 'failed') { 
+                        badgeClass = 'badge-danger'; 
+                        badgeColor = '#dc3545'; 
+                    }
+
+                    // Visual Logic for Deposit vs Withdraw
+                    let icon = 'fa-arrow-down';
+                    let amountColor = '#28a745'; // Green
+                    let sign = '+';
+                    let typeLabel = trx.type || 'Deposit';
+
+                    // If it's a withdrawal
+                    if (trx.type === 'Withdraw') {
+                        icon = 'fa-arrow-up';
+                        amountColor = '#dc3545'; // Red
+                        sign = '-';
+                    } 
+                    // If it's a transfer sent
+                    else if (trx.type === 'Transfer Sent') {
+                        icon = 'fa-paper-plane';
+                        amountColor = '#dc3545'; // Red
+                        sign = '-';
+                        typeLabel = 'Transfer Sent';
+                    }
+                    // If it's a transfer received
+                    else if (trx.type === 'Transfer Received') {
+                        icon = 'fa-hand-holding-usd';
+                        amountColor = '#28a745'; // Green
+                        sign = '+';
+                        typeLabel = 'Transfer Received';
+                    }
+                    // If it's an Ad View (Earnings)
+                    else if (trx.method === 'Ad View') {
+                        typeLabel = 'Ad Earning';
+                    }
+
+                    tbody.innerHTML += `
+                        <tr>
+                            <td>
+                                <div style="display: flex; align-items: center;">
+                                    <div style="width: 35px; height: 35px; border-radius: 50%; background: #e0e6ed; display: flex; align-items: center; justify-content: center; margin-right: 15px; color: #5c6ac4;">
+                                        <i class="fas ${icon}"></i>
+                                    </div>
+                                    <div>
+                                        <div style="font-weight: 600; color: #333;">${typeLabel}</div>
+                                        <div style="font-size: 0.8rem; color: #888;">${new Date(trx.created_at).toLocaleDateString()}</div>
+                                    </div>
+                                </div>
+                            </td>
+                            <td style="font-family: monospace; color: #555;">${trx.trx || trx.id}</td>
+                            <td style="font-weight: 700; color: ${amountColor};">${sign}${trx.amount} PKR</td>
+                            <td style="color: #666;">${trx.charge || 0} PKR</td>
+                            <td><span style="padding: 5px 12px; border-radius: 20px; font-size: 0.75rem; font-weight: 600; color: white; background-color: ${badgeColor}; text-transform: uppercase;">${trx.status}</span></td>
+                            <td style="color: #555;">${trx.method || '-'}</td>
+                        </tr>
+                    `;
+                });
+            } else {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="6" class="text-center empty-state">
+                            <div class="empty-content" style="padding: 40px; text-align: center; color: #ccc;">
+                                <i class="fas fa-box-open fa-3x" style="margin-bottom: 15px; display: block;"></i>
+                                <p style="font-size: 1.1rem;">No Transactions Found</p>
+                            </div>
+                        </td>
+                    </tr>
+                `;
+            }
+        }
+
+        // Filter Logic
+        function filterTransactions() {
+            const query = document.getElementById('search-input').value.toLowerCase();
+            const typeFilter = document.getElementById('filter-type').value;
+
+            const filtered = allTransactions.filter(trx => {
+                // Search ID
+                const matchesId = (trx.trx || trx.id).toString().toLowerCase().includes(query);
+
+                // Filter Type
+                let matchesType = true;
+                if (typeFilter) {
+                    if (typeFilter === 'withdraw') {
+                        matchesType = (trx.type === 'Withdraw');
+                    } else if (typeFilter === 'deposit') {
+                        // Deposit means actual deposit, not Ad View
+                        matchesType = (trx.type === 'Deposit' && trx.method !== 'Ad View');
+                    } else if (typeFilter === 'ads_viewed') {
+                        matchesType = (trx.method === 'Ad View');
+                    } else if (typeFilter === 'fund_transfer') {
+                        matchesType = (trx.type === 'Transfer Sent' || trx.type === 'Transfer Received');
+                    }
+                    // Add other filters here as we implement features
+                }
+
+                return matchesId && matchesType;
+            });
+
+            renderTransactions(filtered);
+        }
+
+        // Event Listeners
+        document.getElementById('search-btn').addEventListener('click', filterTransactions);
+        document.getElementById('filter-type').addEventListener('change', filterTransactions);
+        document.getElementById('search-input').addEventListener('keyup', (e) => {
+            if (e.key === 'Enter') filterTransactions();
+        });
+
+        // Initialize
+        loadTransactions();
+    </script>
+    <script src="js/theme.js"></script>
+    <script src="js/translation.js"></script>
+</body>
+</html>

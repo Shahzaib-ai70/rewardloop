@@ -1,0 +1,406 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Manage Deposits - Admin Panel</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script src="js/notifications.js"></script>
+    <style>
+        .admin-sidebar { background: #2d3436; color: #fff; }
+        .admin-sidebar .logo { color: #fff; }
+        .admin-sidebar .sidebar-menu li a { color: #b2bec3; }
+        .admin-sidebar .sidebar-menu li a:hover, .admin-sidebar .sidebar-menu li a.active { background: rgba(255,255,255,0.1); color: #fff; }
+        .admin-header { background: #fff; box-shadow: 0 2px 10px rgba(0,0,0,0.05); }
+
+        /* Tabs */
+        .nav-tabs { display: flex; border-bottom: 2px solid #eee; margin-bottom: 20px; }
+        .nav-link { padding: 12px 20px; cursor: pointer; border: none; background: none; font-weight: 500; color: #636e72; border-bottom: 2px solid transparent; transition: all 0.3s; }
+        .nav-link:hover { color: #0984e3; }
+        .nav-link.active { color: #0984e3; border-bottom-color: #0984e3; }
+        .tab-content { display: none; animation: fadeIn 0.3s ease; }
+        .tab-content.active { display: block; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+        /* Payment Method Cards */
+        .methods-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 20px; }
+        .method-card { background: #fff; border-radius: 10px; box-shadow: 0 5px 15px rgba(0,0,0,0.05); overflow: hidden; transition: transform 0.3s; position: relative; }
+        .method-card:hover { transform: translateY(-5px); }
+        .method-img { height: 150px; width: 100%; object-fit: cover; background: #f1f2f6; }
+        .method-body { padding: 20px; }
+        .method-title { font-size: 1.1rem; font-weight: 600; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center; }
+        .method-info { font-size: 0.9rem; color: #636e72; margin-bottom: 5px; }
+        .method-actions { margin-top: 15px; display: flex; gap: 10px; }
+        .status-badge { padding: 4px 8px; border-radius: 4px; font-size: 0.75rem; font-weight: 600; }
+        .status-active { background: #e17055; color: #fff; } /* Using a distinct color */
+        .status-inactive { background: #b2bec3; color: #fff; }
+
+        /* Modal */
+        .modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; overflow: auto; background-color: rgba(0,0,0,0.5); backdrop-filter: blur(5px); }
+        .modal-content { background-color: #fff; margin: 5% auto; padding: 30px; border-radius: 15px; width: 90%; max-width: 600px; box-shadow: 0 10px 30px rgba(0,0,0,0.2); animation: slideIn 0.3s; }
+        @keyframes slideIn { from { transform: translateY(-50px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+        .close-modal { color: #aaa; float: right; font-size: 28px; font-weight: bold; cursor: pointer; transition: color 0.2s; }
+        .close-modal:hover { color: #2d3436; }
+        .form-group { margin-bottom: 20px; }
+        .form-group label { display: block; margin-bottom: 8px; font-weight: 500; color: #2d3436; }
+        .form-control { width: 100%; padding: 10px 15px; border: 1px solid #dfe6e9; border-radius: 8px; font-size: 1rem; transition: border 0.3s; }
+        .form-control:focus { border-color: #0984e3; outline: none; }
+        .btn-primary { background: #0984e3; color: #fff; border: none; padding: 10px 20px; border-radius: 8px; cursor: pointer; font-weight: 500; transition: background 0.3s; }
+        .btn-primary:hover { background: #74b9ff; }
+        .btn-view { background: #6c5ce7; color: #fff; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer; text-decoration: none; font-size: 0.8rem; display: inline-block; transition: background 0.3s; }
+        .btn-view:hover { background: #a29bfe; }
+        .preview-img { max-width: 100%; height: 150px; object-fit: contain; margin-top: 10px; border-radius: 8px; border: 2px dashed #dfe6e9; display: none; }
+    </style>
+</head>
+<body class="dashboard-body">
+    <aside class="sidebar admin-sidebar">
+        <div class="sidebar-header"><div class="logo"><i class="fas fa-shield-alt"></i> Admin Panel</div></div>
+        <ul class="sidebar-menu">
+            <li><a href="admin_dashboard.html"><i class="fas fa-tachometer-alt"></i> Dashboard</a></li>
+
+            <li><a href="admin_plans.html"><i class="fas fa-crown"></i> Manage Plans</a></li>
+            <li><a href="admin_portfolios.html"><i class="fas fa-briefcase"></i> Manage Portfolios</a></li>
+            <li><a href="admin_ads.html"><i class="fas fa-ad"></i> Manage Ads</a></li>
+            <li><a href="admin_users.html"><i class="fas fa-users"></i> Manage Users</a></li>
+            <li><a href="admin_deposits.html" class="active"><i class="fas fa-money-bill-wave"></i> Deposits</a></li>
+            <li><a href="admin_withdrawals.html"><i class="fas fa-hand-holding-usd"></i> Withdrawals</a></li>
+            <li><a href="admin_support.html"><i class="fas fa-ticket-alt"></i> Support Tickets</a></li>
+            <li><a href="admin_settings.html"><i class="fas fa-cogs"></i> System Settings</a></li>
+        </ul>
+        <div class="sidebar-footer"><a href="/admin/logout" class="logout-btn"><i class="fas fa-sign-out-alt"></i> Log Out</a></div>
+    </aside>
+
+    <main class="main-content">
+        <header class="dashboard-header admin-header">
+            <div class="menu-toggle"><i class="fas fa-bars"></i></div>
+            <div class="header-right">
+                <div id="google_translate_element"></div>
+                <div class="theme-toggle">
+                    <i class="fas fa-moon"></i>
+                </div>
+                <div class="user-profile"><span class="mr-2">Administrator</span><div class="user-avatar" style="background: #d63031;"><i class="fas fa-user-shield"></i></div></div>
+            </div>
+        </header>
+
+        <div class="content-wrapper">
+            <div class="card">
+                <div class="card-body">
+                    <div class="nav-tabs">
+                        <button class="nav-link active" onclick="switchTab('requests')">Deposit Requests</button>
+                        <button class="nav-link" onclick="switchTab('methods')">Payment Methods</button>
+                    </div>
+
+                    <div id="requests" class="tab-content active">
+                        <h3 class="section-title">Pending & Recent Deposits</h3>
+                        <div class="table-responsive">
+                            <table class="table" id="depositsTable">
+                                <thead>
+                                    <tr>
+                                        <th>ID</th>
+                                        <th>User</th>
+                                        <th>Amount</th>
+                                        <th>Gateway</th>
+                                        <th>Trx ID</th>
+                                        <th>Proof</th>
+                                        <th>Status</th>
+                                        <th>Action</th>
+                                    </tr>
+                                </thead>
+                                <tbody></tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <div id="methods" class="tab-content">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                            <h3 class="section-title" style="margin: 0;">Manual Payment Methods</h3>
+                            <button class="btn btn-primary" onclick="openModal()"><i class="fas fa-plus"></i> Add New Method</button>
+                        </div>
+                        <div class="methods-grid" id="methodsGrid">
+                            <!-- Methods injected here -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Modal for Add/Edit Method -->
+    <div id="methodModal" class="modal">
+        <div class="modal-content">
+            <span class="close-modal" onclick="closeModal()">&times;</span>
+            <h2 id="modalTitle">Add Payment Method</h2>
+            <form id="methodForm" onsubmit="saveMethod(event)">
+                <input type="hidden" id="methodId" name="id">
+                <div class="form-group">
+                    <label>Gateway Name</label>
+                    <input type="text" id="name" name="name" class="form-control" placeholder="e.g. Bank Transfer, Easypaisa" required>
+                </div>
+                <div class="form-group">
+                    <label>Account Number / Wallet Address</label>
+                    <input type="text" id="account_number" name="account_number" class="form-control" placeholder="e.g. 1234567890" required>
+                </div>
+                <div class="form-group" style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                    <div>
+                        <label>Currency</label>
+                        <input type="text" id="currency" name="currency" class="form-control" placeholder="e.g. PKR" value="PKR" required>
+                    </div>
+                    <div>
+                        <label>Bank Name</label>
+                        <input type="text" id="bank_name" name="bank_name" class="form-control" placeholder="e.g. HBL, JazzCash">
+                    </div>
+                    <!-- Rate hidden, defaulted to 1 -->
+                    <input type="hidden" id="rate" name="rate" value="1">
+                </div>
+                <div class="form-group" style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                    <div>
+                        <label>Min Deposit</label>
+                        <input type="number" id="min_amount" name="min_amount" class="form-control" placeholder="e.g. 10" required>
+                    </div>
+                    <div>
+                        <label>Max Deposit</label>
+                        <input type="number" id="max_amount" name="max_amount" class="form-control" placeholder="e.g. 1000" required>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Payment Instructions</label>
+                    <textarea id="instructions" name="instructions" class="form-control" rows="4" placeholder="Enter detailed steps..." required></textarea>
+                </div>
+                <div class="form-group">
+                    <label>Gateway Logo</label>
+                    <input type="file" id="image" name="image" class="form-control" accept="image/*" onchange="previewImage(this)">
+                    <img id="imagePreview" class="preview-img">
+                </div>
+                <div class="form-group">
+                    <label>Status</label>
+                    <select id="status" name="status" class="form-control">
+                        <option value="active">Active</option>
+                        <option value="inactive">Inactive</option>
+                    </select>
+                </div>
+                <button type="submit" class="btn btn-primary" style="width: 100%;">Save Method</button>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        document.querySelector('.menu-toggle').addEventListener('click', () => document.querySelector('.sidebar').classList.toggle('active'));
+
+
+        
+        // Tab Logic
+        function switchTab(tabName) {
+            document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+            document.querySelectorAll('.nav-link').forEach(l => l.classList.remove('active'));
+            document.getElementById(tabName).classList.add('active');
+            event.target.classList.add('active');
+            if(tabName === 'methods') loadMethods();
+        }
+
+        // Load Deposits
+        fetch('/api/admin/deposits')
+            .then(res => res.json())
+            .then(deposits => {
+                const tbody = document.querySelector('#depositsTable tbody');
+                if(deposits.length === 0) tbody.innerHTML = '<tr><td colspan="7" class="text-center">No deposits found</td></tr>';
+                else {
+                    deposits.forEach(dep => {
+                        tbody.innerHTML += `
+                            <tr>
+                                <td>${dep.id}</td>
+                                <td>${dep.username}</td>
+                                <td>${dep.amount}</td>
+                                <td>${dep.gateway}</td>
+                                <td>${dep.transaction_id}</td>
+                                <td>
+                                    ${dep.proof_image ? `<a href="${dep.proof_image}" target="_blank" class="btn-view"><i class="fas fa-eye"></i> View</a>` : '<span style="color: #b2bec3;">None</span>'}
+                                </td>
+                                <td><span class="badge badge-${dep.status === 'approved' ? 'success' : dep.status === 'pending' ? 'warning' : 'danger'}">${dep.status}</span></td>
+                                <td>
+                                    ${dep.status === 'pending' ? `
+                                    <button class="btn btn-sm btn-success" onclick="updateStatus(${dep.id}, 'approved')">Approve</button>
+                                    <button class="btn btn-sm btn-danger" onclick="updateStatus(${dep.id}, 'rejected')">Reject</button>
+                                    ` : '-'}
+                                </td>
+                            </tr>
+                        `;
+                    });
+                }
+            });
+
+        function updateStatus(id, status) {
+            showConfirm(
+                `${status.charAt(0).toUpperCase() + status.slice(1)} Deposit?`, 
+                `Are you sure you want to ${status} this deposit?`, 
+                () => {
+                    fetch('/api/admin/deposits/status', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ id: id, status: status })
+                    })
+                    .then(res => res.json())
+                    .then(data => {
+                        if(data.success) {
+                            showToast('Deposit ' + status + ' successfully', 'success');
+                            location.reload();
+                        } else {
+                            showToast('Error: ' + data.error, 'error');
+                        }
+                    })
+                    .catch(err => showToast('Error updating status', 'error'));
+                },
+                `Yes, ${status.charAt(0).toUpperCase() + status.slice(1)}`,
+                'Cancel',
+                status === 'rejected'
+            );
+        }
+
+        // Methods Logic
+        function loadMethods() {
+            fetch('/api/admin/payment-methods')
+                .then(res => res.json())
+                .then(methods => {
+                    const grid = document.getElementById('methodsGrid');
+                    grid.innerHTML = '';
+                    if(methods.length === 0) {
+                        grid.innerHTML = '<p>No payment methods added yet.</p>';
+                        return;
+                    }
+                    methods.forEach(m => {
+                        grid.innerHTML += `
+                            <div class="method-card">
+                                <img src="${m.image_path || 'https://via.placeholder.com/300x150?text=No+Image'}" class="method-img" alt="${m.name}">
+                                <div class="method-body">
+                                    <div class="method-title">
+                                        ${m.name}
+                                        <span class="status-badge ${m.status === 'active' ? 'status-active' : 'status-inactive'}">${m.status}</span>
+                                    </div>
+                                    <div class="method-info"><i class="fas fa-university"></i> ${m.bank_name ? m.bank_name + ' - ' : ''}${m.account_number || 'N/A'}</div>
+                                    <div class="method-info"><i class="fas fa-coins"></i> ${m.currency}</div>
+                                    <div class="method-info"><i class="fas fa-arrows-alt-h"></i> Limits: ${m.min_amount} - ${m.max_amount}</div>
+                                    <div class="method-actions">
+                                        <button class="btn btn-sm btn-primary" onclick='editMethod(${JSON.stringify(m)})'><i class="fas fa-edit"></i> Edit</button>
+                                        <button class="btn btn-sm btn-danger" onclick="deleteMethod(${m.id})"><i class="fas fa-trash"></i> Delete</button>
+                                    </div>
+                                </div>
+                            </div>
+                        `;
+                    });
+                });
+        }
+
+        // Modal Logic
+        const modal = document.getElementById('methodModal');
+        const form = document.getElementById('methodForm');
+
+        function openModal() {
+            modal.style.display = 'block';
+            form.reset();
+            document.getElementById('methodId').value = '';
+            document.getElementById('modalTitle').innerText = 'Add Payment Method';
+            document.getElementById('imagePreview').style.display = 'none';
+        }
+
+        function closeModal() {
+            modal.style.display = 'none';
+        }
+
+        window.onclick = function(event) {
+            if (event.target == modal) closeModal();
+        }
+
+        function previewImage(input) {
+            if (input.files && input.files[0]) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    const img = document.getElementById('imagePreview');
+                    img.src = e.target.result;
+                    img.style.display = 'block';
+                }
+                reader.readAsDataURL(input.files[0]);
+            }
+        }
+
+        function editMethod(method) {
+            modal.style.display = 'block';
+            document.getElementById('modalTitle').innerText = 'Edit Payment Method';
+            document.getElementById('methodId').value = method.id;
+            document.getElementById('name').value = method.name;
+            document.getElementById('account_number').value = method.account_number || '';
+            document.getElementById('bank_name').value = method.bank_name || '';
+            document.getElementById('currency').value = method.currency;
+            document.getElementById('rate').value = method.rate || 1;
+            document.getElementById('min_amount').value = method.min_amount;
+            document.getElementById('max_amount').value = method.max_amount;
+            document.getElementById('instructions').value = method.instructions;
+            document.getElementById('status').value = method.status;
+            
+            if(method.image_path) {
+                const img = document.getElementById('imagePreview');
+                img.src = method.image_path;
+                img.style.display = 'block';
+            } else {
+                document.getElementById('imagePreview').style.display = 'none';
+            }
+        }
+
+        function saveMethod(e) {
+            e.preventDefault();
+            const id = document.getElementById('methodId').value;
+            const formData = new FormData(form);
+            
+            // If editing and no new file selected, FormData might handle it, or backend needs to ignore missing file
+            // My backend logic handles undefined file for update properly.
+
+            const url = id ? `/api/admin/payment-methods/${id}` : '/api/admin/payment-methods';
+            const method = id ? 'PUT' : 'POST';
+
+            // For PUT with FormData, fetch works but some backends struggle with multipart PUT.
+            // Express + Multer usually handles PUT fine.
+            
+            fetch(url, {
+                method: method,
+                body: formData
+            })
+            .then(res => res.json())
+            .then(data => {
+                if(data.success) {
+                    showToast('Payment method saved!', 'success');
+                    closeModal();
+                    loadMethods();
+                } else {
+                    showToast('Error: ' + data.error, 'error');
+                }
+            })
+            .catch(err => showToast('Error saving method', 'error'));
+        }
+
+        function deleteMethod(id) {
+            showConfirm(
+                'Delete Payment Method?', 
+                'Are you sure you want to delete this payment method?', 
+                () => {
+                    fetch(`/api/admin/payment-methods/${id}`, { method: 'DELETE' })
+                    .then(res => res.json())
+                    .then(data => {
+                        if(data.success) {
+                            showToast('Payment method deleted', 'success');
+                            loadMethods();
+                        } else {
+                            showToast('Error deleting method', 'error');
+                        }
+                    });
+                },
+                'Yes, Delete',
+                'Cancel',
+                true
+            );
+        }
+    </script>
+    <script src="js/theme.js"></script>
+    <script src="js/translation.js"></script>
+</body>
+</html>
+

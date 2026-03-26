@@ -1,0 +1,256 @@
+﻿﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rewards - RewardLoop</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body class="dashboard-body">
+    
+    <!-- Sidebar -->
+    <aside class="sidebar">
+        <div class="sidebar-header">
+            <div class="logo">
+                <i class="fas fa-coins"></i> RewardLoop
+            </div>
+            <div class="close-sidebar">
+                <i class="fas fa-times"></i>
+            </div>
+        </div>
+        <ul class="sidebar-menu">
+            <li><a href="dashboard.html"><i class="fas fa-th-large"></i> Dashboard</a></li>
+            <li><a href="subscriptions.html"><i class="fas fa-crown"></i> Subscriptions</a></li>
+
+            <li><a href="fund_transfer.html"><i class="fas fa-exchange-alt"></i> Fund Transfer</a></li>
+            <li><a href="ads.html?tab=my-earnings"><i class="fas fa-dollar-sign"></i> My Earnings</a></li>
+            <li><a href="ads.html"><i class="fas fa-ad"></i> All Ads</a></li>
+            <li><a href="transactions.html"><i class="fas fa-history"></i> Transactions</a></li>
+            <li><a href="withdraw.html"><i class="fas fa-money-check-alt"></i> Withdraw</a></li>
+            <li><a href="referral.html"><i class="fas fa-users"></i> Referral</a></li>
+            <li><a href="portfolios.html"><i class="fas fa-briefcase"></i> Portfolios</a></li>
+            <li><a href="support.html"><i class="fas fa-headset"></i> Support</a></li>
+            <li><a href="rewards.html" class="active"><i class="fas fa-gift"></i> Rewards</a></li>
+            <li><a href="settings.html"><i class="fas fa-cog"></i> Settings</a></li>
+        </ul>
+        <div class="sidebar-footer">
+            <a href="/logout" class="logout-btn"><i class="fas fa-sign-out-alt"></i> Log Out</a>
+        </div>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="main-content">
+        <!-- Top Header -->
+        <header class="dashboard-header">
+            <div class="menu-toggle">
+                <i class="fas fa-bars"></i>
+            </div>
+            <div class="header-right">
+                <div id="google_translate_element"></div>
+                <div class="theme-toggle">
+                    <i class="fas fa-moon"></i>
+                </div>
+                <div class="user-profile">
+                    <div class="user-avatar">
+                        <i class="fas fa-user"></i>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <!-- Rewards Content -->
+        <div class="content-wrapper">
+            <!-- Reward Points Card -->
+            <div class="reward-points-card mb-4">
+                <div class="reward-info">
+                    <h3>My Reward Points</h3>
+                    <div class="points-value">0</div>
+                    <button class="btn btn-light-outline"><i class="fas fa-gift"></i> Redeem Now</button>
+                </div>
+                <div class="reward-icon">
+                    <i class="fas fa-award"></i>
+                </div>
+            </div>
+
+            <!-- Two Column Section -->
+            <div class="rewards-grid mb-4">
+                <!-- Reward Point Earnings -->
+                <div class="card">
+                    <div class="card-top-header">
+                        <h3>Reward Point Earnings:</h3>
+                    </div>
+                    <div class="table-responsive">
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th>Portfolio List</th>
+                                    <th>Amount Of Transactions</th>
+                                    <th>Reward</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td colspan="3" class="text-center empty-state-small">
+                                        <p>No Data Found</p>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Reward Points Redeem -->
+                <div class="card">
+                    <div class="card-top-header">
+                        <h3>Reward Points Redeem:</h3>
+                    </div>
+                    <div class="table-responsive">
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th>Portfolio List</th>
+                                    <th>Per Points</th>
+                                    <th>Redeem Amount</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td colspan="3" class="text-center empty-state-small">
+                                        <p>No Data Found</p>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Redeem Summary -->
+            <div class="card">
+                <div class="card-top-header">
+                    <h3>Redeem Summary:</h3>
+                </div>
+                <div class="table-responsive">
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th>Description</th>
+                                <th>Amount</th>
+                                <th>Redeemed Date</th>
+                                <th>Transaction Type</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td colspan="4" class="text-center empty-state">
+                                    <div class="empty-content">
+                                        <i class="fas fa-box-open fa-3x"></i>
+                                        <p>No Data Found</p>
+                                    </div>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script src="js/notifications.js"></script>
+    <script>
+        // Toggle Sidebar for mobile
+        document.querySelector('.menu-toggle').addEventListener('click', function() {
+            document.querySelector('.sidebar').classList.toggle('active');
+        });
+        
+        document.querySelector('.close-sidebar').addEventListener('click', function() {
+            document.querySelector('.sidebar').classList.remove('active');
+        });
+
+        // Load Reward Data
+        function loadRewards() {
+            // 1. Get User Info (for Balance)
+            fetch('/api/user-info?t=' + Date.now())
+                .then(res => res.json())
+                .then(user => {
+                    if (user.reward_balance !== undefined) {
+                        document.querySelector('.points-value').textContent = `PKR ${user.reward_balance.toFixed(2)}`;
+                    } else {
+                        document.querySelector('.points-value').textContent = 'PKR 0.00';
+                    }
+                });
+
+            // 2. Get History
+            fetch('/api/user/rewards-history')
+                .then(res => res.json())
+                .then(data => {
+                    // Earnings Table
+                    const earningsBody = document.querySelector('.rewards-grid .card:first-child tbody');
+                    if (data.earnings && data.earnings.length > 0) {
+                        earningsBody.innerHTML = '';
+                        data.earnings.forEach(item => {
+                            earningsBody.innerHTML += `
+                                <tr>
+                                    <td>Referral Bonus</td>
+                                    <td>1 Transaction</td>
+                                    <td style="color: #2ecc71; font-weight: bold;">+PKR ${item.amount}</td>
+                                </tr>
+                            `;
+                        });
+                    } else {
+                        earningsBody.innerHTML = `<tr><td colspan="3" class="text-center empty-state-small"><p>No Reward Earnings Yet</p></td></tr>`;
+                    }
+
+                    // Redeem History (Summary)
+                    const redeemBody = document.querySelector('.card:last-child tbody');
+                    if (data.redemptions && data.redemptions.length > 0) {
+                        redeemBody.innerHTML = '';
+                        data.redemptions.forEach(item => {
+                            redeemBody.innerHTML += `
+                                <tr>
+                                    <td>Redeemed to Main Wallet</td>
+                                    <td style="color: #e74c3c; font-weight: bold;">PKR ${item.amount}</td>
+                                    <td>${new Date(item.created_at).toLocaleDateString()}</td>
+                                    <td><span class="badge badge-success">Completed</span></td>
+                                </tr>
+                            `;
+                        });
+                    } else {
+                        redeemBody.innerHTML = `<tr><td colspan="4" class="text-center empty-state"><div class="empty-content"><i class="fas fa-box-open fa-3x"></i><p>No Redemptions Yet</p></div></td></tr>`;
+                    }
+                });
+        }
+
+        // Redeem Function
+        document.querySelector('.btn-light-outline').addEventListener('click', function() {
+            const btn = this;
+            if (confirm('Are you sure you want to redeem your rewards to your main wallet?')) {
+                btn.disabled = true;
+                btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing...';
+                
+                fetch('/api/user/redeem-rewards', { method: 'POST' })
+                    .then(res => res.json())
+                    .then(data => {
+                        if (data.success) {
+                            showToast(`Successfully redeemed PKR ${data.amount}!`, 'success');
+                            loadRewards(); // Refresh UI
+                        } else {
+                            showToast(data.error || 'Redemption failed', 'error');
+                        }
+                    })
+                    .catch(err => showToast('Server Error', 'error'))
+                    .finally(() => {
+                        btn.disabled = false;
+                        btn.innerHTML = '<i class="fas fa-gift"></i> Redeem Now';
+                    });
+            }
+        });
+
+        loadRewards();
+    </script>
+    <script src="js/theme.js"></script>
+    <script src="js/translation.js"></script>
+</body>
+</html>

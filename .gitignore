@@ -1,0 +1,23 @@
+# Node modules
+node_modules/
+npm-debug.log
+
+# Sessions
+sessions.db
+sessions.db-shm
+sessions.db-wal
+database.sqlite
+
+# Environment variables
+.env
+
+# OS generated files
+.DS_Store
+Thumbs.db
+
+# Optional: Ignore uploads if you want to keep them local-only
+# uploads/
+
+# Backups
+grow future backup/
+grow_future_backup.zip

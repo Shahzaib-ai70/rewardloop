@@ -1,0 +1,630 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Customer Support - Admin Panel</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script src="js/notifications.js"></script>
+    <style>
+        .admin-sidebar { background: #2d3436; color: #fff; }
+        .admin-sidebar .logo { color: #fff; }
+        .admin-sidebar .sidebar-menu li a { color: #b2bec3; }
+        .admin-sidebar .sidebar-menu li a:hover, .admin-sidebar .sidebar-menu li a.active { background: rgba(255,255,255,0.1); color: #fff; }
+        .admin-header { background: #fff; box-shadow: 0 2px 10px rgba(0,0,0,0.05); }
+        .settings-card { padding: 20px; background: #fff; border-radius: 10px; border: 1px solid #eee; max-width: 600px; }
+        
+        /* Context Menu */
+        .context-menu {
+            display: none;
+            position: absolute;
+            z-index: 1000;
+            background: #fff;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            width: 150px;
+        }
+        .context-menu ul {
+            list-style: none;
+            padding: 5px 0;
+            margin: 0;
+        }
+        .context-menu li {
+            padding: 8px 15px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            color: #333;
+            transition: background 0.2s;
+        }
+        .context-menu li:hover {
+            background-color: #f1f2f6;
+        }
+        .context-menu li i {
+            margin-right: 8px;
+            color: #636e72;
+        }
+        .context-menu li.delete-option {
+            color: #e74c3c;
+        }
+        .context-menu li.delete-option i {
+            color: #e74c3c;
+        }
+    </style>
+</head>
+<body class="dashboard-body">
+    <aside class="sidebar admin-sidebar">
+        <div class="sidebar-header"><div class="logo"><i class="fas fa-shield-alt"></i> Admin Panel</div></div>
+        <ul class="sidebar-menu">
+            <li><a href="admin_dashboard.html"><i class="fas fa-tachometer-alt"></i> Dashboard</a></li>
+
+            <li><a href="admin_plans.html"><i class="fas fa-crown"></i> Manage Plans</a></li>
+            <li><a href="admin_portfolios.html"><i class="fas fa-briefcase"></i> Manage Portfolios</a></li>
+            <li><a href="admin_ads.html"><i class="fas fa-ad"></i> Manage Ads</a></li>
+            <li><a href="admin_users.html"><i class="fas fa-users"></i> Manage Users</a></li>
+            <li><a href="admin_deposits.html"><i class="fas fa-money-bill-wave"></i> Deposits</a></li>
+            <li><a href="admin_withdrawals.html"><i class="fas fa-hand-holding-usd"></i> Withdrawals</a></li>
+            <li><a href="admin_support.html" class="active"><i class="fas fa-headset"></i> Customer Support</a></li>
+            <li><a href="admin_settings.html"><i class="fas fa-cogs"></i> System Settings</a></li>
+        </ul>
+        <div class="sidebar-footer"><a href="/admin/logout" class="logout-btn"><i class="fas fa-sign-out-alt"></i> Log Out</a></div>
+    </aside>
+
+    <main class="main-content">
+        <!-- Context Menu -->
+        <div id="chatContextMenu" class="context-menu">
+            <ul>
+                <li onclick="handleContextAction('refresh')"><i class="fas fa-sync-alt"></i> Refresh</li>
+                <li onclick="handleContextAction('delete')" class="delete-option"><i class="fas fa-trash-alt"></i> Delete Chat</li>
+            </ul>
+        </div>
+
+        <header class="dashboard-header admin-header">
+            <div class="menu-toggle"><i class="fas fa-bars"></i></div>
+            <div class="header-right">
+                <div id="google_translate_element"></div>
+                <div class="theme-toggle">
+                    <i class="fas fa-moon"></i>
+                </div>
+                <div class="user-profile"><span class="mr-2">Administrator</span><div class="user-avatar" style="background: #d63031;"><i class="fas fa-user-shield"></i></div></div>
+            </div>
+        </header>
+
+        <div class="content-wrapper">
+            <div class="card">
+                <div class="card-body">
+                    <div class="nav-tabs">
+                        <button class="nav-link active" onclick="switchTab('live-chat')" title="Live Chat"><i class="fas fa-comments"></i></button>
+                        <button class="nav-link" onclick="switchTab('tickets')"><i class="fas fa-ticket-alt"></i> Support Tickets</button>
+                        <button class="nav-link" onclick="switchTab('settings')"><i class="fas fa-cog"></i> Contact Settings</button>
+                    </div>
+
+                    <!-- Live Chat Tab -->
+                    <div id="live-chat" class="tab-content active">
+                        <div class="chat-interface">
+                            <div class="chat-layout">
+                                <div class="chat-sidebar">
+                                    <div class="chat-search">
+                                        <input type="text" placeholder="Search users...">
+                                    </div>
+                                    <div class="chat-users-list" id="chatUsersList">
+                                        <!-- User list will be injected here -->
+                                        <div style="padding: 20px; text-align: center; color: #999;">Loading...</div>
+                                    </div>
+                                </div>
+                                <div class="chat-main" id="chatWindow">
+                                    <div class="chat-empty-state">
+                                        <i class="far fa-comments"></i>
+                                        <p>Select a user to start chatting</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Tickets Tab (Existing) -->
+                    <div id="tickets" class="tab-content">
+                        <h3 class="section-title">User Support Tickets</h3>
+                        <div class="table-responsive">
+                            <table class="table" id="ticketsTable">
+                                <thead>
+                                    <tr>
+                                        <th>ID</th>
+                                        <th>User</th>
+                                        <th>Subject</th>
+                                        <th>Priority</th>
+                                        <th>Status</th>
+                                        <th>Action</th>
+                                    </tr>
+                                </thead>
+                                <tbody></tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- Settings Tab -->
+                    <div id="settings" class="tab-content">
+                        <h3 class="section-title">Contact Information</h3>
+                        <div class="settings-card">
+                            <form id="contactForm" onsubmit="saveContactSettings(event)">
+                                <div class="form-group">
+                                    <label><i class="fab fa-telegram text-primary"></i> Telegram Personal/Support Username (t.me/username)</label>
+                                    <input type="url" id="telegram_link" class="form-control" placeholder="https://t.me/yourusername">
+                                </div>
+                                <div class="form-group">
+                                    <label><i class="fab fa-whatsapp text-success"></i> WhatsApp Number/Link</label>
+                                    <input type="url" id="whatsapp_link" class="form-control" placeholder="https://wa.me/1234567890">
+                                </div>
+                                <button type="submit" class="btn btn-primary">Save Changes</button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- View Ticket Modal -->
+    <div class="modal-backdrop" id="viewTicketModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 9999 !important; align-items: center; justify-content: center;">
+        <div class="modal-content" style="background: #fff; width: 90%; max-width: 800px; border-radius: 10px; overflow: hidden; display: flex; flex-direction: column; max-height: 90vh;">
+            <div class="modal-header" style="padding: 15px 20px; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; align-items: center;">
+                <h3 style="margin: 0;">Ticket Details</h3>
+                <button class="close-modal close-view-modal-btn" style="background: none; border: none; font-size: 1.2rem; cursor: pointer;"><i class="fas fa-times"></i></button>
+            </div>
+            <div class="modal-body" style="padding: 20px; overflow-y: auto;">
+                <div class="ticket-info mb-4" style="background: #f8f9fa; padding: 15px; border-radius: 8px;">
+                    <h4 id="viewTicketSubject" style="margin-bottom: 10px; color: #2d3436;"></h4>
+                    <div style="display: flex; gap: 15px; font-size: 0.9rem; color: #636e72;">
+                        <span id="viewTicketUser"></span>
+                        <span id="viewTicketStatus"></span>
+                        <span id="viewTicketPriority"></span>
+                        <span id="viewTicketDate"></span>
+                    </div>
+                    <p id="viewTicketMessage" style="margin-top: 15px; color: #2d3436; line-height: 1.6;"></p>
+                </div>
+
+                <div class="ticket-replies" id="ticketRepliesArea" style="max-height: 300px; overflow-y: auto; margin-bottom: 20px; display: flex; flex-direction: column; gap: 15px; border: 1px solid #eee; padding: 15px; border-radius: 5px;">
+                    <!-- Replies will be injected here -->
+                </div>
+
+                <div class="reply-box">
+                    <textarea class="form-control mb-2" id="replyMessage" rows="3" placeholder="Type your reply..." style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 5px; margin-bottom: 10px;"></textarea>
+                    <button class="btn btn-primary" onclick="sendTicketReply()"><i class="fas fa-paper-plane"></i> Send Reply</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.querySelector('.menu-toggle').addEventListener('click', () => document.querySelector('.sidebar').classList.toggle('active'));
+
+
+        
+        let currentChatUserId = null;
+        let chatPollInterval = null;
+
+        // Tab Switching
+        function switchTab(tabId) {
+            console.log('Switching to tab:', tabId);
+            document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+            document.querySelectorAll('.nav-link').forEach(l => l.classList.remove('active'));
+            document.getElementById(tabId).classList.add('active');
+            
+            // Highlight active tab button
+            const btn = Array.from(document.querySelectorAll('.nav-link')).find(b => b.onclick.toString().includes(tabId));
+            if(btn) btn.classList.add('active');
+
+            if (tabId === 'live-chat') {
+                loadChatUsers();
+                startChatListPolling();
+            } else {
+                stopChatListPolling();
+                if (chatPollInterval) clearInterval(chatPollInterval);
+            }
+
+            if (tabId === 'tickets') loadTickets();
+            if (tabId === 'settings') loadContactSettings();
+        }
+
+        // Global Event Listener for dynamic elements (Tickets)
+        document.addEventListener('click', function(e) {
+            // Reply Button Click
+            const replyBtn = e.target.closest('.reply-ticket-btn');
+            if (replyBtn) {
+                const id = replyBtn.getAttribute('data-id');
+                openTicketModal(id);
+                return;
+            }
+
+            // Close Button Click
+            const closeBtn = e.target.closest('.close-ticket-btn');
+            if (closeBtn) {
+                const id = closeBtn.getAttribute('data-id');
+                closeTicket(id);
+                return;
+            }
+            
+            // Modal Backdrop Click (Close Modal)
+            if (e.target.id === 'viewTicketModal') {
+                document.getElementById('viewTicketModal').style.display = 'none';
+            }
+        });
+
+        // Close Modal Button
+        document.querySelector('.close-view-modal-btn').addEventListener('click', () => {
+            document.getElementById('viewTicketModal').style.display = 'none';
+        });
+
+        // --- Live Chat Logic ---
+
+        function loadChatUsers() {
+            fetch('/api/admin/chats')
+                .then(res => res.json())
+                .then(users => {
+                    const list = document.getElementById('chatUsersList');
+                    if (!users || users.length === 0) {
+                        list.innerHTML = '<div style="padding: 20px; text-align: center; color: #999;">No chats yet</div>';
+                        return;
+                    }
+                    
+                    list.innerHTML = users.map(u => `
+                        <div class="chat-user-item ${currentChatUserId === u.id ? 'active' : ''}" 
+                             onclick="openChat(${u.id}, '${u.username}')" 
+                             oncontextmenu="showContextMenu(event, ${u.id}, '${u.username}')">
+                            <div class="chat-user-avatar">
+                                <i class="fas fa-user"></i>
+                            </div>
+                            <div class="chat-user-info">
+                                <h5>${u.username}</h5>
+                                <p><i class="far fa-clock"></i> ${new Date(u.last_activity).toLocaleTimeString()}</p>
+                            </div>
+                            ${u.unread_count > 0 ? `<div class="unread-count">${u.unread_count}</div>` : ''}
+                        </div>
+                    `).join('');
+                })
+                .catch(err => {
+                    console.error('Error loading chats:', err);
+                    document.getElementById('chatUsersList').innerHTML = '<div style="padding: 20px; text-align: center; color: #e74c3c;">Error loading chats</div>';
+                });
+        }
+
+        // Context Menu Logic
+        let contextMenuUserId = null;
+        const contextMenu = document.getElementById('chatContextMenu');
+
+        function showContextMenu(e, userId, username) {
+            e.preventDefault();
+            contextMenuUserId = userId;
+            
+            // Position menu at mouse cursor
+            contextMenu.style.display = 'block';
+            contextMenu.style.left = `${e.pageX}px`;
+            contextMenu.style.top = `${e.pageY}px`;
+        }
+
+        function handleContextAction(action) {
+            contextMenu.style.display = 'none';
+            
+            if (action === 'refresh') {
+                loadChatUsers();
+                if (currentChatUserId) loadMessages(); // Refresh messages if chat open
+            } else if (action === 'delete') {
+                if (!contextMenuUserId) return;
+                showConfirm(
+                    'Delete Chat History?', 
+                    'Are you sure you want to delete this chat history? This action cannot be undone.', 
+                    () => {
+                        fetch(`/api/admin/chat/${contextMenuUserId}`, { method: 'DELETE' })
+                            .then(res => res.json())
+                            .then(data => {
+                                if (data.success) {
+                                    showToast('Chat history deleted', 'success');
+                                    loadChatUsers();
+                                    if (currentChatUserId === contextMenuUserId) {
+                                        document.getElementById('messagesArea').innerHTML = '<div style="text-align: center; color: #999; margin-top: 50px;">Chat deleted.</div>';
+                                    }
+                                } else {
+                                    showToast('Error deleting chat', 'error');
+                                }
+                            });
+                    },
+                    'Yes, Delete',
+                    'Cancel',
+                    true
+                );
+            }
+        }
+
+        // Close context menu on click elsewhere
+        document.addEventListener('click', (e) => {
+            if (e.target.closest('.context-menu')) return;
+            contextMenu.style.display = 'none';
+        });
+
+        let chatListPoll;
+        function startChatListPolling() {
+            if (chatListPoll) clearInterval(chatListPoll);
+            chatListPoll = setInterval(loadChatUsers, 5000); // Poll every 5s
+        }
+        function stopChatListPolling() {
+            if (chatListPoll) clearInterval(chatListPoll);
+        }
+
+        function openChat(userId, username) {
+            currentChatUserId = userId;
+            const window = document.getElementById('chatWindow');
+            
+            // Setup Chat UI
+            window.innerHTML = `
+                <div class="chat-header">
+                    <div class="chat-header-user">
+                        <div class="chat-user-avatar" style="width: 35px; height: 35px; font-size: 1rem;">
+                            <i class="fas fa-user"></i>
+                        </div>
+                        <div>
+                            <h5 style="margin: 0; font-size: 1rem;">${username}</h5>
+                            <div class="chat-status" style="font-size: 0.75rem; color: #b2bec3;">User</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="chat-messages-area" id="messagesArea">
+                    <div style="text-align: center; color: #999; margin-top: 50px;">Loading history...</div>
+                </div>
+                <div class="chat-input-wrapper">
+                    <input type="text" class="chat-input-field" id="messageInput" placeholder="Type a reply..." onkeypress="if(event.key==='Enter') sendMessage()">
+                    <button class="chat-send-btn" onclick="sendMessage()"><i class="fas fa-paper-plane"></i></button>
+                </div>
+            `;
+
+            loadMessages();
+            
+            // Poll for new messages in this chat
+            if (chatPollInterval) clearInterval(chatPollInterval);
+            chatPollInterval = setInterval(loadMessages, 3000); // Poll every 3s
+            
+            // Refresh list to clear unread badge locally
+            loadChatUsers(); 
+        }
+
+        function loadMessages() {
+            if (!currentChatUserId) return;
+            fetch(`/api/admin/chat/${currentChatUserId}`)
+                .then(res => res.json())
+                .then(msgs => {
+                    const area = document.getElementById('messagesArea');
+                    const wasScrolledToBottom = area.scrollHeight - area.scrollTop === area.clientHeight;
+                    
+                    area.innerHTML = msgs.map(m => `
+                        <div class="chat-msg ${m.sender === 'admin' ? 'sent' : 'received'}">
+                            <div class="msg-bubble">
+                                ${m.message}
+                            </div>
+                            <div class="msg-time">${new Date(m.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</div>
+                        </div>
+                    `).join('');
+
+                    if (wasScrolledToBottom || msgs.length < 5) { // Auto scroll on load or if already at bottom
+                        area.scrollTop = area.scrollHeight;
+                    }
+                });
+        }
+
+        function sendMessage() {
+            const input = document.getElementById('messageInput');
+            const text = input.value.trim();
+            if (!text || !currentChatUserId) return;
+
+            fetch('/api/admin/chat', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ userId: currentChatUserId, message: text })
+            })
+            .then(res => res.json())
+            .then(data => {
+                if(data.success) {
+                    input.value = '';
+                    loadMessages(); // Refresh immediately
+                }
+            });
+        }
+
+        // --- Settings Logic ---
+        function loadContactSettings() {
+            fetch('/api/settings/contact')
+                .then(res => res.json())
+                .then(data => {
+                    if (data.telegram_link) document.getElementById('telegram_link').value = data.telegram_link;
+                    if (data.whatsapp_link) document.getElementById('whatsapp_link').value = data.whatsapp_link;
+                });
+        }
+
+        function saveContactSettings(e) {
+            e.preventDefault();
+            const data = {
+                telegram_link: document.getElementById('telegram_link').value,
+                whatsapp_link: document.getElementById('whatsapp_link').value
+            };
+
+            fetch('/api/admin/settings/contact', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data)
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) showToast('Contact settings saved!', 'success');
+                else showToast('Error saving settings', 'error');
+            });
+        }
+
+        // --- Tickets Logic ---
+        function loadTickets() {
+            fetch('/api/admin/support')
+                .then(res => res.json())
+                .then(tickets => {
+                    const tbody = document.querySelector('#ticketsTable tbody');
+                    if(tickets.length === 0) {
+                        tbody.innerHTML = '<tr><td colspan="6" class="text-center">No tickets found</td></tr>';
+                        return;
+                    }
+                    
+                    tbody.innerHTML = tickets.map(ticket => `
+                        <tr>
+                            <td>${ticket.id}</td>
+                            <td>${ticket.username}</td>
+                            <td>${ticket.subject}</td>
+                            <td>${ticket.priority}</td>
+                            <td>${ticket.status}</td>
+                            <td>
+                                <button type="button" class="btn btn-sm btn-primary reply-ticket-btn" data-id="${ticket.id}"><i class="fas fa-reply"></i> Reply</button>
+                                ${ticket.status !== 'closed' ? `<button type="button" class="btn btn-sm btn-danger close-ticket-btn" data-id="${ticket.id}"><i class="fas fa-times"></i> Close</button>` : '<span class="badge badge-secondary">Closed</span>'}
+                            </td>
+                        </tr>
+                    `).join('');
+                })
+                .catch(err => console.error('Error loading tickets:', err));
+        }
+
+        let currentTicketId = null;
+        
+        // Define function globally with a simpler name
+        window.openTicketModal = function(id) {
+            console.log('Opening ticket ID:', id);
+            currentTicketId = id;
+            
+            const modal = document.getElementById('viewTicketModal');
+            if(modal) {
+                modal.style.display = 'flex';
+                
+                // Reset UI
+                document.getElementById('viewTicketSubject').textContent = 'Loading...';
+                document.getElementById('viewTicketMessage').textContent = '';
+                document.getElementById('ticketRepliesArea').innerHTML = '<div class="text-center">Loading...</div>';
+
+                // Fetch Details
+                fetch(`/api/tickets/${id}`)
+                    .then(res => res.json())
+                    .then(ticket => {
+                        if(ticket.error) {
+                            alert(ticket.error);
+                            return;
+                        }
+                        document.getElementById('viewTicketSubject').textContent = ticket.subject;
+                        document.getElementById('viewTicketUser').textContent = `User: ${ticket.username}`;
+                        document.getElementById('viewTicketStatus').textContent = `Status: ${ticket.status}`;
+                        document.getElementById('viewTicketPriority').textContent = `Priority: ${ticket.priority}`;
+                        document.getElementById('viewTicketDate').textContent = `Date: ${new Date(ticket.created_at).toLocaleString()}`;
+                        document.getElementById('viewTicketMessage').textContent = ticket.message;
+                    })
+                    .catch(err => console.error('Error fetching ticket:', err));
+
+                loadReplies(id);
+            } else {
+                console.error('Modal element not found!');
+                alert('Error: Modal not found');
+            }
+        };
+
+        function loadReplies(id) {
+            fetch(`/api/tickets/${id}/replies`)
+                .then(res => res.json())
+                .then(replies => {
+                    const area = document.getElementById('ticketRepliesArea');
+                    if (replies.length === 0) {
+                        area.innerHTML = '<p class="text-center text-muted">No replies yet.</p>';
+                        return;
+                    }
+                    area.innerHTML = replies.map(r => `
+                        <div class="reply-card" style="padding: 10px; border-radius: 5px; background: ${r.sender === 'Admin' ? '#e1f5fe' : '#f1f2f6'}; align-self: ${r.sender === 'Admin' ? 'flex-end' : 'flex-start'}; max-width: 80%; margin-left: ${r.sender === 'Admin' ? 'auto' : '0'}; margin-bottom: 10px; border: 1px solid ${r.sender === 'Admin' ? '#b3e5fc' : '#e0e0e0'};">
+                            <div style="font-size: 0.8rem; font-weight: bold; margin-bottom: 5px; color: ${r.sender === 'Admin' ? '#0277bd' : '#616161'};">
+                                ${r.sender} 
+                                <span style="font-weight: normal; color: #999; font-size: 0.7rem; float: right;">${new Date(r.created_at).toLocaleString()}</span>
+                            </div>
+                            <div style="color: #333;">${r.message}</div>
+                        </div>
+                    `).join('');
+                    area.scrollTop = area.scrollHeight;
+                })
+                .catch(err => console.error('Error loading replies:', err));
+        }
+
+        window.sendTicketReply = function() {
+            const messageInput = document.getElementById('replyMessage');
+            const message = messageInput.value.trim();
+            if (!message) return;
+
+            const btn = event.target;
+            const originalText = btn.innerHTML;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Sending...';
+            btn.disabled = true;
+
+            fetch(`/api/tickets/${currentTicketId}/reply`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ message })
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    messageInput.value = '';
+                    loadReplies(currentTicketId);
+                } else {
+                    alert('Error sending reply: ' + (data.error || 'Unknown error'));
+                }
+            })
+            .catch(err => {
+                console.error(err);
+                alert('Error sending reply');
+            })
+            .finally(() => {
+                btn.innerHTML = originalText;
+                btn.disabled = false;
+            });
+        };
+
+        window.closeTicket = function(id) {
+            showConfirm(
+                'Close Ticket?', 
+                'Are you sure you want to close this ticket?', 
+                () => {
+                    fetch('/api/admin/tickets/status', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ id, status: 'closed' })
+                    })
+                    .then(res => res.json())
+                    .then(data => {
+                        if(data.success) {
+                            showToast('Ticket closed successfully', 'success');
+                            loadTickets();
+                        } else {
+                            showToast('Error closing ticket', 'error');
+                        }
+                    });
+                },
+                'Yes, Close',
+                'Cancel'
+            );
+        };
+
+        // Close View Modal
+        document.querySelector('.close-view-modal-btn').addEventListener('click', () => {
+            viewModal.style.display = 'none';
+        });
+        
+        // Close on click outside
+        viewModal.addEventListener('click', (e) => {
+            if (e.target === viewModal) viewModal.style.display = 'none';
+        });
+
+        // Initial Load
+        loadChatUsers();
+        startChatListPolling();
+    </script>
+    <script src="js/theme.js"></script>
+    <script src="js/translation.js"></script>
+</body>
+</html>
+

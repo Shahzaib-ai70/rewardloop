@@ -1,0 +1,1194 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>User Details - Admin Panel</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script src="js/notifications.js"></script>
+    <style>
+        /* Base styles */
+        body { background-color: #f1f2f6; font-family: 'Poppins', sans-serif; }
+        .admin-sidebar { background: #2d3436; color: #fff; }
+        .admin-sidebar .logo { color: #fff; }
+        .admin-sidebar .sidebar-menu li a { color: #b2bec3; }
+        .admin-sidebar .sidebar-menu li a:hover, .admin-sidebar .sidebar-menu li a.active { background: rgba(255,255,255,0.1); color: #fff; }
+        .admin-header { background: #fff; box-shadow: 0 2px 10px rgba(0,0,0,0.05); }
+        
+        /* New Layout Styles */
+        .page-title { margin-bottom: 20px; font-weight: 600; color: #2d3436; }
+        
+        .user-detail-grid {
+            display: grid;
+            grid-template-columns: 350px 1fr;
+            gap: 25px;
+        }
+
+        /* Left Column */
+        .profile-card {
+            background: #fff;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.03);
+            text-align: center;
+            padding: 30px 20px;
+            margin-bottom: 20px;
+        }
+        
+        .profile-avatar {
+            width: 100px;
+            height: 100px;
+            background: #2d3436;
+            color: #fff;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2.5rem;
+            margin: 0 auto 15px;
+        }
+        
+        .profile-name { font-size: 1.2rem; font-weight: 600; margin-bottom: 5px; }
+        .profile-country { color: #636e72; font-size: 0.9rem; margin-bottom: 15px; }
+        
+        .profile-actions {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            margin-top: 20px;
+        }
+        
+        .action-btn-icon {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border: none;
+            cursor: pointer;
+            color: white;
+            transition: transform 0.2s;
+        }
+        .action-btn-icon:hover { transform: translateY(-2px); }
+        .btn-login { background: #2d3436; }
+        .btn-ban { background: #00b894; }
+        .btn-mail { background: #6c5ce7; }
+        .btn-delete { background: #d63031; }
+
+        .balance-card {
+            background: linear-gradient(135deg, #0f4c75, #3282b8);
+            color: white;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .balance-label { font-size: 0.9rem; opacity: 0.9; }
+        .balance-amount { font-size: 1.5rem; font-weight: 600; }
+
+        .account-actions-card {
+            background: #fff;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.03);
+            padding: 20px;
+        }
+        .action-toggle-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 0;
+            border-bottom: 1px solid #f1f2f6;
+        }
+        .action-toggle-row:last-child { border-bottom: none; }
+        .toggle-label { font-size: 0.85rem; font-weight: 600; color: #636e72; text-transform: uppercase; }
+        
+        /* Switch Toggle */
+        .switch {
+            position: relative;
+            display: inline-block;
+            width: 50px;
+            height: 24px;
+        }
+        .switch input { opacity: 0; width: 0; height: 0; }
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background-color: #ccc;
+            transition: .4s;
+            border-radius: 24px;
+        }
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 16px;
+            width: 16px;
+            left: 4px;
+            bottom: 4px;
+            background-color: white;
+            transition: .4s;
+            border-radius: 50%;
+        }
+        input:checked + .slider { background-color: #00b894; }
+        input:checked + .slider:before { transform: translateX(26px); }
+
+        /* Right Column */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        .stat-box {
+            background: #fff;
+            border-radius: 8px;
+            padding: 25px;
+            display: flex;
+            align-items: center;
+            color: white;
+            position: relative;
+            overflow: hidden;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        .stat-box:hover { transform: translateY(-5px); box-shadow: 0 8px 15px rgba(0,0,0,0.2); }
+        .stat-box.active-box { ring: 3px solid rgba(255,255,255,0.5); transform: scale(1.02); }
+
+        .stat-icon-circle {
+            width: 60px;
+            height: 60px;
+            background: rgba(255,255,255,0.2);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+            margin-right: 20px;
+        }
+        .stat-info h3 { margin: 0; font-size: 1.8rem; font-weight: 700; }
+        .stat-info p { margin: 0; font-size: 0.9rem; opacity: 0.9; font-weight: 500; }
+
+        /* Colors matching image */
+        .bg-purple { background-color: #574b90; }
+        .bg-blue { background-color: #30336b; } 
+        .bg-teal { background-color: #22a6b3; }
+        .bg-dark-blue { background-color: #130f40; } 
+        .bg-dark-gray { background-color: #535c68; }
+        .bg-orange { background-color: #be2edd; } 
+        .bg-red { background-color: #eb4d4b; }
+        .bg-brown { background-color: #b33939; }
+        .bg-black { background-color: #2d3436; }
+
+        /* Tabs */
+        .nav-tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            border-bottom: none;
+            padding-bottom: 0;
+            flex-wrap: wrap;
+        }
+        .nav-link {
+            padding: 12px 25px;
+            border: none;
+            background: #dfe6e9; /* Light gray for inactive */
+            color: #636e72;
+            font-weight: 600;
+            cursor: pointer;
+            border-radius: 5px;
+            transition: all 0.3s;
+        }
+        .nav-link:hover { background: #b2bec3; color: white; }
+        .nav-link.active {
+            background: #574b90; /* Purple active */
+            color: white;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        .nav-link i { margin-right: 8px; }
+
+        /* Form Styling Professional */
+        .form-card {
+            background: #fff;
+            padding: 40px;
+            border-radius: 8px;
+            box-shadow: 0 2px 15px rgba(0,0,0,0.05);
+            border: 1px solid #f1f2f6;
+        }
+        .form-header { 
+            margin-bottom: 30px; 
+            padding-bottom: 0; 
+            border-bottom: none; 
+        }
+        .form-header h3 { font-size: 1.5rem; color: #2d3436; font-weight: 700; }
+        
+        .form-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+        }
+        .form-group { margin-bottom: 20px; }
+        .form-group label { 
+            font-weight: 600; 
+            color: #636e72; 
+            font-size: 0.85rem; 
+            margin-bottom: 10px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .form-control {
+            background: #f1f2f6;
+            border: 1px solid transparent;
+            padding: 15px;
+            font-size: 1rem;
+            color: #2d3436;
+            border-radius: 6px;
+            transition: border-color 0.3s, background 0.3s;
+        }
+        .form-control:focus {
+            background: #fff;
+            border-color: #574b90;
+            box-shadow: 0 0 0 3px rgba(87, 75, 144, 0.1);
+        }
+        .form-control[readonly] {
+            background: #e9ecef;
+            cursor: default;
+        }
+
+        .btn-save {
+            width: 100%;
+            background: #30336b;
+            padding: 15px;
+            font-size: 1.1rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-top: 30px;
+            transition: background 0.3s;
+            border: none;
+            border-radius: 5px;
+            font-weight: 600;
+            cursor: pointer;
+            color: white;
+        }
+        .btn-save:hover { background: #130f40; }
+
+        /* Add Balance Modal/Section */
+        .balance-manage-section {
+            margin-top: 15px;
+            padding-top: 15px;
+            border-top: 1px solid #ffffff33;
+        }
+        .balance-input-group {
+            display: flex;
+            gap: 5px;
+            margin-bottom: 10px;
+        }
+        .balance-input {
+            flex: 1;
+            padding: 8px;
+            border: none;
+            border-radius: 4px;
+            color: #2d3436;
+        }
+        .btn-balance-action {
+            border: none;
+            color: white;
+            padding: 8px 12px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.8rem;
+        }
+        .btn-add { background: #00b894; }
+        .btn-sub { background: #d63031; }
+        
+        /* Earnings Tab Content */
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+        
+        .earnings-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: #f8f9fa;
+            padding: 15px 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+        .total-earnings-badge {
+            background: #00b894;
+            color: white;
+            padding: 5px 15px;
+            border-radius: 20px;
+            font-size: 0.9rem;
+        }
+        
+        .search-bar {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            background: #fff;
+            padding: 20px;
+            border-radius: 8px;
+        }
+        .search-input {
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            flex: 1;
+            max-width: 300px;
+        }
+        .btn-search {
+            background: #6c5ce7;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        
+        /* Table Styling Professional */
+        .table-custom {
+            width: 100%;
+            border-collapse: collapse;
+            background: #fff;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: none;
+            border: 1px solid #f1f2f6;
+        }
+        .table-custom th {
+            background: #f8f9fa;
+            color: #2d3436;
+            font-weight: 700;
+            border-bottom: 2px solid #dfe6e9;
+            padding: 15px;
+            text-align: left;
+            font-size: 0.85rem;
+            text-transform: uppercase;
+        }
+        .table-custom td {
+            padding: 15px;
+            border-bottom: 1px solid #f1f2f6;
+            color: #2d3436;
+        }
+        .table-custom tr:hover td { background: #fcfcfc; }
+
+        .empty-state {
+            padding: 40px;
+            text-align: center;
+            color: #b2bec3;
+        }
+        
+        .active-plans-btn {
+            background: #6c5ce7;
+            color: white;
+            padding: 8px 15px;
+            border-radius: 5px;
+            font-size: 0.85rem;
+            border: none;
+            cursor: pointer;
+        }
+
+        @media (max-width: 992px) {
+            .user-detail-grid { grid-template-columns: 1fr; }
+            .stats-grid { grid-template-columns: 1fr 1fr; }
+        }
+
+        /* New Info Grid Styles */
+        .info-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 20px;
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        .form-group.full-width {
+            grid-column: 1 / -1;
+        }
+
+        .form-group label {
+            display: block;
+            font-size: 0.75rem;
+            font-weight: 600;
+            color: #6c757d;
+            margin-bottom: 5px;
+            text-transform: uppercase;
+        }
+
+        .form-control {
+            width: 100%;
+            padding: 10px 15px;
+            border: 1px solid #ced4da;
+            border-radius: 4px;
+            font-size: 0.9rem;
+            background-color: #fff;
+            color: #495057;
+            transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+        }
+
+        .form-control:focus {
+            border-color: #5c6ac4;
+            outline: 0;
+            box-shadow: 0 0 0 0.2rem rgba(92, 106, 196, 0.25);
+        }
+
+        .form-control[readonly] {
+            background-color: #e9ecef;
+            opacity: 1;
+        }
+
+        /* Responsive adjustments */
+        @media (max-width: 992px) {
+            .info-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+
+        @media (max-width: 576px) {
+            .info-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body class="dashboard-body">
+    
+    <aside class="sidebar admin-sidebar">
+        <div class="sidebar-header"><div class="logo"><i class="fas fa-shield-alt"></i> Admin Panel</div></div>
+        <ul class="sidebar-menu">
+            <li><a href="admin_dashboard.html"><i class="fas fa-tachometer-alt"></i> Dashboard</a></li>
+
+            <li><a href="admin_plans.html"><i class="fas fa-crown"></i> Manage Plans</a></li>
+            <li><a href="admin_ads.html"><i class="fas fa-ad"></i> Manage Ads</a></li>
+            <li><a href="admin_users.html" class="active"><i class="fas fa-users"></i> Manage Users</a></li>
+            <li><a href="admin_referrals.html"><i class="fas fa-users-cog"></i> Referrals & Bonuses</a></li>
+            <li><a href="admin_deposits.html"><i class="fas fa-money-bill-wave"></i> Deposits</a></li>
+            <li><a href="admin_withdrawals.html"><i class="fas fa-hand-holding-usd"></i> Withdrawals</a></li>
+            <li><a href="admin_support.html"><i class="fas fa-ticket-alt"></i> Support Tickets</a></li>
+            <li><a href="admin_settings.html"><i class="fas fa-cogs"></i> System Settings</a></li>
+        </ul>
+        <div class="sidebar-footer"><a href="/admin/logout" class="logout-btn"><i class="fas fa-sign-out-alt"></i> Log Out</a></div>
+    </aside>
+
+    <main class="main-content">
+        <header class="dashboard-header admin-header">
+            <div class="menu-toggle"><i class="fas fa-bars"></i></div>
+            <div class="header-right">
+                <div id="google_translate_element"></div>
+                <div class="theme-toggle">
+                    <i class="fas fa-moon"></i>
+                </div>
+                <div class="user-profile"><span class="mr-2">Administrator</span><div class="user-avatar" style="background: #d63031;"><i class="fas fa-user-shield"></i></div></div>
+            </div>
+        </header>
+
+        <div class="content-wrapper">
+            <div id="loading" class="text-center p-5">Loading user details...</div>
+            
+            <div id="userDetails" style="display: none;">
+                <h2 class="page-title">Details of <span id="titleName">User</span></h2>
+                
+                <div class="user-detail-grid">
+                    <!-- Left Column -->
+                    <div class="left-col">
+                        <!-- Profile Card -->
+                        <div class="profile-card">
+                            <div class="profile-avatar" id="avatarText">JJ</div>
+                            <div class="profile-name" id="profileName">...</div>
+                            <div class="profile-country" id="profileCountry">...</div>
+                            <div style="font-size: 0.8rem; color: #b2bec3;">Joined: <span id="joinDate">...</span></div>
+                            
+                            <div class="profile-actions">
+                                <button onclick="loginAsUser()" class="action-btn-icon btn-login" title="Login as User"><i class="fas fa-sign-in-alt"></i></button>
+                                <button class="action-btn-icon btn-mail" title="Send Email"><i class="fas fa-envelope"></i></button>
+                                <button class="action-btn-icon btn-ban" title="Ban User"><i class="fas fa-ban"></i></button>
+                                <button onclick="deleteUser()" class="action-btn-icon btn-delete" title="Delete User"><i class="fas fa-trash"></i></button>
+                            </div>
+                        </div>
+
+                        <!-- Balance Card -->
+                        <div class="balance-card">
+                            <div style="width: 100%;">
+                                <div class="balance-label">Account Balance</div>
+                                <div class="balance-amount" id="uBalance">PKR 0.00</div>
+                                
+                                <!-- Integrated Balance Management -->
+                                <div class="balance-manage-section">
+                                    <div class="balance-input-group">
+                                        <input type="number" id="balanceAmount" class="balance-input" placeholder="Amount">
+                                    </div>
+                                    <div style="display: flex; gap: 5px;">
+                                        <button onclick="updateBalance('add')" class="btn-balance-action btn-add" style="flex:1;"><i class="fas fa-plus"></i> Add</button>
+                                        <button onclick="updateBalance('subtract')" class="btn-balance-action btn-sub" style="flex:1;"><i class="fas fa-minus"></i> Sub</button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Account Actions -->
+                        <div class="account-actions-card">
+                            <h4 style="margin-bottom: 15px; font-size: 1rem;">Account Actions</h4>
+                            
+                            <div class="action-toggle-row">
+                                <span class="toggle-label">Account Status</span>
+                                <label class="switch">
+                                    <input type="checkbox" checked>
+                                    <span class="slider"></span>
+                                </label>
+                            </div>
+                            <div class="action-toggle-row">
+                                <span class="toggle-label">Email Verification</span>
+                                <label class="switch">
+                                    <input type="checkbox" checked>
+                                    <span class="slider"></span>
+                                </label>
+                            </div>
+                            <div class="action-toggle-row">
+                                <span class="toggle-label">KYC Verification</span>
+                                <label class="switch">
+                                    <input type="checkbox">
+                                    <span class="slider"></span>
+                                </label>
+                            </div>
+
+                            <!-- Withdrawal Error Notification -->
+                            <div class="action-toggle-row" style="border-top: 1px solid #f1f2f6; margin-top: 10px; padding-top: 10px;">
+                                <span class="toggle-label" style="color: #d63031;">Withdrawal Error</span>
+                                <label class="switch">
+                                    <input type="checkbox" id="withdrawalErrorToggle" onchange="toggleWithdrawalErrorUI()">
+                                    <span class="slider"></span>
+                                </label>
+                            </div>
+                            <div id="withdrawalErrorInputGroup" style="display: none; margin-top: 10px;">
+                                <textarea id="withdrawalErrorText" class="form-control" rows="3" placeholder="Enter error message shown to user..." style="font-size: 0.9rem; padding: 10px; resize: none; margin-bottom: 10px;"></textarea>
+                                <button onclick="saveWithdrawalSettings()" class="btn btn-purple btn-block" style="font-size: 0.8rem; padding: 8px;">Save Error Settings</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Right Column -->
+                    <div class="right-col">
+                        <!-- Stats Grid -->
+                        <div class="stats-grid">
+                            <div class="stat-box bg-purple">
+                                <div class="stat-icon-circle"><i class="fas fa-list-alt"></i></div>
+                                <div class="stat-info"><h3 id="statViewedAds">0</h3><p>Total Viewed Ads</p></div>
+                            </div>
+                            <div class="stat-box bg-blue">
+                                <div class="stat-icon-circle"><i class="fas fa-dollar-sign"></i></div>
+                                <div class="stat-info"><h3 id="statEarnings">PKR 0</h3><p>Total Earnings</p></div>
+                            </div>
+                            <div class="stat-box bg-teal" onclick="switchTab('subscriptions')">
+                                <div class="stat-icon-circle"><i class="fas fa-crown"></i></div>
+                                <div class="stat-info"><h3>No Plan</h3><p>Total Active Plans</p></div>
+                            </div>
+                            <div class="stat-box bg-dark-blue" onclick="switchTab('transactions')">
+                                <div class="stat-icon-circle"><i class="fas fa-exchange-alt"></i></div>
+                                <div class="stat-info"><h3 id="statTransactions">0</h3><p>Total Transactions</p></div>
+                            </div>
+                            <div class="stat-box bg-dark-gray" onclick="switchTab('transactions')">
+                                <div class="stat-icon-circle"><i class="fas fa-wallet"></i></div>
+                                <div class="stat-info"><h3 id="statDeposit">PKR 0</h3><p>Total Deposit</p></div>
+                            </div>
+                            <div class="stat-box bg-brown" onclick="switchTab('transactions')">
+                                <div class="stat-icon-circle"><i class="fas fa-paper-plane"></i></div>
+                                <div class="stat-info"><h3>PKR 0</h3><p>Total Fund Transfer</p></div>
+                            </div>
+                            <div class="stat-box bg-red" onclick="switchTab('transactions')">
+                                <div class="stat-icon-circle"><i class="fas fa-money-check"></i></div>
+                                <div class="stat-info"><h3 id="statWithdraw">PKR 0</h3><p>Total Withdraw</p></div>
+                            </div>
+                            <div class="stat-box bg-orange" onclick="switchTab('referral')">
+                                <div class="stat-icon-circle"><i class="fas fa-users"></i></div>
+                                <div class="stat-info"><h3>0</h3><p>Total Referral</p></div>
+                            </div>
+                            <div class="stat-box bg-black" onclick="switchTab('tickets')">
+                                <div class="stat-icon-circle"><i class="fas fa-comment-dots"></i></div>
+                                <div class="stat-info"><h3>0</h3><p>Tickets</p></div>
+                            </div>
+                        </div>
+
+                        <!-- Tabs -->
+                        <div class="nav-tabs">
+                            <button class="nav-link active" onclick="switchTab('info')"><i class="fas fa-user"></i> Information</button>
+                            <button class="nav-link" onclick="switchTab('ads')"><i class="fas fa-ad"></i> Ads</button>
+                            <button class="nav-link" onclick="switchTab('subscriptions')"><i class="fas fa-crown"></i> Subscription History</button>
+                            <button class="nav-link" onclick="switchTab('transactions')"><i class="fas fa-history"></i> Transactions</button>
+                            <button class="nav-link" onclick="switchTab('referral')"><i class="fas fa-users"></i> Referral</button>
+                            <button class="nav-link" onclick="switchTab('tickets')"><i class="fas fa-ticket-alt"></i> Tickets</button>
+                        </div>
+
+                        <!-- Tab Content: Information (Default) -->
+                        <div id="info" class="tab-pane active">
+                            <div class="card">
+                                <div class="card-top-header">
+                                    <h3>Basic Info</h3>
+                                </div>
+                                <form id="updateUserForm" onsubmit="updateUserDetails(event)">
+                                    <div class="info-grid">
+                                        <div class="form-group">
+                                            <label>FIRST NAME</label>
+                                            <input type="text" class="form-control" id="firstname" name="firstname">
+                                        </div>
+                                        <div class="form-group">
+                                            <label>LAST NAME</label>
+                                            <input type="text" class="form-control" id="lastname" name="lastname">
+                                        </div>
+                                        <div class="form-group">
+                                            <label>COUNTRY</label>
+                                            <input type="text" class="form-control" id="country" name="country">
+                                        </div>
+                                        <div class="form-group">
+                                            <label>PHONE</label>
+                                            <input type="text" class="form-control" id="phone" name="phone">
+                                        </div>
+                                        <div class="form-group">
+                                            <label>USERNAME</label>
+                                            <input type="text" class="form-control" id="username" name="username" readonly style="background: #e9ecef;">
+                                        </div>
+                                        <div class="form-group">
+                                            <label>EMAIL</label>
+                                            <input type="email" class="form-control" id="email" name="email">
+                                        </div>
+                                        <div class="form-group">
+                                            <label>GENDER</label>
+                                            <select class="form-control" id="gender" name="gender">
+                                                <option value="Male">Male</option>
+                                                <option value="Female">Female</option>
+                                                <option value="Other">Other</option>
+                                            </select>
+                                        </div>
+                                        <div class="form-group">
+                                            <label>DATE OF BIRTH</label>
+                                            <input type="date" class="form-control" id="dob" name="dob">
+                                        </div>
+                                        <div class="form-group">
+                                            <label>CITY</label>
+                                            <input type="text" class="form-control" id="city" name="city">
+                                        </div>
+                                        <div class="form-group">
+                                            <label>ZIP CODE</label>
+                                            <input type="text" class="form-control" id="zip" name="zip">
+                                        </div>
+                                        <div class="form-group">
+                                            <label>ADDRESS</label>
+                                            <input type="text" class="form-control" id="address" name="address">
+                                        </div>
+                                        <div class="form-group">
+                                            <label>JOINING DATE</label>
+                                            <input type="text" class="form-control" id="joining_date" readonly style="background: #e9ecef;">
+                                        </div>
+                                        <div class="form-group full-width">
+                                            <label>REFERRED BY</label>
+                                            <input type="text" class="form-control" id="referral" readonly style="background: #e9ecef;">
+                                        </div>
+                                    </div>
+                                    <button type="submit" class="btn btn-purple btn-block" style="margin-top: 20px;">Save Changes</button>
+                                </form>
+                            </div>
+
+                            <!-- Change Password Card -->
+                            <div class="card" style="margin-top: 30px;">
+                                <div class="card-top-header">
+                                    <h3>Security</h3>
+                                </div>
+                                <form id="changePasswordForm" onsubmit="changeUserPassword(event)">
+                                    <div class="form-grid">
+                                        <div class="form-group">
+                                            <label>NEW PASSWORD</label>
+                                            <input type="password" class="form-control" id="new_password" required>
+                                        </div>
+                                        <div class="form-group">
+                                            <label>CONFIRM PASSWORD</label>
+                                            <input type="password" class="form-control" id="confirm_password" required>
+                                        </div>
+                                    </div>
+                                    <div style="display: flex; gap: 15px; margin-top: 20px;">
+                                        <button type="submit" class="btn btn-purple" style="flex: 1; padding: 12px;">Change Password</button>
+                                        <button type="button" class="btn btn-danger" onclick="resetUserAds()" style="flex: 1; padding: 12px;">Reset Ads History</button>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+
+                     <!-- Tab Content: Ads -->
+                     <div id="tab-ads" class="tab-content">
+                        <h3 style="margin-bottom: 20px;">Ads</h3>
+                        <div class="empty-state">Ads content coming soon...</div>
+                    </div>
+
+                    <!-- Tab Content: Subscription History -->
+                    <div id="tab-subscriptions" class="tab-content">
+                        <div class="earnings-header" style="background: none; padding: 0; margin-bottom: 20px;">
+                            <h3 style="margin: 0;">Subscription History</h3>
+                            <button class="active-plans-btn">Active Plans</button>
+                        </div>
+                        
+                        <table class="table-custom">
+                            <thead>
+                                <tr>
+                                    <th>PLAN</th>
+                                    <th>AMOUNT</th>
+                                    <th>VALIDITY AT</th>
+                                    <th>STATUS</th>
+                                    <th>SUBSCRIBED AT</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td colspan="5" class="empty-state">No Data Found!</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                        
+                        <div style="margin-top: 20px;">
+                            <button disabled style="padding: 5px 10px; border: 1px solid #ddd; background: #f8f9fa; cursor: not-allowed;">Prev</button>
+                            <button style="padding: 5px 10px; border: 1px solid #6c5ce7; background: #6c5ce7; color: white;">1</button>
+                            <button disabled style="padding: 5px 10px; border: 1px solid #ddd; background: #f8f9fa; cursor: not-allowed;">Next</button>
+                        </div>
+                    </div>
+
+                    <!-- Tab Content: Transactions -->
+                    <div id="tab-transactions" class="tab-content">
+                        <h3 style="margin-bottom: 20px;">Transactions</h3>
+                        
+                        <div class="earnings-header" style="justify-content: flex-start; gap: 15px;">
+                            <span class="total-earnings-badge" style="background: #00b894;">Total Deposited: PKR 0 (0)</span>
+                            <span class="total-earnings-badge" style="background: #d63031;">Total Withdrawn: PKR 0 (0)</span>
+                        </div>
+
+                        <div class="search-bar">
+                            <div style="display: flex; align-items: center; gap: 10px; width: 100%;">
+                                <span style="font-weight: 500;">SEARCH:</span>
+                                <input type="text" class="search-input" placeholder="Search transactions...">
+                                <button class="btn-search"><i class="fas fa-search"></i> SEARCH</button>
+                            </div>
+                        </div>
+                        
+                        <table class="table-custom">
+                            <thead>
+                                <tr>
+                                    <th>DATE <i class="fas fa-sort"></i></th>
+                                    <th>TRANSACTION ID <i class="fas fa-sort"></i></th>
+                                    <th>TYPE <i class="fas fa-sort"></i></th>
+                                    <th>AMOUNT <i class="fas fa-sort"></i></th>
+                                    <th>GATEWAY <i class="fas fa-sort"></i></th>
+                                    <th>STATUS <i class="fas fa-sort"></i></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td colspan="6" class="empty-state">No Data Found!</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                        
+                        <div style="margin-top: 20px;">
+                            <button disabled style="padding: 5px 10px; border: 1px solid #ddd; background: #f8f9fa; cursor: not-allowed;">Prev</button>
+                            <button style="padding: 5px 10px; border: 1px solid #6c5ce7; background: #6c5ce7; color: white;">1</button>
+                            <button disabled style="padding: 5px 10px; border: 1px solid #ddd; background: #f8f9fa; cursor: not-allowed;">Next</button>
+                        </div>
+                    </div>
+
+                    <!-- Tab Content: Referral -->
+                    <div id="tab-referral" class="tab-content">
+                        <h3 style="margin-bottom: 20px;">Referral</h3>
+                        
+                        <table class="table-custom">
+                            <thead>
+                                <tr>
+                                    <th>Username</th>
+                                    <th>Email</th>
+                                    <th>Phone</th>
+                                    <th>Joined At</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td colspan="4" class="empty-state">No Referral user found</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- Tab Content: Tickets -->
+                    <div id="tab-tickets" class="tab-content">
+                        <h3 style="margin-bottom: 20px;">Support Tickets</h3>
+                        
+                        <div class="search-bar">
+                            <div style="display: flex; align-items: center; gap: 10px; width: 100%;">
+                                <span style="font-weight: 500;">SEARCH:</span>
+                                <input type="text" class="search-input" placeholder="Search ticket...">
+                                <button class="btn-search"><i class="fas fa-search"></i> SEARCH</button>
+                            </div>
+                        </div>
+
+                        <table class="table-custom">
+                            <thead>
+                                <tr>
+                                    <th>TICKET NAME <i class="fas fa-sort"></i></th>
+                                    <th>OPENING DATE <i class="fas fa-sort"></i></th>
+                                    <th>STATUS <i class="fas fa-sort"></i></th>
+                                    <th>ACTION</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td colspan="4" class="empty-state">No Data Found!</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        document.querySelector('.menu-toggle').addEventListener('click', () => document.querySelector('.sidebar').classList.toggle('active'));
+
+        const urlParams = new URLSearchParams(window.location.search);
+        const userId = urlParams.get('id');
+
+        if (!userId) {
+            showToast('No user ID specified', 'error');
+            setTimeout(() => window.location.href = 'admin_users.html', 2000);
+        }
+        
+        // Initial load
+        loadUserStats();
+
+        // Tab Switcher
+        function switchTab(tabName) {
+            // Hide all tabs (handling inconsistent classes in HTML)
+            document.querySelectorAll('.tab-content, .tab-pane').forEach(el => {
+                el.style.display = 'none';
+                el.classList.remove('active');
+            });
+            document.querySelectorAll('.nav-link').forEach(el => el.classList.remove('active'));
+            document.querySelectorAll('.stat-box').forEach(el => el.classList.remove('active-box'));
+            
+            // Determine target ID
+            let targetId = 'tab-' + tabName;
+            if (!document.getElementById(targetId)) {
+                targetId = tabName; // Fallback for 'earnings', 'viewed-ads'
+            }
+            
+            const targetEl = document.getElementById(targetId);
+            if (targetEl) {
+                targetEl.style.display = 'block';
+                targetEl.classList.add('active');
+            }
+
+            // Active Nav Link
+            const navBtn = document.querySelector(`.nav-link[onclick="switchTab('${tabName}')"]`);
+            if (navBtn) navBtn.classList.add('active');
+
+            // Active Stat Box
+            const statBox = document.querySelector(`.stat-box[onclick="switchTab('${tabName}')"]`);
+            if (statBox) statBox.classList.add('active-box');
+
+            // Load Data
+            if (tabName === 'earnings') loadUserEarnings();
+            if (tabName === 'viewed-ads') loadUserViewedAds();
+        }
+
+        function loadUserStats() {
+            fetch(`/api/admin/users/${userId}/stats`)
+                .then(res => res.json())
+                .then(data => {
+                    if(data.viewedAds !== undefined) document.getElementById('statViewedAds').innerText = data.viewedAds;
+                    if(data.totalEarnings !== undefined) document.getElementById('statEarnings').innerText = 'PKR ' + Number(data.totalEarnings).toFixed(2);
+                    if(data.totalTransactions !== undefined) document.getElementById('statTransactions').innerText = data.totalTransactions;
+                    if(data.totalDeposit !== undefined) document.getElementById('statDeposit').innerText = 'PKR ' + Number(data.totalDeposit).toFixed(2);
+                    if(data.totalWithdraw !== undefined) document.getElementById('statWithdraw').innerText = 'PKR ' + Number(data.totalWithdraw).toFixed(2);
+                })
+                .catch(console.error);
+        }
+
+        function loadUserEarnings() {
+            fetch(`/api/admin/users/${userId}/earnings`)
+                .then(res => res.json())
+                .then(data => {
+                    const tbody = document.querySelector('#earningsTable tbody');
+                    if(!tbody) return;
+                    tbody.innerHTML = '';
+                    if(!data || data.length === 0) {
+                        tbody.innerHTML = '<tr><td colspan="3" class="text-center">No Data Found</td></tr>';
+                        return;
+                    }
+                    data.forEach(row => {
+                        tbody.innerHTML += `
+                            <tr>
+                                <td>${new Date(row.created_at).toLocaleDateString()}</td>
+                                <td style="color: green; font-weight: bold;">+${row.amount}</td>
+                                <td>${row.transaction_id}</td>
+                            </tr>
+                        `;
+                    });
+                });
+        }
+
+        function loadUserViewedAds() {
+            fetch(`/api/admin/users/${userId}/viewed-ads`)
+                .then(res => res.json())
+                .then(data => {
+                    const tbody = document.querySelector('#viewedAdsTable tbody');
+                    if(!tbody) return;
+                    tbody.innerHTML = '';
+                    if(!data || data.length === 0) {
+                        tbody.innerHTML = '<tr><td colspan="3" class="text-center">No Data Found</td></tr>';
+                        return;
+                    }
+                    data.forEach(row => {
+                        tbody.innerHTML += `
+                            <tr>
+                                <td>${row.title}</td>
+                                <td style="color: green;">+${row.amount}</td>
+                                <td>${new Date(row.created_at).toLocaleString()}</td>
+                            </tr>
+                        `;
+                    });
+                });
+        }
+
+        function resetUserAds() {
+            showConfirm(
+                'Reset Ads?', 
+                'Are you sure? This will allow the user to watch all ads again.', 
+                () => {
+                    fetch(`/api/admin/users/${userId}/reset-ads`, { method: 'POST' })
+                        .then(res => res.json())
+                        .then(data => {
+                            if(data.success) {
+                                showToast('Ads reset successfully!', 'success');
+                                loadUserStats();
+                                loadUserViewedAds();
+                            } else {
+                                showToast('Error resetting ads', 'error');
+                            }
+                        });
+                },
+                'Yes, Reset',
+                'Cancel',
+                true
+            );
+        }
+
+        function loadUser() {
+            fetch(`/api/admin/users/${userId}`)
+            .then(res => res.json())
+            .then(user => {
+                if (user.error) {
+                    showToast(user.error, 'error');
+                    setTimeout(() => window.location.href = 'admin_users.html', 2000);
+                    return;
+                }
+
+                document.getElementById('loading').style.display = 'none';
+                document.getElementById('userDetails').style.display = 'block';
+
+                // Header
+                document.getElementById('titleName').textContent = user.username;
+                
+                // Profile Card
+                document.getElementById('avatarText').textContent = user.firstname ? user.firstname.substring(0,2).toUpperCase() : 'US';
+                document.getElementById('profileName').textContent = user.firstname + ' ' + user.lastname;
+                document.getElementById('profileCountry').textContent = user.country || 'Unknown';
+                document.getElementById('joinDate').textContent = new Date(user.created_at).toLocaleString();
+                
+                // Balance
+                document.getElementById('uBalance').textContent = `PKR ${user.balance || 0}`;
+
+                // Form Inputs - NEW FIELDS
+                document.getElementById('firstname').value = user.firstname || '';
+                document.getElementById('lastname').value = user.lastname || '';
+                document.getElementById('username').value = user.username || '';
+                document.getElementById('email').value = user.email || '';
+                document.getElementById('phone').value = user.phone || '';
+                document.getElementById('country').value = user.country || '';
+                document.getElementById('city').value = user.city || '';
+                document.getElementById('zip').value = user.zip || '';
+                document.getElementById('address').value = user.address || '';
+                
+                // New Fields Population
+                document.getElementById('gender').value = user.gender || 'Male';
+                document.getElementById('dob').value = user.dob || '';
+                document.getElementById('joining_date').value = new Date(user.created_at).toLocaleString();
+                document.getElementById('referral').value = user.referral || 'None';
+
+                // Populate Withdrawal Error Settings
+                document.getElementById('withdrawalErrorToggle').checked = user.withdrawal_error_active ? true : false;
+                document.getElementById('withdrawalErrorText').value = user.withdrawal_error_text || '';
+                toggleWithdrawalErrorUI(); // Update visibility
+            })
+            .catch(err => {
+                console.error(err);
+                showToast('Error loading user data', 'error');
+            });
+        }
+
+        function updateUserDetails(event) {
+            event.preventDefault();
+            const formData = new FormData(event.target);
+            const data = Object.fromEntries(formData.entries());
+            
+            // Include Withdrawal Error Settings
+            data.withdrawal_error_active = document.getElementById('withdrawalErrorToggle').checked ? 1 : 0;
+            data.withdrawal_error_text = document.getElementById('withdrawalErrorText').value;
+
+            fetch(`/api/admin/users/${userId}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data)
+            })
+            .then(res => res.json())
+            .then(data => {
+                if(data.success) {
+                    showToast('User details updated successfully!', 'success');
+                    loadUser(); // Reload to refresh profile card
+                } else {
+                    showToast('Error updating user: ' + data.error, 'error');
+                }
+            });
+        }
+
+        function toggleWithdrawalErrorUI() {
+            const isChecked = document.getElementById('withdrawalErrorToggle').checked;
+            document.getElementById('withdrawalErrorInputGroup').style.display = isChecked ? 'block' : 'none';
+        }
+
+        function saveWithdrawalSettings() {
+            // Get base data from the form to avoid overwriting other fields with null
+            const form = document.getElementById('updateUserForm');
+            const formData = new FormData(form);
+            const data = Object.fromEntries(formData.entries());
+
+            // Override with current withdrawal settings
+            data.withdrawal_error_active = document.getElementById('withdrawalErrorToggle').checked ? 1 : 0;
+            data.withdrawal_error_text = document.getElementById('withdrawalErrorText').value;
+
+            fetch(`/api/admin/users/${userId}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data)
+            })
+            .then(res => res.json())
+            .then(data => {
+                if(data.success) {
+                    showToast('Withdrawal settings updated successfully!', 'success');
+                } else {
+                    showToast('Error: ' + data.error, 'error');
+                }
+            });
+        }
+
+        function changeUserPassword(event) {
+            event.preventDefault();
+            const newPass = document.getElementById('new_password').value;
+            const confirmPass = document.getElementById('confirm_password').value;
+            
+            if(newPass !== confirmPass) {
+                showToast('Passwords do not match!', 'warning');
+                return;
+            }
+            
+            fetch(`/api/admin/users/${userId}/password`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ password: newPass })
+            })
+            .then(res => res.json())
+            .then(data => {
+                if(data.success) {
+                    showToast('Password changed successfully!', 'success');
+                    document.getElementById('changePasswordForm').reset();
+                } else {
+                    showToast('Error changing password: ' + data.error, 'error');
+                }
+            });
+        }
+
+        function loginAsUser() {
+            fetch('/api/admin/login-as-user', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ userId })
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    window.location.href = '/dashboard.html';
+                } else {
+                    showToast('Error logging in as user', 'error');
+                }
+            });
+        }
+
+        function deleteUser() {
+            showConfirm(
+                'Delete User?', 
+                'Are you sure you want to PERMANENTLY delete this user? This action cannot be undone.', 
+                () => {
+                    fetch(`/api/admin/users/${userId}`, { method: 'DELETE' })
+                    .then(res => res.json())
+                    .then(data => {
+                        if (data.success) {
+                            showToast('User deleted successfully', 'success');
+                            setTimeout(() => window.location.href = 'admin_users.html', 1500);
+                        } else {
+                            showToast('Error deleting user', 'error');
+                        }
+                    });
+                },
+                'Yes, Delete',
+                'Cancel',
+                true
+            );
+        }
+
+        function updateBalance(action) {
+            const amount = document.getElementById('balanceAmount').value;
+            if (!amount || amount <= 0) {
+                showToast('Please enter a valid amount', 'warning');
+                return;
+            }
+
+            fetch('/api/admin/manage-balance', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ userId, amount, action })
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    showToast('Balance updated successfully', 'success');
+                    document.getElementById('balanceAmount').value = '';
+                    
+                    if (data.newBalance !== undefined) {
+                        document.getElementById('uBalance').textContent = `PKR ${data.newBalance}`;
+                    } else {
+                        loadUser(); 
+                    }
+                } else {
+                    showToast('Error updating balance: ' + (data.error || 'Unknown error'), 'error');
+                }
+            });
+        }
+
+        loadUser();
+    </script>
+    <script src="js/theme.js"></script>
+    <script src="js/translation.js"></script>
+</body>
+</html>
+
+

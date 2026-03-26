@@ -1,0 +1,572 @@
+﻿﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Support - RewardLoop</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script src="js/notifications.js"></script>
+</head>
+<body class="dashboard-body">
+    
+    <!-- Sidebar -->
+    <aside class="sidebar">
+        <div class="sidebar-header">
+            <div class="logo">
+                <i class="fas fa-coins"></i> RewardLoop
+            </div>
+            <div class="close-sidebar">
+                <i class="fas fa-times"></i>
+            </div>
+        </div>
+        <ul class="sidebar-menu">
+            <li><a href="dashboard.html"><i class="fas fa-th-large"></i> Dashboard</a></li>
+            <li><a href="subscriptions.html"><i class="fas fa-crown"></i> Subscriptions</a></li>
+
+            <li><a href="fund_transfer.html"><i class="fas fa-exchange-alt"></i> Fund Transfer</a></li>
+            <li><a href="ads.html?tab=my-earnings"><i class="fas fa-dollar-sign"></i> My Earnings</a></li>
+            <li><a href="ads.html"><i class="fas fa-ad"></i> All Ads</a></li>
+            <li><a href="transactions.html"><i class="fas fa-history"></i> Transactions</a></li>
+            <li><a href="withdraw.html"><i class="fas fa-money-check-alt"></i> Withdraw</a></li>
+            <li><a href="referral.html"><i class="fas fa-users"></i> Referral</a></li>
+            <li><a href="portfolios.html"><i class="fas fa-briefcase"></i> Portfolios</a></li>
+            <li><a href="support.html" class="active"><i class="fas fa-headset"></i> Support</a></li>
+            <li><a href="rewards.html"><i class="fas fa-gift"></i> Rewards</a></li>
+            <li><a href="settings.html"><i class="fas fa-cog"></i> Settings</a></li>
+        </ul>
+        <div class="sidebar-footer">
+            <a href="/logout" class="logout-btn"><i class="fas fa-sign-out-alt"></i> Log Out</a>
+        </div>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="main-content">
+        <!-- Top Header -->
+        <header class="dashboard-header">
+            <div class="menu-toggle">
+                <i class="fas fa-bars"></i>
+            </div>
+            <div class="header-right">
+                <div id="google_translate_element"></div>
+                <div class="theme-toggle">
+                    <i class="fas fa-moon"></i>
+                </div>
+                <div class="user-profile">
+                    <div class="user-avatar">
+                        <i class="fas fa-user"></i>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <!-- Support Content -->
+        <div class="content-wrapper">
+            
+            <div class="support-hero">
+                <h2><i class="fas fa-headset"></i> Help & Support</h2>
+                <p>We're here to help! Choose a channel below to get in touch with our team.</p>
+            </div>
+
+            <!-- Contact Options -->
+            <div class="contact-grid">
+                <a href="#" id="telegramLink" target="_blank" class="contact-card contact-telegram">
+                    <div class="contact-info">
+                        <h4>Telegram</h4>
+                        <p>Join our official channel</p>
+                    </div>
+                    <i class="fab fa-telegram-plane contact-icon"></i>
+                </a>
+                <a href="#" id="whatsappLink" target="_blank" class="contact-card contact-whatsapp">
+                    <div class="contact-info">
+                        <h4>WhatsApp</h4>
+                        <p>Chat with us instantly</p>
+                    </div>
+                    <i class="fab fa-whatsapp contact-icon"></i>
+                </a>
+            </div>
+
+            <div class="card">
+                <div class="card-body">
+                    <div class="nav-tabs">
+                        <button class="nav-link active" onclick="switchTab('live-chat')" title="Live Chat"><i class="fas fa-comments"></i></button>
+                        <button class="nav-link" onclick="switchTab('tickets')"><i class="fas fa-ticket-alt"></i> My Tickets</button>
+                    </div>
+
+                    <!-- Live Chat Tab -->
+                    <div id="live-chat" class="tab-content active">
+                        <div class="chat-interface">
+                            <div class="chat-header">
+                                <div class="chat-header-user">
+                                    <div class="chat-status">Support Agent Online</div>
+                                </div>
+                            </div>
+                            <div class="chat-messages-area" id="messagesArea">
+                                <div class="chat-empty-state">
+                                    <i class="fas fa-comments"></i>
+                                    <h3>Start a Conversation</h3>
+                                    <p>Our support team is ready to assist you.</p>
+                                </div>
+                            </div>
+                            <div class="chat-input-wrapper">
+                                <input type="text" class="chat-input-field" id="messageInput" placeholder="Type your message..." onkeypress="if(event.key==='Enter') sendMessage()">
+                                <button class="chat-send-btn" onclick="sendMessage()"><i class="fas fa-paper-plane"></i></button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Tickets Tab -->
+                    <div id="tickets" class="tab-content">
+                        <div class="card-top-header">
+                            <h3>My Ticket List</h3>
+                            <button class="btn btn-purple" id="createTicketBtn"><i class="fas fa-plus-circle"></i> Create Ticket</button>
+                        </div>
+                        
+                        <!-- Filter Bar -->
+                        <div class="transactions-filter-bar">
+                            <input type="text" class="form-control" placeholder="Subject">
+                            <input type="date" class="form-control" placeholder="Date">
+                            <button class="btn btn-purple"><i class="fas fa-search"></i> Search</button>
+                        </div>
+        
+                        <div class="table-responsive mt-4">
+                            <table class="table">
+                                <thead>
+                                    <tr>
+                                        <th>Ticket</th>
+                                        <th>Precedence</th>
+                                        <th>Last Open</th>
+                                        <th>Status</th>
+                                        <th>Action</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <td colspan="5" class="text-center empty-state">
+                                            <div class="empty-content">
+                                                <i class="fas fa-box-open fa-3x"></i>
+                                                <p>No Data Found</p>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Create Ticket Modal -->
+    <div class="modal-backdrop" id="ticketModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Create a New Ticket</h3>
+                <button class="close-modal close-modal-btn"><i class="fas fa-times"></i></button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group mb-3">
+                    <label>Subject<span class="text-danger">*</span></label>
+                    <input type="text" class="form-control" id="ticketSubject" placeholder="Subject">
+                </div>
+                
+                <div class="form-group mb-3">
+                    <label>Precedence<span class="text-danger">*</span></label>
+                    <select class="form-control" id="ticketPriority">
+                        <option value="">Select precedence</option>
+                        <option value="High">High</option>
+                        <option value="Medium">Medium</option>
+                        <option value="Low">Low</option>
+                    </select>
+                </div>
+
+                <div class="form-group mb-3">
+                    <label>Message<span class="text-danger">*</span></label>
+                    <textarea class="form-control" id="ticketMessage" rows="5" placeholder="Message"></textarea>
+                </div>
+
+                <div class="form-group mb-4">
+                    <div class="upload-header">
+                        <label>Upload Image</label>
+                        <button class="btn btn-primary btn-sm" id="addFileBtn" style="background-color: #3498db; border-color: #3498db;"><i class="fas fa-plus"></i> Add</button>
+                    </div>
+                    <div class="upload-area" id="uploadArea">
+                        <input type="file" id="fileInput" style="display: none;" accept="image/*,video/*">
+                        <div class="upload-placeholder" id="uploadPlaceholder">
+                            <i class="fas fa-cloud-upload-alt fa-3x" style="color: #6c5ce7;"></i>
+                            <p class="mt-2" style="color: #6c5ce7; font-weight: 500;">Attach Image <span style="color: #7f8c8d; font-weight: normal;">Or Drag and Drop</span></p>
+                            <small style="color: #e74c3c;">Attach JPEG/PNG file</small>
+                        </div>
+                        <div id="filePreview" style="display: none; text-align: center;">
+                            <i class="fas fa-file-alt fa-3x" style="color: #6c5ce7;"></i>
+                            <p class="mt-2" id="fileName" style="color: #2c3e50; font-weight: 500;"></p>
+                            <button class="btn btn-sm btn-danger mt-2" id="removeFileBtn">Remove</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="modal-footer">
+                    <button class="btn btn-purple" id="submitTicketBtn" onclick="submitTicket()"><i class="fas fa-plus-circle"></i> Create Ticket</button>
+                    <button class="btn btn-light close-modal-btn" style="background: #e74c3c; color: white;"><i class="fas fa-times-circle"></i> Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- View Ticket Modal -->
+    <div class="modal-backdrop" id="viewTicketModal">
+        <div class="modal-content" style="max-width: 800px;">
+            <div class="modal-header">
+                <h3>Ticket Details</h3>
+                <button class="close-modal close-view-modal-btn"><i class="fas fa-times"></i></button>
+            </div>
+            <div class="modal-body">
+                <div class="ticket-info mb-4" style="background: #f8f9fa; padding: 15px; border-radius: 8px;">
+                    <h4 id="viewTicketSubject" style="margin-bottom: 10px; color: #2d3436;"></h4>
+                    <div style="display: flex; gap: 15px; font-size: 0.9rem; color: #636e72;">
+                        <span id="viewTicketStatus"></span>
+                        <span id="viewTicketPriority"></span>
+                        <span id="viewTicketDate"></span>
+                    </div>
+                    <p id="viewTicketMessage" style="margin-top: 15px; color: #2d3436; line-height: 1.6;"></p>
+                </div>
+
+                <div class="ticket-replies" id="ticketRepliesArea" style="max-height: 400px; overflow-y: auto; margin-bottom: 20px; display: flex; flex-direction: column; gap: 15px;">
+                    <!-- Replies will be injected here -->
+                </div>
+
+                <div class="reply-box">
+                    <textarea class="form-control mb-2" id="replyMessage" rows="3" placeholder="Type your reply..."></textarea>
+                    <button class="btn btn-purple" onclick="sendTicketReply()"><i class="fas fa-paper-plane"></i> Send Reply</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Toggle Sidebar for mobile
+        document.querySelector('.menu-toggle').addEventListener('click', function() {
+            document.querySelector('.sidebar').classList.toggle('active');
+        });
+        
+        document.querySelector('.close-sidebar').addEventListener('click', function() {
+            document.querySelector('.sidebar').classList.remove('active');
+        });
+
+        // Tab Switching
+        function switchTab(tabId) {
+            document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+            document.querySelectorAll('.nav-link').forEach(l => l.classList.remove('active'));
+            document.getElementById(tabId).classList.add('active');
+            event.target.classList.add('active');
+
+            if (tabId === 'live-chat') startChatPolling();
+            else stopChatPolling();
+        }
+
+        // --- Contact Links Logic ---
+        fetch('/api/settings/contact')
+            .then(res => res.json())
+            .then(data => {
+                const tg = document.getElementById('telegramLink');
+                const wa = document.getElementById('whatsappLink');
+                
+                if (data.telegram_link) tg.href = data.telegram_link;
+                else tg.href = '#'; // Keep visible
+                
+                if (data.whatsapp_link) wa.href = data.whatsapp_link;
+                else wa.href = '#'; // Keep visible
+            });
+
+        // --- Live Chat Logic ---
+        let chatInterval;
+
+        function loadMessages() {
+            fetch('/api/chat')
+                .then(res => res.json())
+                .then(msgs => {
+                    const area = document.getElementById('messagesArea');
+                    const wasScrolledToBottom = area.scrollHeight - area.scrollTop === area.clientHeight;
+                    
+                    if (msgs.length === 0) return; 
+
+                    area.innerHTML = msgs.map(m => `
+                        <div class="chat-msg ${m.sender === 'user' ? 'sent' : 'received'}">
+                            <div class="msg-bubble">
+                                ${m.message}
+                            </div>
+                            <div class="msg-time">${new Date(m.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</div>
+                        </div>
+                    `).join('');
+
+                    if (wasScrolledToBottom || msgs.length < 5) { // Auto scroll
+                        area.scrollTop = area.scrollHeight;
+                    }
+                });
+        }
+
+        function sendMessage() {
+            const input = document.getElementById('messageInput');
+            const text = input.value.trim();
+            if (!text) return;
+
+            fetch('/api/chat', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ message: text })
+            })
+            .then(res => res.json())
+            .then(data => {
+                if(data.success) {
+                    input.value = '';
+                    loadMessages();
+                }
+            });
+        }
+
+        function startChatPolling() {
+            loadMessages();
+            if (chatInterval) clearInterval(chatInterval);
+            chatInterval = setInterval(loadMessages, 3000);
+        }
+
+        function stopChatPolling() {
+            if (chatInterval) clearInterval(chatInterval);
+        }
+
+        // Modal Logic
+        const modal = document.getElementById('ticketModal');
+        const createBtn = document.getElementById('createTicketBtn');
+        const closeBtns = document.querySelectorAll('.close-modal-btn');
+
+        createBtn.addEventListener('click', () => {
+            modal.style.display = 'flex';
+            setTimeout(() => modal.classList.add('active'), 10);
+        });
+
+        closeBtns.forEach(btn => {
+            btn.addEventListener('click', () => {
+                modal.classList.remove('active');
+                setTimeout(() => modal.style.display = 'none', 300);
+            });
+        });
+
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) {
+                modal.classList.remove('active');
+                setTimeout(() => modal.style.display = 'none', 300);
+            }
+        });
+
+        // File Upload Logic
+        const uploadArea = document.getElementById('uploadArea');
+        const fileInput = document.getElementById('fileInput');
+        const addFileBtn = document.getElementById('addFileBtn');
+        const uploadPlaceholder = document.getElementById('uploadPlaceholder');
+        const filePreview = document.getElementById('filePreview');
+        const fileNameDisplay = document.getElementById('fileName');
+        const removeFileBtn = document.getElementById('removeFileBtn');
+
+        uploadArea.addEventListener('click', () => fileInput.click());
+        addFileBtn.addEventListener('click', (e) => { e.preventDefault(); fileInput.click(); });
+        fileInput.addEventListener('change', () => { if (fileInput.files[0]) showFile(fileInput.files[0]); });
+        uploadArea.addEventListener('dragover', (e) => { e.preventDefault(); uploadArea.style.background = 'rgba(108, 92, 231, 0.15)'; });
+        uploadArea.addEventListener('dragleave', () => { uploadArea.style.background = ''; });
+        uploadArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadArea.style.background = '';
+            if (e.dataTransfer.files[0]) {
+                fileInput.files = e.dataTransfer.files;
+                showFile(e.dataTransfer.files[0]);
+            }
+        });
+
+        function showFile(file) {
+            fileNameDisplay.textContent = file.name;
+            uploadPlaceholder.style.display = 'none';
+            filePreview.style.display = 'block';
+        }
+
+        removeFileBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            fileInput.value = '';
+            uploadPlaceholder.style.display = 'block';
+            filePreview.style.display = 'none';
+        });
+
+        // --- Ticket Logic ---
+        function loadTickets() {
+            fetch('/api/user/tickets')
+                .then(res => res.json())
+                .then(tickets => {
+                    const tbody = document.querySelector('#tickets tbody');
+                    if (tickets.length === 0) {
+                        tbody.innerHTML = `
+                            <tr>
+                                <td colspan="5" class="text-center empty-state">
+                                    <div class="empty-content">
+                                        <i class="fas fa-box-open fa-3x"></i>
+                                        <p>No Data Found</p>
+                                    </div>
+                                </td>
+                            </tr>`;
+                        return;
+                    }
+
+                    tbody.innerHTML = tickets.map(t => `
+                        <tr>
+                            <td>${t.subject}</td>
+                            <td><span class="badge ${t.priority === 'High' ? 'bg-danger' : t.priority === 'Medium' ? 'bg-warning' : 'bg-success'}">${t.priority}</span></td>
+                            <td>${new Date(t.created_at).toLocaleDateString()}</td>
+                            <td><span class="badge ${t.status === 'open' ? 'bg-success' : 'bg-secondary'}">${t.status}</span></td>
+                            <td>
+                                <button class="btn btn-sm btn-primary" onclick="viewTicket(${t.id})"><i class="fas fa-eye"></i> View</button>
+                            </td>
+                        </tr>
+                    `).join('');
+                });
+        }
+
+        let currentTicketId = null;
+        const viewModal = document.getElementById('viewTicketModal');
+
+        function viewTicket(id) {
+            currentTicketId = id;
+            viewModal.style.display = 'flex';
+            setTimeout(() => viewModal.classList.add('active'), 10);
+
+            // Fetch Ticket Details
+            fetch(`/api/tickets/${id}`)
+                .then(res => res.json())
+                .then(ticket => {
+                    document.getElementById('viewTicketSubject').textContent = ticket.subject;
+                    document.getElementById('viewTicketStatus').textContent = `Status: ${ticket.status}`;
+                    document.getElementById('viewTicketPriority').textContent = `Priority: ${ticket.priority}`;
+                    document.getElementById('viewTicketDate').textContent = `Date: ${new Date(ticket.created_at).toLocaleString()}`;
+                    document.getElementById('viewTicketMessage').textContent = ticket.message;
+                });
+
+            // Fetch Replies
+            loadReplies(id);
+        }
+
+        function loadReplies(id) {
+            fetch(`/api/tickets/${id}/replies`)
+                .then(res => res.json())
+                .then(replies => {
+                    const area = document.getElementById('ticketRepliesArea');
+                    if (replies.length === 0) {
+                        area.innerHTML = '<p class="text-center text-muted">No replies yet.</p>';
+                        return;
+                    }
+                    area.innerHTML = replies.map(r => `
+                        <div class="reply-card ${r.sender === 'User' ? 'reply-user' : 'reply-admin'}" style="padding: 10px; border-radius: 5px; background: ${r.sender === 'User' ? '#e1f5fe' : '#fff3e0'}; align-self: ${r.sender === 'User' ? 'flex-end' : 'flex-start'}; max-width: 80%;">
+                            <div style="font-size: 0.8rem; font-weight: bold; margin-bottom: 5px;">${r.sender} <span style="font-weight: normal; color: #888; font-size: 0.7rem;">${new Date(r.created_at).toLocaleString()}</span></div>
+                            <div>${r.message}</div>
+                        </div>
+                    `).join('');
+                    area.scrollTop = area.scrollHeight;
+                });
+        }
+
+        function sendTicketReply() {
+            const message = document.getElementById('replyMessage').value;
+            if (!message) return;
+
+            fetch(`/api/tickets/${currentTicketId}/reply`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ message })
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    document.getElementById('replyMessage').value = '';
+                    loadReplies(currentTicketId);
+                } else {
+                    showToast('Error sending reply', 'error');
+                }
+            });
+        }
+
+        // Close View Modal
+        document.querySelector('.close-view-modal-btn').addEventListener('click', () => {
+            viewModal.classList.remove('active');
+            setTimeout(() => viewModal.style.display = 'none', 300);
+        });
+
+        // Load tickets initially
+        loadTickets();
+
+        // Update submitTicket to reload list
+        const originalSubmitTicket = submitTicket; 
+        // Overwriting submitTicket logic slightly to include reload
+        function submitTicket() {
+            const subject = document.getElementById('ticketSubject').value;
+            const priority = document.getElementById('ticketPriority').value;
+            const message = document.getElementById('ticketMessage').value;
+            const file = document.getElementById('fileInput').files[0];
+
+            if (!subject || !priority || !message) {
+                showToast('Please fill in all required fields.', 'warning');
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('subject', subject);
+            formData.append('priority', priority);
+            formData.append('message', message);
+            if (file) {
+                formData.append('image', file);
+            }
+
+            const btn = document.getElementById('submitTicketBtn');
+            const originalText = btn.innerHTML;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Creating...';
+            btn.disabled = true;
+
+            fetch('/api/user/ticket', {
+                method: 'POST',
+                body: formData
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    showToast('Ticket created successfully!', 'success');
+                    modal.classList.remove('active');
+                    setTimeout(() => modal.style.display = 'none', 300);
+                    
+                    // Clear form
+                    document.getElementById('ticketSubject').value = '';
+                    document.getElementById('ticketPriority').value = '';
+                    document.getElementById('ticketMessage').value = '';
+                    document.getElementById('fileInput').value = '';
+                    document.getElementById('removeFileBtn').click(); 
+                    
+                    // Reload tickets
+                    loadTickets();
+                } else {
+                    showToast(data.error || 'Error creating ticket', 'error');
+                }
+            })
+            .catch(err => {
+                console.error(err);
+                showToast('An error occurred', 'error');
+            })
+            .finally(() => {
+                btn.innerHTML = originalText;
+                btn.disabled = false;
+            });
+        }
+
+        // Start chat polling if tab is active by default
+        if(document.getElementById('live-chat').classList.contains('active')) {
+            startChatPolling();
+        } 
+    </script>
+    <script src="js/theme.js"></script>
+    <script src="js/translation.js"></script>
+</body>
+</html>

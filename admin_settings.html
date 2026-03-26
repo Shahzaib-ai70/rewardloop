@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>System Settings - Admin Panel</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        .admin-sidebar { background: #2d3436; color: #fff; }
+        .admin-sidebar .logo { color: #fff; }
+        .admin-sidebar .sidebar-menu li a { color: #b2bec3; }
+        .admin-sidebar .sidebar-menu li a:hover, .admin-sidebar .sidebar-menu li a.active { background: rgba(255,255,255,0.1); color: #fff; }
+        .admin-header { background: #fff; box-shadow: 0 2px 10px rgba(0,0,0,0.05); }
+    </style>
+</head>
+<body class="dashboard-body">
+    <aside class="sidebar admin-sidebar">
+        <div class="sidebar-header"><div class="logo"><i class="fas fa-shield-alt"></i> Admin Panel</div></div>
+        <ul class="sidebar-menu">
+            <li><a href="admin_dashboard.html"><i class="fas fa-tachometer-alt"></i> Dashboard</a></li>
+
+            <li><a href="admin_plans.html"><i class="fas fa-crown"></i> Manage Plans</a></li>
+            <li><a href="admin_portfolios.html"><i class="fas fa-briefcase"></i> Manage Portfolios</a></li>
+            <li><a href="admin_ads.html"><i class="fas fa-ad"></i> Manage Ads</a></li>
+            <li><a href="admin_users.html"><i class="fas fa-users"></i> Manage Users</a></li>
+            <li><a href="admin_deposits.html"><i class="fas fa-money-bill-wave"></i> Deposits</a></li>
+            <li><a href="admin_withdrawals.html"><i class="fas fa-hand-holding-usd"></i> Withdrawals</a></li>
+            <li><a href="admin_support.html"><i class="fas fa-ticket-alt"></i> Support Tickets</a></li>
+            <li><a href="admin_settings.html" class="active"><i class="fas fa-cogs"></i> System Settings</a></li>
+        </ul>
+        <div class="sidebar-footer"><a href="/admin/logout" class="logout-btn"><i class="fas fa-sign-out-alt"></i> Log Out</a></div>
+    </aside>
+
+    <main class="main-content">
+        <header class="dashboard-header admin-header">
+            <div class="menu-toggle"><i class="fas fa-bars"></i></div>
+            <div class="header-right">
+                <div id="google_translate_element"></div>
+                <div class="theme-toggle">
+                    <i class="fas fa-moon"></i>
+                </div>
+                <div class="user-profile"><span class="mr-2">Administrator</span><div class="user-avatar" style="background: #d63031;"><i class="fas fa-user-shield"></i></div></div>
+            </div>
+        </header>
+
+        <div class="content-wrapper">
+            <div class="card">
+                <div class="card-body">
+                    <h3 class="section-title">System Configuration</h3>
+                    <form id="settingsForm" onsubmit="saveSettings(event)">
+                        <div class="form-group mb-3">
+                            <label>Site Name</label>
+                            <input type="text" class="form-control" id="site_name" value="RewardLoop">
+                        </div>
+                        <div class="form-group mb-3">
+                            <label>Currency Symbol</label>
+                            <input type="text" class="form-control" id="currency_symbol" value="PKR">
+                        </div>
+                        <div class="form-group mb-3">
+                            <label>Referral Signup Bonus (For New User)</label>
+                            <small class="form-text text-muted">Amount given to the new user when they sign up with a referral link.</small>
+                            <input type="number" class="form-control" id="referral_signup_bonus" value="0" min="0" step="0.01">
+                        </div>
+                        <button type="submit" class="btn btn-save mt-2">Save Settings</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        document.querySelector('.menu-toggle').addEventListener('click', function() {
+            document.querySelector('.sidebar').classList.toggle('active');
+        });
+
+        // Load Settings
+        function loadSettings() {
+            fetch('/api/admin/settings/general')
+                .then(res => {
+                    if (res.status === 401 || res.status === 403) {
+                        window.location.href = '/admin_login.html';
+                        throw new Error('Unauthorized');
+                    }
+                    return res.json();
+                })
+                .then(settings => {
+                    if (settings.site_name) document.getElementById('site_name').value = settings.site_name;
+                    if (settings.currency_symbol) document.getElementById('currency_symbol').value = settings.currency_symbol;
+                    if (settings.referral_signup_bonus) document.getElementById('referral_signup_bonus').value = settings.referral_signup_bonus;
+                })
+                .catch(err => console.error('Error loading settings:', err));
+        }
+
+        function saveSettings(event) {
+            event.preventDefault();
+            
+            const data = {
+                site_name: document.getElementById('site_name').value,
+                currency_symbol: document.getElementById('currency_symbol').value,
+                referral_signup_bonus: document.getElementById('referral_signup_bonus').value
+            };
+
+            fetch('/api/admin/settings/general', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data)
+            })
+            .then(res => res.json())
+            .then(result => {
+                if (result.success) {
+                    showToast('Settings saved successfully!', 'success');
+                } else {
+                    showToast('Error saving settings', 'error');
+                }
+            })
+            .catch(err => showToast('Server error: ' + err.message, 'error'));
+        }
+
+        loadSettings();
+    </script>
+    <script src="js/notifications.js"></script>
+    <script src="js/theme.js"></script>
+    <script src="js/translation.js"></script>
+</body>
+</html>

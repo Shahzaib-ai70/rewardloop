@@ -1,0 +1,135 @@
+﻿﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Portfolios - RewardLoop</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body class="dashboard-body">
+    
+    <!-- Sidebar -->
+    <aside class="sidebar">
+        <div class="sidebar-header">
+            <div class="logo">
+                <i class="fas fa-coins"></i> RewardLoop
+            </div>
+            <div class="close-sidebar">
+                <i class="fas fa-times"></i>
+            </div>
+        </div>
+        <ul class="sidebar-menu">
+            <li><a href="dashboard.html"><i class="fas fa-th-large"></i> Dashboard</a></li>
+            <li><a href="subscriptions.html"><i class="fas fa-crown"></i> Subscriptions</a></li>
+
+            <li><a href="fund_transfer.html"><i class="fas fa-exchange-alt"></i> Fund Transfer</a></li>
+            <li><a href="ads.html?tab=my-earnings"><i class="fas fa-dollar-sign"></i> My Earnings</a></li>
+            <li><a href="ads.html"><i class="fas fa-ad"></i> All Ads</a></li>
+            <li><a href="transactions.html"><i class="fas fa-history"></i> Transactions</a></li>
+            <li><a href="withdraw.html"><i class="fas fa-money-check-alt"></i> Withdraw</a></li>
+            <li><a href="referral.html"><i class="fas fa-users"></i> Referral</a></li>
+            <li><a href="portfolios.html" class="active"><i class="fas fa-briefcase"></i> Portfolios</a></li>
+            <li><a href="support.html"><i class="fas fa-headset"></i> Support</a></li>
+            <li><a href="rewards.html"><i class="fas fa-gift"></i> Rewards</a></li>
+            <li><a href="settings.html"><i class="fas fa-cog"></i> Settings</a></li>
+        </ul>
+        <div class="sidebar-footer">
+            <a href="/logout" class="logout-btn"><i class="fas fa-sign-out-alt"></i> Log Out</a>
+        </div>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="main-content">
+        <!-- Top Header -->
+        <header class="dashboard-header">
+            <div class="menu-toggle">
+                <i class="fas fa-bars"></i>
+            </div>
+            <div class="header-right">
+                <div id="google_translate_element"></div>
+                <div class="theme-toggle">
+                    <i class="fas fa-moon"></i>
+                </div>
+                <div class="user-profile">
+                    <div class="user-avatar">
+                        <i class="fas fa-user"></i>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <!-- Portfolios Content -->
+        <div class="content-wrapper">
+            <div class="portfolios-grid" id="portfoliosGrid">
+                <div style="text-align: center; width: 100%; color: #636e72;">Loading portfolios...</div>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        // Toggle Sidebar for mobile
+        document.querySelector('.menu-toggle').addEventListener('click', function() {
+            document.querySelector('.sidebar').classList.toggle('active');
+        });
+        
+        document.querySelector('.close-sidebar').addEventListener('click', function() {
+            document.querySelector('.sidebar').classList.remove('active');
+        });
+
+        // Load Portfolios
+        function loadPortfolios() {
+            // Fetch portfolios and user stats in parallel
+            Promise.all([
+                fetch('/api/portfolios').then(res => res.json()),
+                fetch('/api/user/transactions').then(res => res.json()) // To calculate total volume for unlocking
+            ])
+            .then(([portfolios, transactions]) => {
+                const grid = document.getElementById('portfoliosGrid');
+                grid.innerHTML = '';
+
+                if(portfolios.length === 0) {
+                    grid.innerHTML = '<p>No portfolios available.</p>';
+                    return;
+                }
+
+                // Calculate total approved transaction volume (Deposits + Withdrawals)
+                const totalVolume = transactions.reduce((sum, trx) => {
+                    return trx.status === 'approved' || trx.status === 'completed' ? sum + trx.amount : sum;
+                }, 0);
+
+                portfolios.forEach(p => {
+                    const isUnlocked = totalVolume >= p.min_transactions;
+                    
+                    grid.innerHTML += `
+                        <div class="portfolio-card ${isUnlocked ? 'unlocked' : ''}">
+                            <div class="level-badge level-${p.level}">Level ${p.level}</div>
+                            ${!isUnlocked ? `
+                            <div class="lock-overlay">
+                                <i class="fas fa-lock"></i>
+                            </div>` : ''}
+                            <div class="card-content">
+                                <h3>${p.name}</h3>
+                                <p class="subtitle">${p.description || ''}</p>
+                                <ul class="level-features">
+                                    <li><i class="fas fa-check"></i> Min. Transactions: ${p.min_transactions} USD</li>
+                                    <li><i class="fas fa-check"></i> Bonus: ${p.bonus} USD</li>
+                                </ul>
+                            </div>
+                        </div>
+                    `;
+                });
+            })
+            .catch(err => {
+                console.error('Error loading portfolios:', err);
+                document.getElementById('portfoliosGrid').innerHTML = '<p>Error loading data.</p>';
+            });
+        }
+
+        loadPortfolios();
+    </script>
+    <script src="js/theme.js"></script>
+    <script src="js/translation.js"></script>
+</body>
+</html>

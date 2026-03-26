@@ -1,0 +1,288 @@
+﻿﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Withdraw Money - RewardLoop</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script src="js/notifications.js"></script>
+    <style>
+        .bank-details-box {
+            display: none;
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 20px;
+            border: 1px solid #e9ecef;
+        }
+        .bank-details-box.active {
+            display: block;
+            animation: fadeIn 0.3s ease-in-out;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(-10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .details-header {
+            font-weight: 600;
+            margin-bottom: 15px;
+            color: #2d3436;
+            border-bottom: 1px solid #dee2e6;
+            padding-bottom: 10px;
+        }
+    </style>
+</head>
+<body class="dashboard-body">
+    
+    <!-- Sidebar -->
+    <aside class="sidebar">
+        <div class="sidebar-header">
+            <div class="logo">
+                <i class="fas fa-coins"></i> RewardLoop
+            </div>
+            <div class="close-sidebar">
+                <i class="fas fa-times"></i>
+            </div>
+        </div>
+        <ul class="sidebar-menu">
+            <li><a href="dashboard.html"><i class="fas fa-th-large"></i> Dashboard</a></li>
+            <li><a href="subscriptions.html"><i class="fas fa-crown"></i> Subscriptions</a></li>
+
+            <li><a href="fund_transfer.html"><i class="fas fa-exchange-alt"></i> Fund Transfer</a></li>
+            <li><a href="ads.html?tab=my-earnings"><i class="fas fa-dollar-sign"></i> My Earnings</a></li>
+            <li><a href="ads.html"><i class="fas fa-ad"></i> All Ads</a></li>
+            <li><a href="transactions.html"><i class="fas fa-history"></i> Transactions</a></li>
+            <li><a href="withdraw.html" class="active"><i class="fas fa-money-check-alt"></i> Withdraw</a></li>
+            <li><a href="referral.html"><i class="fas fa-users"></i> Referral</a></li>
+            <li><a href="portfolios.html"><i class="fas fa-briefcase"></i> Portfolios</a></li>
+            <li><a href="support.html"><i class="fas fa-headset"></i> Support</a></li>
+            <li><a href="rewards.html"><i class="fas fa-gift"></i> Rewards</a></li>
+            <li><a href="settings.html"><i class="fas fa-cog"></i> Settings</a></li>
+        </ul>
+        <div class="sidebar-footer">
+            <a href="/logout" class="logout-btn"><i class="fas fa-sign-out-alt"></i> Log Out</a>
+        </div>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="main-content">
+        <!-- Top Header -->
+        <header class="dashboard-header">
+            <div class="menu-toggle">
+                <i class="fas fa-bars"></i>
+            </div>
+            <div class="header-right">
+                <div id="google_translate_element"></div>
+                <div class="theme-toggle">
+                    <i class="fas fa-moon"></i>
+                </div>
+                <div class="user-profile">
+                    <div class="user-avatar">
+                        <i class="fas fa-user"></i>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <!-- Withdraw Content -->
+        <div class="content-wrapper">
+            <div class="page-header">
+                <h2>Withdraw Money</h2>
+                <div class="header-buttons">
+                    <a href="transactions.html" class="btn btn-purple"><i class="fas fa-history"></i> Withdraw History</a>
+                </div>
+            </div>
+
+            <div class="deposit-grid">
+                <!-- Withdraw Form Section -->
+                <div class="card add-fund-card">
+                    <div class="form-section">
+                        <div class="form-group mb-4">
+                            <label>Withdraw Account / Method</label>
+                            <select class="form-control" id="withdraw-method">
+                                <option value="">Select Account</option>
+                            </select>
+                        </div>
+
+                        <div class="input-group-wrapper">
+                            <label>Amount</label>
+                            <div class="input-group">
+                                <input type="number" id="withdraw-amount" placeholder="Enter Amount" class="form-control" min="1">
+                                <span class="input-group-text">PKR</span>
+                            </div>
+                        </div>
+
+                        <!-- Bank Details Box (Initially Hidden) -->
+                        <div class="bank-details-box" id="bank-details-box">
+                            <div class="details-header">
+                                <i class="fas fa-info-circle"></i> Enter Account Details
+                            </div>
+                            <div class="form-group mb-3">
+                                <label>Account Number / IBAN</label>
+                                <input type="text" id="account-number" class="form-control" placeholder="Enter Account Number">
+                            </div>
+                            <div class="form-group">
+                                <label>Account Holder Name</label>
+                                <input type="text" id="account-name" class="form-control" placeholder="Enter Account Title">
+                            </div>
+                        </div>
+
+                        <button id="submit-withdraw" class="btn btn-purple btn-block mt-4"><i class="fas fa-arrow-circle-right"></i> Submit Request</button>
+                    </div>
+                </div>
+
+                <!-- Review Details Section -->
+                <div class="card review-card">
+                    <div class="card-top-header">
+                        <h3>Review Details</h3>
+                    </div>
+                    
+                    <div class="review-list">
+                        <div class="review-item">
+                            <span>Amount:</span>
+                            <span class="value" id="review-amount">-</span>
+                        </div>
+                        <div class="review-item">
+                            <span>Charge:</span>
+                            <span class="value" id="review-charge">0 PKR</span>
+                        </div>
+                        <div class="review-item">
+                            <span>Payment Method:</span>
+                            <span class="value" id="review-method">-</span>
+                        </div>
+                        <div class="review-item total">
+                            <span>Total Deduction:</span>
+                            <span class="value" id="review-total">-</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        // Toggle Sidebar for mobile
+        document.querySelector('.menu-toggle').addEventListener('click', function() {
+            document.querySelector('.sidebar').classList.toggle('active');
+        });
+        
+        document.querySelector('.close-sidebar').addEventListener('click', function() {
+            document.querySelector('.sidebar').classList.remove('active');
+        });
+
+        // DOM Elements
+        const methodSelect = document.getElementById('withdraw-method');
+        const amountInput = document.getElementById('withdraw-amount');
+        const detailsBox = document.getElementById('bank-details-box');
+        const reviewAmount = document.getElementById('review-amount');
+        const reviewMethod = document.getElementById('review-method');
+        const reviewTotal = document.getElementById('review-total');
+        const submitBtn = document.getElementById('submit-withdraw');
+
+        async function loadWithdrawMethods() {
+            const original = methodSelect.innerHTML;
+            try {
+                const res = await fetch('/api/withdraw/methods', { credentials: 'same-origin' });
+                if (!res.ok) return;
+                const data = await res.json();
+                if (!data || !Array.isArray(data.groups)) return;
+
+                methodSelect.innerHTML = '';
+                const defaultOpt = document.createElement('option');
+                defaultOpt.value = '';
+                defaultOpt.textContent = 'Select Account';
+                methodSelect.appendChild(defaultOpt);
+
+                data.groups.forEach(group => {
+                    if (!group || !group.label || !Array.isArray(group.options)) return;
+                    const optgroup = document.createElement('optgroup');
+                    optgroup.label = group.label;
+                    group.options.forEach(opt => {
+                        if (!opt) return;
+                        const text = String(opt);
+                        const option = document.createElement('option');
+                        option.value = text;
+                        option.textContent = text;
+                        optgroup.appendChild(option);
+                    });
+                    methodSelect.appendChild(optgroup);
+                });
+            } catch (e) {
+                methodSelect.innerHTML = original;
+            }
+        }
+
+        // Show/Hide Details Box & Update Review
+        function updateUI() {
+            const method = methodSelect.value;
+            const amount = parseFloat(amountInput.value) || 0;
+
+            // Show/Hide Details
+            if (method) {
+                detailsBox.classList.add('active');
+                reviewMethod.textContent = method;
+            } else {
+                detailsBox.classList.remove('active');
+                reviewMethod.textContent = '-';
+            }
+
+            // Update Review
+            if (amount > 0) {
+                reviewAmount.textContent = amount + ' PKR';
+                reviewTotal.textContent = amount + ' PKR'; // Assuming 0 charge for now
+            } else {
+                reviewAmount.textContent = '-';
+                reviewTotal.textContent = '-';
+            }
+        }
+
+        methodSelect.addEventListener('change', updateUI);
+        amountInput.addEventListener('input', updateUI);
+        loadWithdrawMethods();
+
+        // Submit Withdrawal
+        submitBtn.addEventListener('click', async () => {
+            const method = methodSelect.value;
+            const amount = amountInput.value;
+            const accNum = document.getElementById('account-number').value;
+            const accName = document.getElementById('account-name').value;
+
+            if (!method) return showToast('Please select a withdrawal method.', 'warning');
+            if (!amount || amount <= 0) return showToast('Please enter a valid amount.', 'warning');
+            if (!accNum || !accName) return showToast('Please fill in all account details.', 'warning');
+
+            const accountDetails = `Number: ${accNum}, Title: ${accName}`;
+
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing...';
+
+            try {
+                const response = await fetch('/api/user/withdraw', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ amount, method, account_details: accountDetails })
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    showToast('Withdrawal request submitted successfully!', 'success');
+                    setTimeout(() => window.location.href = 'transactions.html', 1500);
+                } else {
+                    showToast(result.error || 'Failed to submit withdrawal.', 'error');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                showToast('An error occurred. Please try again.', 'error');
+            } finally {
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = '<i class="fas fa-arrow-circle-right"></i> Submit Request';
+            }
+        });
+    </script>
+    <script src="js/theme.js"></script>
+    <script src="js/translation.js"></script>
+</body>
+</html>

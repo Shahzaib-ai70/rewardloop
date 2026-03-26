@@ -1,0 +1,556 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Manage Ads - Admin Panel</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script src="js/notifications.js"></script>
+    <style>
+        .admin-sidebar { background: #2d3436; color: #fff; }
+        .admin-sidebar .logo { color: #fff; }
+        .admin-sidebar .sidebar-menu li a { color: #b2bec3; }
+        .admin-sidebar .sidebar-menu li a:hover, .admin-sidebar .sidebar-menu li a.active { background: rgba(255,255,255,0.1); color: #fff; }
+        .admin-header { background: #fff; box-shadow: 0 2px 10px rgba(0,0,0,0.05); }
+        .btn-filter { border: none; padding: 8px 16px; border-radius: 20px; font-size: 14px; font-weight: 500; cursor: pointer; transition: all 0.3s ease; }
+        .btn-filter:hover { opacity: 0.9; transform: translateY(-1px); }
+    </style>
+</head>
+<body class="dashboard-body">
+    
+    <!-- Admin Sidebar -->
+    <aside class="sidebar admin-sidebar">
+        <div class="sidebar-header">
+            <div class="logo"><i class="fas fa-shield-alt"></i> Admin Panel</div>
+        </div>
+        <ul class="sidebar-menu">
+            <li><a href="admin_dashboard.html"><i class="fas fa-tachometer-alt"></i> Dashboard</a></li>
+
+            <li><a href="admin_plans.html"><i class="fas fa-crown"></i> Manage Plans</a></li>
+            <li><a href="admin_portfolios.html"><i class="fas fa-briefcase"></i> Manage Portfolios</a></li>
+            <li><a href="admin_ads.html" class="active"><i class="fas fa-ad"></i> Manage Ads</a></li>
+            <li><a href="admin_users.html"><i class="fas fa-users"></i> Manage Users</a></li>
+            <li><a href="admin_deposits.html"><i class="fas fa-money-bill-wave"></i> Deposits</a></li>
+            <li><a href="admin_withdrawals.html"><i class="fas fa-hand-holding-usd"></i> Withdrawals</a></li>
+            <li><a href="admin_support.html"><i class="fas fa-ticket-alt"></i> Support Tickets</a></li>
+            <li><a href="admin_settings.html"><i class="fas fa-cogs"></i> System Settings</a></li>
+        </ul>
+        <div class="sidebar-footer">
+            <a href="/admin/logout" class="logout-btn"><i class="fas fa-sign-out-alt"></i> Log Out</a>
+        </div>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="main-content">
+        <header class="dashboard-header admin-header">
+            <div class="menu-toggle"><i class="fas fa-bars"></i></div>
+            <div class="header-right">
+                <div id="google_translate_element"></div>
+                <div class="theme-toggle">
+                    <i class="fas fa-moon"></i>
+                </div>
+                <div class="user-profile">
+                    <span class="mr-2">Administrator</span>
+                    <div class="user-avatar" style="background: #d63031;"><i class="fas fa-user-shield"></i></div>
+                </div>
+            </div>
+        </header>
+
+        <div class="content-wrapper">
+            <div class="card mb-4">
+                <div class="card-body">
+                    <h3 class="section-title">Create New Advertisement</h3>
+                    <form id="createAdForm">
+                        <div class="form-grid">
+                            <div class="form-group">
+                                <label>Ad Title</label>
+                                <input type="text" id="adTitle" class="form-control" placeholder="e.g. Watch Video" required>
+                            </div>
+                            <div class="form-group">
+                                <label>Ad URL</label>
+                                <input type="url" id="adUrl" class="form-control" placeholder="https://example.com" required>
+                            </div>
+                            <div class="form-group">
+                                <label>Duration (seconds)</label>
+                                <input type="number" id="adDuration" class="form-control" placeholder="e.g. 10" required>
+                            </div>
+                            <div class="form-group">
+                                <label>Reward Amount (PKR)</label>
+                                <input type="number" id="adReward" class="form-control" placeholder="e.g. 5.00" required>
+                            </div>
+                            <div class="form-group">
+                                <label>Target Plan</label>
+                                <select id="adPlan" class="form-control">
+                                    <option value="0">All Plans</option>
+                                    <!-- Plans will be loaded here -->
+                                </select>
+                            </div>
+                        </div>
+                        <button type="submit" class="btn btn-save mt-3"><i class="fas fa-plus-circle"></i> Create Ad</button>
+                    </form>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-body">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                        <h3 class="section-title" style="margin: 0;">Existing Ads</h3>
+                        <div id="planFilters" style="display: flex; gap: 10px; flex-wrap: wrap;">
+                            <!-- Filter buttons will be loaded here -->
+                        </div>
+                    </div>
+                    <div class="table-responsive">
+                        <table class="table" id="adsTable">
+                            <thead>
+                                <tr>
+                                    <th>ID</th>
+                                    <th>Title</th>
+                                    <th>Duration</th>
+                                    <th>Reward</th>
+                                    <th>Status</th>
+                                    <th>Action</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <!-- Ads will be loaded here -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Edit Ad Modal -->
+    <div id="editAdModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Edit Advertisement</h2>
+                <span onclick="closeEditModal()" class="close-modal">&times;</span>
+            </div>
+            <form id="editAdForm">
+                <input type="hidden" id="editAdId">
+                <div class="form-grid-modal">
+                    <div class="form-group">
+                        <label>Ad Title</label>
+                        <input type="text" id="editAdTitle" class="form-control" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Ad URL</label>
+                        <input type="url" id="editAdUrl" class="form-control" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Duration (seconds)</label>
+                        <input type="number" id="editAdDuration" class="form-control" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Reward Amount (PKR)</label>
+                        <input type="number" id="editAdReward" class="form-control" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Target Plan</label>
+                        <select id="editAdPlan" class="form-control">
+                            <option value="0">All Plans</option>
+                            <!-- Plans will be loaded here -->
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Status</label>
+                        <select id="editAdStatus" class="form-control">
+                            <option value="active">Active</option>
+                            <option value="inactive">Inactive</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" onclick="closeEditModal()" class="btn btn-secondary">Cancel</button>
+                    <button type="submit" class="btn btn-save">Update Ad</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <style>
+        /* Modal Styling */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 9999;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            overflow: auto;
+            background-color: rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(5px);
+            animation: fadeIn 0.3s ease-out;
+        }
+
+        .modal-content {
+            background-color: #fff;
+            margin: 5% auto;
+            padding: 0;
+            border: none;
+            width: 90%;
+            max-width: 600px;
+            border-radius: 12px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+            animation: slideIn 0.3s ease-out;
+            position: relative;
+        }
+
+        .modal-header {
+            padding: 20px 25px;
+            border-bottom: 1px solid #eee;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: #f8f9fa;
+            border-radius: 12px 12px 0 0;
+        }
+
+        .modal-header h2 {
+            margin: 0;
+            font-size: 1.25rem;
+            color: #2d3436;
+            font-weight: 600;
+        }
+
+        .close-modal {
+            color: #aaa;
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: color 0.2s;
+            line-height: 1;
+        }
+
+        .close-modal:hover {
+            color: #d63031;
+        }
+
+        #editAdForm {
+            padding: 25px;
+        }
+
+        .form-grid-modal {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+
+        /* Full width for URL field */
+        .form-grid-modal .form-group:nth-child(3) { /* Title is 2nd (1st is hidden ID), URL is 3rd */
+            grid-column: span 2;
+        }
+
+        .modal-footer {
+            margin-top: 25px;
+            display: flex;
+            justify-content: flex-end;
+            gap: 15px;
+            padding-top: 20px;
+            border-top: 1px solid #eee;
+        }
+
+        .btn-secondary {
+            background: #dfe6e9;
+            color: #636e72;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 500;
+            transition: background 0.2s;
+        }
+
+        .btn-secondary:hover {
+            background: #b2bec3;
+            color: #2d3436;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        @keyframes slideIn {
+            from { transform: translateY(-20px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+        
+        /* Responsive adjustments */
+        @media (max-width: 768px) {
+            .form-grid-modal {
+                grid-template-columns: 1fr;
+            }
+            .form-grid-modal .form-group:nth-child(3) {
+                grid-column: span 1;
+            }
+            .modal-content {
+                width: 95%;
+                margin: 10% auto;
+            }
+        }
+    </style>
+
+    <script>
+        document.querySelector('.menu-toggle').addEventListener('click', function() {
+            document.querySelector('.sidebar').classList.toggle('active');
+        });
+
+
+
+        let allPlans = {};
+        let adsData = [];
+        let currentFilter = 'all';
+
+        // Load Plans
+        function loadPlans() {
+            fetch('/api/admin/plans')
+                .then(res => res.json())
+                .then(plans => {
+                    const select = document.getElementById('adPlan');
+                    const editSelect = document.getElementById('editAdPlan');
+                    const filters = document.getElementById('planFilters');
+                    
+                    // Keep "All Plans" option
+                    let options = '<option value="0">All Plans</option>';
+                    
+                    // Filter buttons: Start with "All"
+                    let filterButtons = `<button class="btn btn-filter active" onclick="filterAds('all', this)" style="background: #2d3436; color: #fff;">All</button>`;
+                    
+                    plans.forEach(plan => {
+                        allPlans[plan.id] = plan.name;
+                        options += `<option value="${plan.id}">${plan.name}</option>`;
+                        filterButtons += `<button class="btn btn-filter" onclick="filterAds(${plan.id}, this)" style="background: #f1f2f6; color: #636e72;">${plan.name}</button>`;
+                    });
+
+                    select.innerHTML = options;
+                    editSelect.innerHTML = options;
+                    filters.innerHTML = filterButtons;
+                    
+                    // After loading plans, load ads to ensure plan names are available
+                    loadAds();
+                });
+        }
+
+        // Load Ads
+        function loadAds() {
+            fetch('/api/admin/ads')
+                .then(res => res.json())
+                .then(ads => {
+                    adsData = ads;
+                    renderAds(adsData);
+                });
+        }
+
+        // Filter Ads
+        function filterAds(planId, btn) {
+            currentFilter = planId;
+            
+            // Update button styles
+            if(btn) {
+                document.querySelectorAll('.btn-filter').forEach(b => {
+                    b.style.background = '#f1f2f6';
+                    b.style.color = '#636e72';
+                    b.classList.remove('active');
+                });
+                btn.style.background = '#2d3436';
+                btn.style.color = '#fff';
+                btn.classList.add('active');
+            }
+
+            if(planId === 'all') {
+                renderAds(adsData);
+            } else {
+                const filtered = adsData.filter(ad => ad.plan_id == planId);
+                renderAds(filtered);
+            }
+        }
+
+        // Render Ads Table
+        function renderAds(ads) {
+            const tbody = document.querySelector('#adsTable tbody');
+            tbody.innerHTML = '';
+            
+            // Update table header if needed (add Plan column)
+            const thead = document.querySelector('#adsTable thead tr');
+            if(thead.children.length === 6) {
+                // Insert Plan column before Action
+                const th = document.createElement('th');
+                th.textContent = 'Plan';
+                thead.insertBefore(th, thead.lastElementChild);
+            }
+
+            if(ads.length === 0) {
+                const colSpan = thead.children.length;
+                tbody.innerHTML = `<tr><td colspan="${colSpan}" class="text-center">No ads found</td></tr>`;
+                return;
+            }
+
+            ads.forEach(ad => {
+                const tr = document.createElement('tr');
+                const planName = ad.plan_id && allPlans[ad.plan_id] ? allPlans[ad.plan_id] : 'All Plans';
+                
+                // Determine Plan Badge
+                const planBadgeBg = ad.plan_id ? '#dff9fb' : '#dfe6e9';
+                const planBadgeColor = ad.plan_id ? '#0984e3' : '#636e72';
+
+                // Determine Status Badge
+                const status = ad.status ? ad.status.toLowerCase() : 'active'; // Default to active
+                let statusBadgeBg, statusBadgeColor, statusText;
+
+                if (status === 'active') {
+                    statusBadgeBg = '#e6fffa';
+                    statusBadgeColor = '#00b894';
+                    statusText = 'Active';
+                } else {
+                    statusBadgeBg = '#ffeaea';
+                    statusBadgeColor = '#d63031';
+                    statusText = 'Inactive';
+                }
+
+                tr.innerHTML = `
+                    <td>${ad.id}</td>
+                    <td>${ad.title}</td>
+                    <td>${ad.duration}s</td>
+                    <td>PKR ${ad.reward}</td>
+                    <td><span class="badge" style="background: ${statusBadgeBg}; color: ${statusBadgeColor}; padding: 5px 10px;">${statusText}</span></td>
+                    <td><span class="badge" style="background: ${planBadgeBg}; color: ${planBadgeColor}; padding: 5px 10px;">${planName}</span></td>
+                    <td>
+                        <button onclick="openEditModal(${JSON.stringify(ad).replace(/"/g, '&quot;')})" class="btn btn-primary btn-sm" style="background: #0984e3; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer; margin-right: 5px;">
+                            <i class="fas fa-pen"></i>
+                        </button>
+                        <button onclick="deleteAd(${ad.id})" class="btn btn-danger btn-sm" style="background: #ff7675; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer;">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        // Create Ad
+        document.getElementById('createAdForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            const data = {
+                title: document.getElementById('adTitle').value,
+                url: document.getElementById('adUrl').value,
+                duration: document.getElementById('adDuration').value,
+                reward: document.getElementById('adReward').value,
+                plan_id: document.getElementById('adPlan').value
+            };
+
+            fetch('/api/admin/ads', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data)
+            })
+            .then(res => res.json())
+            .then(result => {
+                if(result.success) {
+                    showToast('Ad created successfully!', 'success');
+                    this.reset();
+                    loadAds();
+                } else {
+                    showToast('Error creating ad: ' + result.error, 'error');
+                }
+            })
+            .catch(err => {
+                showToast('Server error: ' + err.message, 'error');
+            });
+        });
+
+        // Edit Ad Logic
+        function openEditModal(ad) {
+            document.getElementById('editAdId').value = ad.id;
+            document.getElementById('editAdTitle').value = ad.title;
+            document.getElementById('editAdUrl').value = ad.url;
+            document.getElementById('editAdDuration').value = ad.duration;
+            document.getElementById('editAdReward').value = ad.reward;
+            document.getElementById('editAdPlan').value = ad.plan_id || 0;
+            document.getElementById('editAdStatus').value = ad.status || 'active';
+            
+            document.getElementById('editAdModal').style.display = 'block';
+        }
+
+        function closeEditModal() {
+            document.getElementById('editAdModal').style.display = 'none';
+        }
+        
+        // Close modal when clicking outside
+        window.onclick = function(event) {
+            if (event.target == document.getElementById('editAdModal')) {
+                closeEditModal();
+            }
+        }
+
+        document.getElementById('editAdForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            const id = document.getElementById('editAdId').value;
+            const data = {
+                title: document.getElementById('editAdTitle').value,
+                url: document.getElementById('editAdUrl').value,
+                duration: document.getElementById('editAdDuration').value,
+                reward: document.getElementById('editAdReward').value,
+                plan_id: document.getElementById('editAdPlan').value,
+                status: document.getElementById('editAdStatus').value
+            };
+
+            fetch(`/api/admin/ads/${id}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data)
+            })
+            .then(res => res.json())
+            .then(result => {
+                if(result.success) {
+                    showToast('Ad updated successfully!', 'success');
+                    closeEditModal();
+                    loadAds();
+                } else {
+                    showToast('Error updating ad: ' + result.error, 'error');
+                }
+            })
+            .catch(err => {
+                showToast('Server error: ' + err.message, 'error');
+            });
+        });
+
+        // Delete Ad
+        window.deleteAd = function(id) {
+            showConfirm(
+                'Delete Advertisement?', 
+                'Are you sure you want to delete this ad? This action cannot be undone.', 
+                () => {
+                    fetch(`/api/admin/ads/${id}`, { method: 'DELETE' })
+                        .then(res => res.json())
+                        .then(result => {
+                            if(result.success) {
+                                showToast('Ad deleted successfully', 'success');
+                                loadAds();
+                            } else {
+                                showToast('Error deleting ad: ' + result.error, 'error');
+                            }
+                        })
+                        .catch(err => {
+                            showToast('Server error: ' + err.message, 'error');
+                        });
+                },
+                'Yes, Delete',
+                'Cancel',
+                true // isDanger
+            );
+        };
+
+        // Initial Load
+        loadPlans();
+    </script>
+    <script src="js/theme.js"></script>
+    <script src="js/translation.js"></script>
+</body>
+</html>
+

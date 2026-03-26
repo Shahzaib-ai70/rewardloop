@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Manage Withdrawals - Admin Panel</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script src="js/notifications.js"></script>
+    <style>
+        .admin-sidebar { background: #2d3436; color: #fff; }
+        .admin-sidebar .logo { color: #fff; }
+        .admin-sidebar .sidebar-menu li a { color: #b2bec3; }
+        .admin-sidebar .sidebar-menu li a:hover, .admin-sidebar .sidebar-menu li a.active { background: rgba(255,255,255,0.1); color: #fff; }
+        .admin-header { background: #fff; box-shadow: 0 2px 10px rgba(0,0,0,0.05); }
+    </style>
+</head>
+<body class="dashboard-body">
+    <aside class="sidebar admin-sidebar">
+        <div class="sidebar-header"><div class="logo"><i class="fas fa-shield-alt"></i> Admin Panel</div></div>
+        <ul class="sidebar-menu">
+            <li><a href="admin_dashboard.html"><i class="fas fa-tachometer-alt"></i> Dashboard</a></li>
+
+            <li><a href="admin_plans.html"><i class="fas fa-crown"></i> Manage Plans</a></li>
+            <li><a href="admin_portfolios.html"><i class="fas fa-briefcase"></i> Manage Portfolios</a></li>
+            <li><a href="admin_ads.html"><i class="fas fa-ad"></i> Manage Ads</a></li>
+            <li><a href="admin_users.html"><i class="fas fa-users"></i> Manage Users</a></li>
+            <li><a href="admin_deposits.html"><i class="fas fa-money-bill-wave"></i> Deposits</a></li>
+            <li><a href="admin_withdrawals.html" class="active"><i class="fas fa-hand-holding-usd"></i> Withdrawals</a></li>
+            <li><a href="admin_support.html"><i class="fas fa-ticket-alt"></i> Support Tickets</a></li>
+            <li><a href="admin_settings.html"><i class="fas fa-cogs"></i> System Settings</a></li>
+        </ul>
+        <div class="sidebar-footer"><a href="/admin/logout" class="logout-btn"><i class="fas fa-sign-out-alt"></i> Log Out</a></div>
+    </aside>
+
+    <main class="main-content">
+        <header class="dashboard-header admin-header">
+            <div class="menu-toggle"><i class="fas fa-bars"></i></div>
+            <div class="header-right">
+                <div id="google_translate_element"></div>
+                <div class="theme-toggle">
+                    <i class="fas fa-moon"></i>
+                </div>
+                <div class="user-profile"><span class="mr-2">Administrator</span><div class="user-avatar" style="background: #d63031;"><i class="fas fa-user-shield"></i></div></div>
+            </div>
+        </header>
+
+        <div class="content-wrapper">
+            <div class="card">
+                <div class="card-body">
+                    <h3 class="section-title">Withdrawal Requests</h3>
+                    <div class="table-responsive">
+                        <table class="table" id="withdrawalsTable">
+                            <thead>
+                                <tr>
+                                    <th>ID</th>
+                                    <th>User</th>
+                                    <th>Amount</th>
+                                    <th>Method</th>
+                                    <th>Account Details</th>
+                                    <th>Status</th>
+                                    <th>Action</th>
+                                </tr>
+                            </thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        document.querySelector('.menu-toggle').addEventListener('click', () => document.querySelector('.sidebar').classList.toggle('active'));
+        
+
+
+        function loadWithdrawals() {
+            fetch('/api/admin/withdrawals')
+                .then(res => res.json())
+                .then(withdrawals => {
+                    const tbody = document.querySelector('#withdrawalsTable tbody');
+                    tbody.innerHTML = '';
+                    
+                    if(withdrawals.length === 0) {
+                        tbody.innerHTML = '<tr><td colspan="7" class="text-center">No withdrawals found</td></tr>';
+                    } else {
+                        withdrawals.forEach(wd => {
+                            const statusBadge = `<span class="badge badge-${wd.status === 'approved' ? 'success' : wd.status === 'pending' ? 'warning' : 'danger'}">${wd.status}</span>`;
+                            
+                            const actionButtons = wd.status === 'pending' ? `
+                                <button class="btn btn-sm btn-success" onclick="updateStatus(${wd.id}, 'approved')">Approve</button>
+                                <button class="btn btn-sm btn-danger" onclick="updateStatus(${wd.id}, 'rejected')">Reject</button>
+                            ` : '-';
+                            
+                            tbody.innerHTML += `
+                                <tr>
+                                    <td>${wd.id}</td>
+                                    <td>${wd.username}</td>
+                                    <td>${wd.amount}</td>
+                                    <td>${wd.method}</td>
+                                    <td>${wd.account_details}</td>
+                                    <td>${statusBadge}</td>
+                                    <td>${actionButtons}</td>
+                                </tr>
+                            `;
+                        });
+                    }
+                });
+        }
+
+        function updateStatus(id, status) {
+            showConfirm(
+                `${status.charAt(0).toUpperCase() + status.slice(1)} Withdrawal?`, 
+                `Are you sure you want to ${status} this withdrawal request?`, 
+                () => {
+                    fetch('/api/admin/withdrawals/status', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ id, status })
+                    })
+                    .then(res => res.json())
+                    .then(data => {
+                        if (data.success) {
+                            showToast('Status updated successfully', 'success');
+                            loadWithdrawals();
+                        } else {
+                            showToast(data.error || 'Error updating status', 'error');
+                        }
+                    })
+                    .catch(err => console.error(err));
+                },
+                `Yes, ${status.charAt(0).toUpperCase() + status.slice(1)}`,
+                'Cancel',
+                status === 'rejected' // Danger if rejected
+            );
+        }
+
+        // Initial Load
+        loadWithdrawals();
+    </script>
+    <script src="js/theme.js"></script>
+    <script src="js/translation.js"></script>
+</body>
+</html>
+
