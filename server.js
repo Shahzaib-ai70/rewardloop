@@ -19,7 +19,7 @@ const storage = multer.diskStorage({
 const upload = multer({ storage: storage });
 
 const app = express();
-const port = 3009;
+const port = process.env.PORT || 3009;
 
 // Middleware
 app.use(bodyParser.urlencoded({ extended: true }));
