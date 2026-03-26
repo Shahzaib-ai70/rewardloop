@@ -266,6 +266,11 @@ db.serialize(() => {
             db.run("INSERT INTO settings (key, value) VALUES ('referral_signup_bonus', '0')");
         }
     });
+    db.get("SELECT value FROM settings WHERE key = 'joining_bonus'", (err, row) => {
+        if (!row) {
+            db.run("INSERT INTO settings (key, value) VALUES ('joining_bonus', '0')");
+        }
+    });
     
     // Create plans table
     db.run("CREATE TABLE IF NOT EXISTS plans (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT, description TEXT, price REAL, duration INTEGER, daily_limit INTEGER, withdraw_limit REAL DEFAULT 0, estimated_profit TEXT, status TEXT DEFAULT 'active', created_at TEXT)", (err) => {
@@ -705,33 +710,47 @@ app.post('/register', (req, res) => {
         }
         
         const newUserId = this.lastID;
-        
-        // --- REFERRAL SIGNUP BONUS LOGIC ---
-        // Only if referral code was provided
-        if (referral && referral.trim() !== '') {
-            db.get("SELECT value FROM settings WHERE key = 'referral_signup_bonus'", (err, row) => {
-                if (!err && row) {
-                    const bonus = parseFloat(row.value);
-                    if (bonus > 0) {
-                        // Add bonus to new user's REWARD BALANCE (not main balance)
-                        db.run("UPDATE users SET reward_balance = reward_balance + ? WHERE id = ?", [bonus, newUserId], (err) => {
-                            if (!err) {
-                                // Log Transaction
-                                const trxId = `SIGNUP-BONUS-${newUserId}-${Date.now()}`;
-                                const stmt = db.prepare("INSERT INTO deposits (user_id, amount, gateway, transaction_id, status, created_at) VALUES (?, ?, ?, ?, ?, ?)");
-                                stmt.run(newUserId, bonus, 'Referral Bonus', trxId, 'completed', new Date().toISOString());
-                                stmt.finalize();
-                                console.log(`Signup Bonus of ${bonus} awarded to user ${username} (referred by ${referral})`);
-                            }
-                        });
-                    }
-                }
-            });
-        }
-        // -----------------------------------
 
-        req.session.user = { id: newUserId, username, email, firstname, lastname, country, phone, referral, gender, created_at, role: 'user', balance: 0.0 };
-        res.json({ success: true, redirect: '/dashboard.html' });
+        db.get("SELECT value FROM settings WHERE key = 'joining_bonus'", (err, row) => {
+            const joiningBonus = !err && row && row.value !== undefined && row.value !== null ? Number(row.value) || 0 : 0;
+
+            const finish = (finalBalance) => {
+                // --- REFERRAL SIGNUP BONUS LOGIC ---
+                // Only if referral code was provided
+                if (referral && referral.trim() !== '') {
+                    db.get("SELECT value FROM settings WHERE key = 'referral_signup_bonus'", (err, row) => {
+                        if (!err && row) {
+                            const bonus = parseFloat(row.value);
+                            if (bonus > 0) {
+                                // Add bonus to new user's REWARD BALANCE (not main balance)
+                                db.run("UPDATE users SET reward_balance = reward_balance + ? WHERE id = ?", [bonus, newUserId], (err) => {
+                                    if (!err) {
+                                        // Log Transaction
+                                        const trxId = `SIGNUP-BONUS-${newUserId}-${Date.now()}`;
+                                        const stmt = db.prepare("INSERT INTO deposits (user_id, amount, gateway, transaction_id, status, created_at) VALUES (?, ?, ?, ?, ?, ?)");
+                                        stmt.run(newUserId, bonus, 'Referral Bonus', trxId, 'completed', new Date().toISOString());
+                                        stmt.finalize();
+                                        console.log(`Signup Bonus of ${bonus} awarded to user ${username} (referred by ${referral})`);
+                                    }
+                                });
+                            }
+                        }
+                    });
+                }
+                // -----------------------------------
+
+                req.session.user = { id: newUserId, username, email, firstname, lastname, country, phone, referral, gender, created_at, role: 'user', balance: finalBalance };
+                res.json({ success: true, redirect: '/dashboard.html' });
+            };
+
+            if (joiningBonus > 0) {
+                db.run("UPDATE users SET balance = balance + ? WHERE id = ?", [joiningBonus, newUserId], () => {
+                    finish(joiningBonus);
+                });
+            } else {
+                finish(0.0);
+            }
+        });
     });
     stmt.finalize();
 });
@@ -785,11 +804,12 @@ app.get('/api/admin/settings/general', (req, res) => {
 });
 
 app.get('/api/settings/general', (req, res) => {
-    db.all("SELECT key, value FROM settings WHERE key IN ('site_name','currency_symbol','referral_signup_bonus')", (err, rows) => {
+    db.all("SELECT key, value FROM settings WHERE key IN ('site_name','currency_symbol','referral_signup_bonus','joining_bonus')", (err, rows) => {
         if (err) return res.status(500).json({ error: 'DB Error' });
-        const settings = { site_name: 'RewardLoop', currency_symbol: 'PKR', referral_signup_bonus: 0 };
+        const settings = { site_name: 'RewardLoop', currency_symbol: 'PKR', referral_signup_bonus: 0, joining_bonus: 0 };
         rows.forEach(row => {
             if (row.key === 'referral_signup_bonus') settings[row.key] = Number(row.value) || 0;
+            else if (row.key === 'joining_bonus') settings[row.key] = Number(row.value) || 0;
             else settings[row.key] = row.value;
         });
         res.json(settings);
@@ -992,12 +1012,13 @@ app.post('/api/admin/settings/general', bodyParser.json(), (req, res) => {
         return res.status(403).json({ error: 'Unauthorized' });
     }
     
-    const { referral_signup_bonus, site_name, currency_symbol } = req.body;
+    const { referral_signup_bonus, joining_bonus, site_name, currency_symbol } = req.body;
     
     db.serialize(() => {
         const stmt = db.prepare("INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)");
         
         if (referral_signup_bonus !== undefined) stmt.run('referral_signup_bonus', referral_signup_bonus);
+        if (joining_bonus !== undefined) stmt.run('joining_bonus', joining_bonus);
         if (site_name !== undefined) stmt.run('site_name', site_name);
         if (currency_symbol !== undefined) stmt.run('currency_symbol', currency_symbol);
         

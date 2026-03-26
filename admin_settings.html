@@ -59,6 +59,11 @@
                             <input type="text" class="form-control" id="currency_symbol" value="PKR">
                         </div>
                         <div class="form-group mb-3">
+                            <label>Joining Bonus (For New User)</label>
+                            <small class="form-text text-muted">Amount added to the user's main balance when they create a new account.</small>
+                            <input type="number" class="form-control" id="joining_bonus" value="0" min="0" step="0.01">
+                        </div>
+                        <div class="form-group mb-3">
                             <label>Referral Signup Bonus (For New User)</label>
                             <small class="form-text text-muted">Amount given to the new user when they sign up with a referral link.</small>
                             <input type="number" class="form-control" id="referral_signup_bonus" value="0" min="0" step="0.01">
@@ -88,6 +93,7 @@
                 .then(settings => {
                     if (settings.site_name) document.getElementById('site_name').value = settings.site_name;
                     if (settings.currency_symbol) document.getElementById('currency_symbol').value = settings.currency_symbol;
+                    if (settings.joining_bonus !== undefined) document.getElementById('joining_bonus').value = settings.joining_bonus;
                     if (settings.referral_signup_bonus) document.getElementById('referral_signup_bonus').value = settings.referral_signup_bonus;
                 })
                 .catch(err => console.error('Error loading settings:', err));
@@ -99,6 +105,7 @@
             const data = {
                 site_name: document.getElementById('site_name').value,
                 currency_symbol: document.getElementById('currency_symbol').value,
+                joining_bonus: document.getElementById('joining_bonus').value,
                 referral_signup_bonus: document.getElementById('referral_signup_bonus').value
             };
 
