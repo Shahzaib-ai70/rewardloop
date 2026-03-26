@@ -2,6 +2,8 @@ const sqlite3 = require('sqlite3').verbose();
 
 const db = new sqlite3.Database('./database.sqlite');
 
+const force = process.argv.includes('--force');
+
 const desiredPlans = [
   { name: 'Standard', description: 'Standard', price: 2000, duration: 30, daily_limit: 5, withdraw_limit: 500, estimated_profit: '2800', status: 'active' },
   { name: 'Silver', description: 'Most Valuable Plan', price: 5000, duration: 30, daily_limit: 10, withdraw_limit: 1200, estimated_profit: '7000', status: 'active' },
@@ -33,7 +35,7 @@ db.serialize(() => {
     desiredPlans.forEach(p => {
       const existing = byName.get(p.name);
       if (existing) {
-        if (seedLike) {
+        if (force || seedLike) {
           updateStmt.run(p.description, p.price, p.duration, p.daily_limit, p.withdraw_limit, p.estimated_profit, p.status, existing.id);
         }
       } else {
@@ -56,4 +58,3 @@ db.serialize(() => {
     });
   });
 });
-
