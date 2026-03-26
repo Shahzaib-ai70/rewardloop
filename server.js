@@ -722,16 +722,19 @@ app.post('/register', (req, res) => {
                         if (!err && row) {
                             const bonus = parseFloat(row.value);
                             if (bonus > 0) {
-                                // Add bonus to new user's REWARD BALANCE (not main balance)
-                                db.run("UPDATE users SET reward_balance = reward_balance + ? WHERE id = ?", [bonus, newUserId], (err) => {
-                                    if (!err) {
-                                        // Log Transaction
-                                        const trxId = `SIGNUP-BONUS-${newUserId}-${Date.now()}`;
+                                const referralCode = referral.trim();
+                                db.get("SELECT id, username FROM users WHERE username = ?", [referralCode], (e3, refUser) => {
+                                    if (e3 || !refUser) return;
+                                    if (Number(refUser.id) === Number(newUserId)) return;
+
+                                    db.run("UPDATE users SET reward_balance = reward_balance + ? WHERE id = ?", [bonus, refUser.id], (e4) => {
+                                        if (e4) return;
+                                        const trxId = `REFERRAL-BONUS-${refUser.id}-${newUserId}-${Date.now()}`;
                                         const stmt = db.prepare("INSERT INTO deposits (user_id, amount, gateway, transaction_id, status, created_at) VALUES (?, ?, ?, ?, ?, ?)");
-                                        stmt.run(newUserId, bonus, 'Referral Bonus', trxId, 'completed', new Date().toISOString());
+                                        stmt.run(refUser.id, bonus, 'Referral Bonus', trxId, 'completed', new Date().toISOString());
                                         stmt.finalize();
-                                        console.log(`Signup Bonus of ${bonus} awarded to user ${username} (referred by ${referral})`);
-                                    }
+                                        console.log(`Referral Bonus of ${bonus} awarded to referrer ${refUser.username} for new user ${username}`);
+                                    });
                                 });
                             }
                         }
