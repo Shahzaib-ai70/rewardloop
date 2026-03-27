@@ -64,6 +64,7 @@
                                     <th>Username</th>
                                     <th>Email</th>
                                     <th>Country</th>
+                                    <th>Active Plan</th>
                                     <th>Joined At</th>
                                     <th>Action</th>
                                 </tr>
@@ -83,7 +84,7 @@
 
         function loadUsers() {
             const tbody = document.querySelector('#usersTable tbody');
-            tbody.innerHTML = '<tr><td colspan="6" class="text-center">Loading...</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="7" class="text-center">Loading...</td></tr>';
 
             fetch('/api/admin/users')
                 .then(res => {
@@ -97,21 +98,27 @@
                 .then(users => {
                     if (!Array.isArray(users)) {
                         console.error("Expected array but got:", users);
-                        tbody.innerHTML = '<tr><td colspan="6" class="text-center text-danger">Invalid data received.</td></tr>';
+                        tbody.innerHTML = '<tr><td colspan="7" class="text-center text-danger">Invalid data received.</td></tr>';
                         return;
                     }
 
                     if (users.length === 0) {
-                        tbody.innerHTML = '<tr><td colspan="6" class="text-center">No users found</td></tr>';
+                        tbody.innerHTML = '<tr><td colspan="7" class="text-center">No users found</td></tr>';
                     } else {
                         tbody.innerHTML = '';
                         users.forEach(user => {
+                            const now = Date.now();
+                            const expiryMs = user.plan_expiry ? new Date(user.plan_expiry).getTime() : 0;
+                            const hasActivePlan = user.plan_id && expiryMs && expiryMs > now;
+                            const planLabel = hasActivePlan ? (user.plan_name || `Plan #${user.plan_id}`) : 'No Active Plan';
+
                             const tr = document.createElement('tr');
                             tr.innerHTML = `
                                 <td>${user.id}</td>
                                 <td>${user.username || 'N/A'}</td>
                                 <td>${user.email || 'N/A'}</td>
                                 <td>${user.country || 'N/A'}</td>
+                                <td>${planLabel}</td>
                                 <td>${user.created_at ? new Date(user.created_at).toLocaleDateString() : 'N/A'}</td>
                                 <td>
                                     <a href="admin_user_detail.html?id=${user.id}" class="btn btn-sm btn-primary">View</a>
@@ -124,7 +131,7 @@
                 })
                 .catch(err => {
                     console.error('Error:', err);
-                    tbody.innerHTML = '<tr><td colspan="6" class="text-center text-danger">Error loading users: ' + err.message + '</td></tr>';
+                    tbody.innerHTML = '<tr><td colspan="7" class="text-center text-danger">Error loading users: ' + err.message + '</td></tr>';
                 });
         }
 
@@ -157,4 +164,3 @@
     <script src="js/translation.js"></script>
 </body>
 </html>
-

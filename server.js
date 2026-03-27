@@ -1499,10 +1499,17 @@ app.get('/api/admin/users', (req, res) => {
     // Explicitly save session to keep it alive during navigation
     req.session.touch();
 
-    // Select all users who are NOT admins OR super_admins (for User Management Page)
-    // If you want to see admins too, remove the WHERE clause or modify it.
-    // Assuming admin_users.html manages regular users.
-    db.all("SELECT * FROM users WHERE role = 'user' ORDER BY id DESC", (err, rows) => {
+    const sql = `
+        SELECT 
+            u.*,
+            p.name AS plan_name
+        FROM users u
+        LEFT JOIN plans p ON p.id = u.plan_id
+        WHERE u.role = 'user'
+        ORDER BY u.id DESC
+    `;
+
+    db.all(sql, (err, rows) => {
         if (err) {
             console.error("Error fetching users:", err);
             return res.status(500).json({ error: 'DB Error' });
