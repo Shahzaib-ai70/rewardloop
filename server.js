@@ -674,6 +674,91 @@ app.post('/api/admin/manage-balance', bodyParser.json(), (req, res) => {
     });
 });
 
+// Admin API: Activate subscription plan from user's wallet balance
+app.post('/api/admin/users/:id/activate-plan-wallet', bodyParser.json(), (req, res) => {
+    if (!req.session || !req.session.user || req.session.user.role !== 'admin') {
+        return res.status(403).json({ error: 'Unauthorized' });
+    }
+
+    const userId = Number(req.params.id);
+    const planId = Number(req.body.plan_id);
+
+    if (!Number.isFinite(userId) || userId <= 0) {
+        return res.status(400).json({ error: 'Invalid user id' });
+    }
+    if (!Number.isFinite(planId) || planId <= 0) {
+        return res.status(400).json({ error: 'Invalid plan id' });
+    }
+
+    db.get("SELECT id, price, duration FROM plans WHERE id = ? AND status = 'active'", [planId], (pErr, plan) => {
+        if (pErr) return res.status(500).json({ error: 'DB Error' });
+        if (!plan) return res.status(404).json({ error: 'Plan not found' });
+
+        const planPrice = Number(plan.price) || 0;
+        const planDuration = Number(plan.duration) || 0;
+        if (planPrice <= 0 || planDuration <= 0) {
+            return res.status(400).json({ error: 'Invalid plan configuration' });
+        }
+
+        db.get("SELECT id, balance, plan_id, plan_expiry FROM users WHERE id = ?", [userId], (uErr, user) => {
+            if (uErr) return res.status(500).json({ error: 'DB Error' });
+            if (!user) return res.status(404).json({ error: 'User not found' });
+
+            const now = new Date();
+            let expiryBase = now;
+            if (Number(user.plan_id) === planId && user.plan_expiry) {
+                const currentExpiry = new Date(user.plan_expiry);
+                if (!isNaN(currentExpiry.getTime()) && currentExpiry > now) {
+                    expiryBase = currentExpiry;
+                }
+            }
+            const newExpiry = new Date(expiryBase.getTime() + planDuration * 24 * 60 * 60 * 1000).toISOString();
+
+            const transactionId = `SUB-${planId}-${Date.now()}-${userId}`;
+            const createdAt = new Date().toISOString();
+
+            const rollback = (status, payload) => {
+                db.run('ROLLBACK', () => res.status(status).json(payload));
+            };
+
+            db.serialize(() => {
+                db.run('BEGIN TRANSACTION');
+
+                db.run(
+                    "UPDATE users SET balance = balance - ?, plan_id = ?, plan_expiry = ? WHERE id = ? AND balance >= ?",
+                    [planPrice, planId, newExpiry, userId, planPrice],
+                    function (upErr) {
+                        if (upErr) return rollback(500, { error: 'DB Error' });
+                        if (!this.changes) return rollback(400, { error: 'Insufficient balance' });
+
+                        db.run(
+                            "INSERT INTO deposits (user_id, amount, gateway, transaction_id, status, created_at) VALUES (?, ?, ?, ?, ?, ?)",
+                            [userId, planPrice, 'Wallet Subscription', transactionId, 'approved', createdAt],
+                            (dErr) => {
+                                if (dErr) return rollback(500, { error: 'DB Error' });
+
+                                db.get("SELECT balance, plan_id, plan_expiry FROM users WHERE id = ?", [userId], (fErr, updated) => {
+                                    if (fErr) return rollback(500, { error: 'DB Error' });
+
+                                    db.run('COMMIT', (cErr) => {
+                                        if (cErr) return rollback(500, { error: 'DB Error' });
+                                        res.json({
+                                            success: true,
+                                            newBalance: updated ? updated.balance : undefined,
+                                            plan_id: updated ? updated.plan_id : planId,
+                                            plan_expiry: updated ? updated.plan_expiry : newExpiry
+                                        });
+                                    });
+                                });
+                            }
+                        );
+                    }
+                );
+            });
+        });
+    });
+});
+
 // Admin API: Delete User
 app.delete('/api/admin/users/:id', (req, res) => {
     if (!req.session.user || req.session.user.role !== 'admin') {

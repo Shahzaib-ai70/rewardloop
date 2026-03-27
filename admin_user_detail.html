@@ -529,6 +529,16 @@
                                         <button onclick="updateBalance('subtract')" class="btn-balance-action btn-sub" style="flex:1;"><i class="fas fa-minus"></i> Sub</button>
                                     </div>
                                 </div>
+
+                                <button onclick="toggleWalletPlanBox()" class="btn btn-purple btn-block" style="margin-top: 12px; font-size: 0.9rem; padding: 10px;">
+                                    <i class="fas fa-crown"></i> Activate Plan From Wallet
+                                </button>
+                                <div id="walletPlanBox" style="display: none; margin-top: 10px;">
+                                    <select id="walletPlanSelect" class="form-control" style="width: 100%; margin-bottom: 10px;"></select>
+                                    <button onclick="activatePlanFromWallet()" class="btn btn-primary btn-block" style="font-size: 0.85rem; padding: 10px;">
+                                        Activate Selected Plan
+                                    </button>
+                                </div>
                             </div>
                         </div>
 
@@ -1184,11 +1194,93 @@
             });
         }
 
+        function toggleWalletPlanBox() {
+            const box = document.getElementById('walletPlanBox');
+            if (!box) return;
+            const isOpen = box.style.display !== 'none';
+            box.style.display = isOpen ? 'none' : 'block';
+            if (!isOpen) loadWalletPlans();
+        }
+
+        let walletPlansLoaded = false;
+        function loadWalletPlans() {
+            if (walletPlansLoaded) return;
+            const select = document.getElementById('walletPlanSelect');
+            if (!select) return;
+
+            select.innerHTML = '<option value="">Loading plans...</option>';
+            fetch('/api/plans')
+                .then(res => res.json())
+                .then(plans => {
+                    if (!Array.isArray(plans) || plans.length === 0) {
+                        select.innerHTML = '<option value="">No active plans</option>';
+                        return;
+                    }
+                    select.innerHTML = '<option value="">Select a plan</option>';
+                    plans.forEach(p => {
+                        const id = Number(p.id);
+                        const price = Number(p.price) || 0;
+                        const duration = Number(p.duration) || 0;
+                        const name = p.name || `Plan ${id}`;
+                        const opt = document.createElement('option');
+                        opt.value = String(id);
+                        opt.textContent = `${name} — PKR ${price} / ${duration} Days`;
+                        select.appendChild(opt);
+                    });
+                    walletPlansLoaded = true;
+                })
+                .catch(() => {
+                    select.innerHTML = '<option value="">Error loading plans</option>';
+                });
+        }
+
+        function activatePlanFromWallet() {
+            const select = document.getElementById('walletPlanSelect');
+            if (!select || !select.value) {
+                showToast('Please select a plan', 'warning');
+                return;
+            }
+
+            const plan_id = Number(select.value);
+            if (!Number.isFinite(plan_id) || plan_id <= 0) {
+                showToast('Invalid plan selected', 'error');
+                return;
+            }
+
+            showConfirm(
+                'Activate Plan?',
+                'This will deduct the plan price from this user wallet balance and activate the plan.',
+                () => {
+                    fetch(`/api/admin/users/${userId}/activate-plan-wallet`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ plan_id })
+                    })
+                        .then(res => res.json())
+                        .then(data => {
+                            if (data && data.success) {
+                                if (data.newBalance !== undefined) {
+                                    document.getElementById('uBalance').textContent = `PKR ${data.newBalance}`;
+                                } else {
+                                    loadUser();
+                                }
+                                showToast('Plan activated from wallet successfully', 'success');
+                            } else {
+                                showToast((data && data.error) ? data.error : 'Error activating plan', 'error');
+                            }
+                        })
+                        .catch(() => showToast('Error activating plan', 'error'));
+                },
+                'Yes, Activate',
+                'Cancel',
+                true
+            );
+        }
+
         loadUser();
     </script>
     <script src="js/theme.js"></script>
     <script src="js/translation.js"></script>
 </body>
 </html>
-
 
