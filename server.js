@@ -1574,6 +1574,7 @@ app.get('/api/admin/subscription-orders', (req, res) => {
 
 // Admin API: Get Deposits
 app.get('/api/admin/deposits', (req, res) => {
+    if (!req.session.user || req.session.user.role !== 'admin') {
         return res.status(403).json({ error: 'Unauthorized' });
     }
     db.all("SELECT deposits.*, users.username FROM deposits JOIN users ON deposits.user_id = users.id ORDER BY deposits.id DESC", (err, rows) => {
