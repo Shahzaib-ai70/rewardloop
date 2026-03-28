@@ -812,7 +812,7 @@ app.post('/register', (req, res) => {
                                     if (e3 || !refUser) return;
                                     if (Number(refUser.id) === Number(newUserId)) return;
 
-                                    db.run("UPDATE users SET balance = balance + ? WHERE id = ?", [bonus, refUser.id], (e4) => {
+                                    db.run("UPDATE users SET reward_balance = reward_balance + ? WHERE id = ?", [bonus, refUser.id], (e4) => {
                                         if (e4) return;
                                         const trxId = `REFERRAL-BONUS-${refUser.id}-${newUserId}-${Date.now()}`;
                                         const stmt = db.prepare("INSERT INTO deposits (user_id, amount, gateway, transaction_id, status, created_at) VALUES (?, ?, ?, ?, ?, ?)");
@@ -1912,26 +1912,53 @@ app.get('/api/user/rewards-history', (req, res) => {
 app.get('/api/user/referrals', (req, res) => {
     if (!req.session.user) return res.status(401).json({ error: 'Unauthorized' });
 
-    db.all("SELECT username, email, created_at, plan_id FROM users WHERE referral = ? ORDER BY id DESC", [req.session.user.username], (err, rows) => {
-        if (err) return res.status(500).json({ error: 'DB Error' });
-        
-        // Enrich with plan names
-        const promises = rows.map(row => {
-            return new Promise((resolve) => {
-                if (row.plan_id) {
-                    db.get("SELECT name FROM plans WHERE id = ?", [row.plan_id], (err, plan) => {
-                        row.plan_name = plan ? plan.name : 'No Plan';
-                        resolve(row);
-                    });
-                } else {
-                    row.plan_name = 'No Plan';
-                    resolve(row);
-                }
-            });
-        });
+    const referrerId = req.session.user.id;
 
-        Promise.all(promises).then(enrichedRows => {
-            res.json(enrichedRows);
+    db.get("SELECT value FROM settings WHERE key = 'referral_signup_bonus'", (bErr, bRow) => {
+        const configuredBonus = !bErr && bRow && bRow.value !== undefined && bRow.value !== null ? Number(bRow.value) || 0 : 0;
+
+        db.all("SELECT id, username, email, created_at, plan_id FROM users WHERE referral = ? ORDER BY id DESC", [req.session.user.username], (err, rows) => {
+        if (err) return res.status(500).json({ error: 'DB Error' });
+
+            const promises = (rows || []).map(row => {
+                return new Promise((resolve) => {
+                    const out = { ...row, configured_bonus: configuredBonus };
+
+                    const finish = () => {
+                        const pattern = `REFERRAL-BONUS-${referrerId}-${row.id}-%`;
+                        db.get(
+                            "SELECT amount, transaction_id, created_at FROM deposits WHERE user_id = ? AND gateway = 'Referral Bonus' AND transaction_id LIKE ? ORDER BY id DESC LIMIT 1",
+                            [referrerId, pattern],
+                            (tErr, trx) => {
+                                if (!tErr && trx) {
+                                    out.bonus_amount = Number(trx.amount) || 0;
+                                    out.bonus_transaction_id = trx.transaction_id;
+                                    out.bonus_created_at = trx.created_at;
+                                    out.bonus_status = 'credited';
+                                } else {
+                                    out.bonus_amount = 0;
+                                    out.bonus_transaction_id = null;
+                                    out.bonus_created_at = null;
+                                    out.bonus_status = 'not_credited';
+                                }
+                                resolve(out);
+                            }
+                        );
+                    };
+
+                    if (row.plan_id) {
+                        db.get("SELECT name FROM plans WHERE id = ?", [row.plan_id], (pErr, plan) => {
+                            out.plan_name = !pErr && plan ? plan.name : 'No Plan';
+                            finish();
+                        });
+                    } else {
+                        out.plan_name = 'No Plan';
+                        finish();
+                    }
+                });
+            });
+
+            Promise.all(promises).then(enrichedRows => res.json(enrichedRows));
         });
     });
 });

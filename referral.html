@@ -1,4 +1,4 @@
-﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿<!DOCTYPE html>
+﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -137,12 +137,13 @@
                             <tr>
                                 <th>User</th>
                                 <th>Plan</th>
+                                <th>Reward</th>
                                 <th>Status</th>
                             </tr>
                         </thead>
                         <tbody>
                             <tr>
-                                <td colspan="3" class="text-center empty-state">
+                                <td colspan="4" class="text-center empty-state">
                                     <div class="empty-content">
                                         <i class="fas fa-box-open fa-3x"></i>
                                         <p>No Data Found</p>
@@ -201,6 +202,12 @@
                     let treeHTML = '<ul style="list-style: none; padding-left: 20px;">';
 
                     users.forEach(user => {
+                        const rewardAmount = user.bonus_status === 'credited' ? Number(user.bonus_amount || 0) : 0;
+                        const showReward = rewardAmount > 0 ? `+PKR ${rewardAmount}` : (Number(user.configured_bonus || 0) > 0 ? `PKR ${Number(user.configured_bonus || 0)} (Not credited)` : '—');
+                        const rewardBadge = rewardAmount > 0
+                            ? `<span class="badge badge-success" style="background: #e8f5e9; color: #2e7d32; padding: 5px 10px; border-radius: 4px;">${showReward}</span>`
+                            : `<span class="badge badge-warning" style="background: #fff3cd; color: #856404; padding: 5px 10px; border-radius: 4px;">${showReward}</span>`;
+
                         // Table Row
                         const tr = document.createElement('tr');
                         tr.innerHTML = `
@@ -216,7 +223,8 @@
                                 </div>
                             </td>
                             <td><span class="badge badge-info" style="background: #e1f5fe; color: #0288d1; padding: 5px 10px; border-radius: 4px;">${user.plan_name || 'No Plan'}</span></td>
-                            <td><span class="badge badge-success" style="background: #e8f5e9; color: #2e7d32; padding: 5px 10px; border-radius: 4px;">Active</span></td>
+                            <td>${rewardBadge}</td>
+                            <td><span class="badge badge-success" style="background: #e8f5e9; color: #2e7d32; padding: 5px 10px; border-radius: 4px;">Joined</span></td>
                         `;
                         tbody.appendChild(tr);
 
@@ -225,6 +233,7 @@
                             <li style="margin-bottom: 10px;">
                                 <i class="fas fa-user-circle" style="color: #6c5ce7;"></i> <strong>${user.username}</strong> 
                                 <span style="font-size: 0.85rem; color: #999;">(Joined: ${new Date(user.created_at).toLocaleDateString()})</span>
+                                <span style="font-size: 0.85rem; color: #999;"> — Reward: ${rewardAmount > 0 ? `PKR ${rewardAmount}` : 'Not credited'}</span>
                             </li>
                         `;
                     });
