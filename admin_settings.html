@@ -68,6 +68,11 @@
                             <small class="form-text text-muted">Amount given to the user who shared the referral link when someone registers.</small>
                             <input type="number" class="form-control" id="referral_signup_bonus" value="0" min="0" step="0.01">
                         </div>
+                        <div class="form-group mb-3">
+                            <label>Minimum Withdrawal Amount</label>
+                            <small class="form-text text-muted">Users cannot request withdrawal less than this amount (applies even if they have balance).</small>
+                            <input type="number" class="form-control" id="min_withdraw_amount" value="0" min="0" step="0.01">
+                        </div>
                         <button type="submit" class="btn btn-save mt-2">Save Settings</button>
                     </form>
                 </div>
@@ -95,6 +100,7 @@
                     if (settings.currency_symbol) document.getElementById('currency_symbol').value = settings.currency_symbol;
                     if (settings.joining_bonus !== undefined) document.getElementById('joining_bonus').value = settings.joining_bonus;
                     if (settings.referral_signup_bonus) document.getElementById('referral_signup_bonus').value = settings.referral_signup_bonus;
+                    if (settings.min_withdraw_amount !== undefined) document.getElementById('min_withdraw_amount').value = settings.min_withdraw_amount;
                 })
                 .catch(err => console.error('Error loading settings:', err));
         }
@@ -106,7 +112,8 @@
                 site_name: document.getElementById('site_name').value,
                 currency_symbol: document.getElementById('currency_symbol').value,
                 joining_bonus: document.getElementById('joining_bonus').value,
-                referral_signup_bonus: document.getElementById('referral_signup_bonus').value
+                referral_signup_bonus: document.getElementById('referral_signup_bonus').value,
+                min_withdraw_amount: document.getElementById('min_withdraw_amount').value
             };
 
             fetch('/api/admin/settings/general', {

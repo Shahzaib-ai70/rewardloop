@@ -1100,7 +1100,7 @@ app.post('/api/admin/settings/general', bodyParser.json(), (req, res) => {
         return res.status(403).json({ error: 'Unauthorized' });
     }
     
-    const { referral_signup_bonus, joining_bonus, site_name, currency_symbol } = req.body;
+    const { referral_signup_bonus, joining_bonus, site_name, currency_symbol, min_withdraw_amount } = req.body;
     
     db.serialize(() => {
         const stmt = db.prepare("INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)");
@@ -1109,6 +1109,7 @@ app.post('/api/admin/settings/general', bodyParser.json(), (req, res) => {
         if (joining_bonus !== undefined) stmt.run('joining_bonus', joining_bonus);
         if (site_name !== undefined) stmt.run('site_name', site_name);
         if (currency_symbol !== undefined) stmt.run('currency_symbol', currency_symbol);
+        if (min_withdraw_amount !== undefined) stmt.run('min_withdraw_amount', min_withdraw_amount);
         
         stmt.finalize();
         res.json({ success: true });
@@ -1340,24 +1341,28 @@ app.post('/api/user/withdraw', bodyParser.json(), (req, res) => {
 
         // Check Withdrawal Limit from Plan
         const minLimit = row.withdraw_limit || 0;
-        if (amountVal < minLimit) {
-            return res.status(400).json({ error: `Minimum withdrawal limit for your plan is ${minLimit}` });
-        }
-        
-        if (row.balance < amountVal) {
-            return res.status(400).json({ error: 'Insufficient balance' });
-        }
-        
-        // Create withdrawal request without deducting balance
-        const stmt = db.prepare("INSERT INTO withdrawals (user_id, amount, method, account_details, status, created_at) VALUES (?, ?, ?, ?, ?, ?)");
-        stmt.run(userId, amountVal, method, account_details, 'pending', new Date().toISOString(), function(err) {
-            if (err) {
-                console.error("Error logging withdrawal:", err);
-                return res.status(500).json({ error: 'DB Error creating withdrawal request' });
+        db.get("SELECT value FROM settings WHERE key = 'min_withdraw_amount' LIMIT 1", (sErr, sRow) => {
+            const globalMin = !sErr && sRow && sRow.value !== undefined && sRow.value !== null ? Number(sRow.value) || 0 : 0;
+            const requiredMin = Math.max(Number(minLimit) || 0, Number(globalMin) || 0);
+
+            if (amountVal < requiredMin) {
+                return res.status(400).json({ error: `Minimum withdrawal amount is ${requiredMin}` });
             }
-            res.json({ success: true });
+
+            if (row.balance < amountVal) {
+                return res.status(400).json({ error: 'Insufficient balance' });
+            }
+
+            const stmt = db.prepare("INSERT INTO withdrawals (user_id, amount, method, account_details, status, created_at) VALUES (?, ?, ?, ?, ?, ?)");
+            stmt.run(userId, amountVal, method, account_details, 'pending', new Date().toISOString(), function(err) {
+                if (err) {
+                    console.error("Error logging withdrawal:", err);
+                    return res.status(500).json({ error: 'DB Error creating withdrawal request' });
+                }
+                res.json({ success: true });
+            });
+            stmt.finalize();
         });
-        stmt.finalize();
     });
 });
 
