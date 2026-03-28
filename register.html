@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+﻿﻿﻿﻿﻿﻿﻿<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -386,7 +386,7 @@
             
             // Check for referral code in URL
             const urlParams = new URLSearchParams(window.location.search);
-            const referralCode = urlParams.get('invite');
+            const referralCode = urlParams.get('invite') || urlParams.get('ref') || urlParams.get('referral');
             if (referralCode) {
                 const referralInput = document.querySelector('input[name="referral"]');
                 if (referralInput) {

@@ -808,11 +808,11 @@ app.post('/register', (req, res) => {
                             const bonus = parseFloat(row.value);
                             if (bonus > 0) {
                                 const referralCode = referral.trim();
-                                db.get("SELECT id, username FROM users WHERE username = ?", [referralCode], (e3, refUser) => {
+                                db.get("SELECT id, username FROM users WHERE LOWER(username) = LOWER(?)", [referralCode], (e3, refUser) => {
                                     if (e3 || !refUser) return;
                                     if (Number(refUser.id) === Number(newUserId)) return;
 
-                                    db.run("UPDATE users SET reward_balance = reward_balance + ? WHERE id = ?", [bonus, refUser.id], (e4) => {
+                                    db.run("UPDATE users SET balance = balance + ? WHERE id = ?", [bonus, refUser.id], (e4) => {
                                         if (e4) return;
                                         const trxId = `REFERRAL-BONUS-${refUser.id}-${newUserId}-${Date.now()}`;
                                         const stmt = db.prepare("INSERT INTO deposits (user_id, amount, gateway, transaction_id, status, created_at) VALUES (?, ?, ?, ?, ?, ?)");
@@ -2225,6 +2225,12 @@ app.get('/login.html', (req, res) => {
 
 app.get('/register.html', (req, res) => {
     res.sendFile(path.join(__dirname, 'register.html'));
+});
+
+app.get('/register', (req, res) => {
+    const idx = req.originalUrl.indexOf('?');
+    const qs = idx !== -1 ? req.originalUrl.slice(idx) : '';
+    res.redirect(`/register.html${qs}`);
 });
 
 app.get('/subscriptions.html', (req, res) => {

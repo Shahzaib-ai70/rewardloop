@@ -1,4 +1,4 @@
-﻿﻿<!DOCTYPE html>
+﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -104,7 +104,7 @@
                 <div class="card-body">
                     <p class="text-muted mb-3">You can also share your referral link by copying and sending it or sharing it on your social media</p>
                     <div class="referral-link-box">
-                        <input type="text" id="referralLink" class="form-control" value="https://solidptc.zdevs.co/register?invite=USER123" readonly>
+                        <input type="text" id="referralLink" class="form-control" value="" readonly>
                         <div class="copy-action">
                             <button class="btn btn-purple" onclick="copyReferralLink()"><i class="fas fa-copy"></i> Copy Link</button>
                             <button class="btn btn-purple"><i class="fas fa-share-alt"></i> Share</button>
@@ -176,12 +176,13 @@
         }
 
         // Fetch user info for link
+        const linkInput = document.getElementById('referralLink');
+        if (linkInput) linkInput.value = `${window.location.origin}/register.html`;
         fetch('/api/user-info')
             .then(res => res.json())
             .then(data => {
                 if (data.username) {
-                    const linkInput = document.getElementById('referralLink');
-                    linkInput.value = `${window.location.origin}/register.html?invite=${data.username}`;
+                    if (linkInput) linkInput.value = `${window.location.origin}/register.html?invite=${data.username}`;
                 }
             });
 
