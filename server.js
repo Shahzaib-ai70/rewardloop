@@ -1518,11 +1518,62 @@ app.get('/api/admin/users', (req, res) => {
     });
 });
 
+// Admin API: Subscription Orders (cross-match with NicePay order number)
+app.get('/api/admin/subscription-orders', (req, res) => {
+    if (!req.session || !req.session.user) {
+        return res.status(401).json({ error: 'Unauthorized: Not logged in' });
+    }
+    if (req.session.user.role !== 'admin') {
+        return res.status(403).json({ error: 'Forbidden: Not an admin' });
+    }
+
+    const q = (req.query.q ? String(req.query.q) : '').trim();
+    const limitRaw = req.query.limit !== undefined ? Number(req.query.limit) : 200;
+    const limit = Number.isFinite(limitRaw) ? Math.min(Math.max(limitRaw, 1), 1000) : 200;
+
+    let sql = `
+        SELECT
+            po.id,
+            po.provider,
+            po.out_order_number,
+            po.status AS order_status,
+            po.amount,
+            po.created_at,
+            po.paid_at,
+            po.user_id,
+            u.username,
+            u.email,
+            po.plan_id,
+            p.name AS plan_name,
+            d.status AS deposit_status,
+            d.gateway AS deposit_gateway
+        FROM payment_orders po
+        JOIN users u ON u.id = po.user_id
+        LEFT JOIN plans p ON p.id = po.plan_id
+        LEFT JOIN deposits d ON d.transaction_id = po.out_order_number
+        WHERE po.order_type = 'subscription'
+    `;
+
+    const params = [];
+    if (q) {
+        sql += ` AND (po.out_order_number LIKE ? OR u.username LIKE ? OR u.email LIKE ?)`;
+        const like = `%${q}%`;
+        params.push(like, like, like);
+    }
+
+    sql += ` ORDER BY po.id DESC LIMIT ?`;
+    params.push(limit);
+
+    db.all(sql, params, (err, rows) => {
+        if (err) return res.status(500).json({ error: 'DB Error' });
+        res.json(rows);
+    });
+});
+
 
 
 // Admin API: Get Deposits
 app.get('/api/admin/deposits', (req, res) => {
-    if (!req.session.user || req.session.user.role !== 'admin') {
         return res.status(403).json({ error: 'Unauthorized' });
     }
     db.all("SELECT deposits.*, users.username FROM deposits JOIN users ON deposits.user_id = users.id ORDER BY deposits.id DESC", (err, rows) => {
