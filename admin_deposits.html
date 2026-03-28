@@ -90,6 +90,7 @@
                 <div class="card-body">
                     <div class="nav-tabs">
                         <button class="nav-link active" onclick="switchTab('requests')">Deposit Requests</button>
+                        <button class="nav-link" onclick="switchTab('ads')">Ad View Earnings</button>
                         <button class="nav-link" onclick="switchTab('methods')">Payment Methods</button>
                     </div>
 
@@ -97,6 +98,27 @@
                         <h3 class="section-title">Pending & Recent Deposits</h3>
                         <div class="table-responsive">
                             <table class="table" id="depositsTable">
+                                <thead>
+                                    <tr>
+                                        <th>ID</th>
+                                        <th>User</th>
+                                        <th>Amount</th>
+                                        <th>Gateway</th>
+                                        <th>Trx ID</th>
+                                        <th>Proof</th>
+                                        <th>Status</th>
+                                        <th>Action</th>
+                                    </tr>
+                                </thead>
+                                <tbody></tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <div id="ads" class="tab-content">
+                        <h3 class="section-title">Ad View Earnings</h3>
+                        <div class="table-responsive">
+                            <table class="table" id="adsTable">
                                 <thead>
                                     <tr>
                                         <th>ID</th>
@@ -200,36 +222,57 @@
             if(tabName === 'methods') loadMethods();
         }
 
-        // Load Deposits
-        fetch('/api/admin/deposits')
-            .then(res => res.json())
-            .then(deposits => {
-                const tbody = document.querySelector('#depositsTable tbody');
-                if(deposits.length === 0) tbody.innerHTML = '<tr><td colspan="7" class="text-center">No deposits found</td></tr>';
-                else {
-                    deposits.forEach(dep => {
-                        tbody.innerHTML += `
-                            <tr>
-                                <td>${dep.id}</td>
-                                <td>${dep.username}</td>
-                                <td>${dep.amount}</td>
-                                <td>${dep.gateway}</td>
-                                <td>${dep.transaction_id}</td>
-                                <td>
-                                    ${dep.proof_image ? `<a href="${dep.proof_image}" target="_blank" class="btn-view"><i class="fas fa-eye"></i> View</a>` : '<span style="color: #b2bec3;">None</span>'}
-                                </td>
-                                <td><span class="badge badge-${dep.status === 'approved' ? 'success' : dep.status === 'pending' ? 'warning' : 'danger'}">${dep.status}</span></td>
-                                <td>
-                                    ${dep.status === 'pending' ? `
-                                    <button class="btn btn-sm btn-success" onclick="updateStatus(${dep.id}, 'approved')">Approve</button>
-                                    <button class="btn btn-sm btn-danger" onclick="updateStatus(${dep.id}, 'rejected')">Reject</button>
-                                    ` : '-'}
-                                </td>
-                            </tr>
-                        `;
-                    });
-                }
-            });
+        function depositRowHtml(dep) {
+            return `
+                <tr>
+                    <td>${dep.id}</td>
+                    <td>${dep.username}</td>
+                    <td>${dep.amount}</td>
+                    <td>${dep.gateway}</td>
+                    <td>${dep.transaction_id}</td>
+                    <td>
+                        ${dep.proof_image ? `<a href="${dep.proof_image}" target="_blank" class="btn-view"><i class="fas fa-eye"></i> View</a>` : '<span style="color: #b2bec3;">None</span>'}
+                    </td>
+                    <td><span class="badge badge-${dep.status === 'approved' ? 'success' : dep.status === 'pending' ? 'warning' : 'danger'}">${dep.status}</span></td>
+                    <td>
+                        ${dep.status === 'pending' ? `
+                        <button class="btn btn-sm btn-success" onclick="updateStatus(${dep.id}, 'approved')">Approve</button>
+                        <button class="btn btn-sm btn-danger" onclick="updateStatus(${dep.id}, 'rejected')">Reject</button>
+                        ` : '-'}
+                    </td>
+                </tr>
+            `;
+        }
+
+        function loadDeposits() {
+            fetch('/api/admin/deposits')
+                .then(res => res.json())
+                .then(deposits => {
+                    const depositsBody = document.querySelector('#depositsTable tbody');
+                    const adsBody = document.querySelector('#adsTable tbody');
+                    if (!depositsBody || !adsBody) return;
+
+                    depositsBody.innerHTML = '';
+                    adsBody.innerHTML = '';
+
+                    if (!Array.isArray(deposits) || deposits.length === 0) {
+                        depositsBody.innerHTML = '<tr><td colspan="8" class="text-center">No deposits found</td></tr>';
+                        adsBody.innerHTML = '<tr><td colspan="8" class="text-center">No ad earnings found</td></tr>';
+                        return;
+                    }
+
+                    const adViews = deposits.filter(d => String(d.gateway || '').toLowerCase() === 'ad view');
+                    const realDeposits = deposits.filter(d => String(d.gateway || '').toLowerCase() !== 'ad view');
+
+                    if (realDeposits.length === 0) depositsBody.innerHTML = '<tr><td colspan="8" class="text-center">No deposits found</td></tr>';
+                    else realDeposits.forEach(dep => { depositsBody.innerHTML += depositRowHtml(dep); });
+
+                    if (adViews.length === 0) adsBody.innerHTML = '<tr><td colspan="8" class="text-center">No ad earnings found</td></tr>';
+                    else adViews.forEach(dep => { adsBody.innerHTML += depositRowHtml(dep); });
+                });
+        }
+
+        loadDeposits();
 
         function updateStatus(id, status) {
             showConfirm(
