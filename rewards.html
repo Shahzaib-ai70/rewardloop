@@ -1,4 +1,4 @@
-﻿﻿<!DOCTYPE html>
+﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -191,9 +191,10 @@
                     if (data.earnings && data.earnings.length > 0) {
                         earningsBody.innerHTML = '';
                         data.earnings.forEach(item => {
+                            const title = item.gateway || 'Reward';
                             earningsBody.innerHTML += `
                                 <tr>
-                                    <td>Referral Bonus</td>
+                                    <td>${title}</td>
                                     <td>1 Transaction</td>
                                     <td style="color: #2ecc71; font-weight: bold;">+PKR ${item.amount}</td>
                                 </tr>

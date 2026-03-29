@@ -959,6 +959,48 @@ function isNicePayPaid(payload) {
     return false;
 }
 
+function awardReferralDepositCommission(opts) {
+    const referredUserId = Number(opts && opts.referredUserId);
+    const depositAmount = Number(opts && opts.depositAmount);
+    const sourceTransactionId = (opts && opts.sourceTransactionId ? String(opts.sourceTransactionId) : '').trim();
+
+    if (!Number.isFinite(referredUserId) || referredUserId <= 0) return;
+    if (!Number.isFinite(depositAmount) || depositAmount <= 0) return;
+    if (!sourceTransactionId) return;
+
+    if (sourceTransactionId.startsWith('SUB-')) return;
+    if (sourceTransactionId.startsWith('AD-')) return;
+    if (sourceTransactionId.startsWith('REFERRAL-') || sourceTransactionId.startsWith('REF-COMMISSION-')) return;
+    if (sourceTransactionId.startsWith('REDEEM-')) return;
+
+    const pct = 10;
+    const commission = Math.round(((depositAmount * pct) / 100) * 100) / 100;
+    if (!Number.isFinite(commission) || commission <= 0) return;
+
+    db.get("SELECT referral FROM users WHERE id = ?", [referredUserId], (e1, u) => {
+        if (e1 || !u || !u.referral) return;
+        const referralCode = String(u.referral || '').trim();
+        if (!referralCode) return;
+
+        db.get("SELECT id, username FROM users WHERE LOWER(username) = LOWER(?) LIMIT 1", [referralCode], (e2, refUser) => {
+            if (e2 || !refUser) return;
+            if (Number(refUser.id) === referredUserId) return;
+
+            const trxId = `REF-COMMISSION-${refUser.id}-${referredUserId}-${sourceTransactionId}`;
+            db.get("SELECT id FROM deposits WHERE transaction_id = ? LIMIT 1", [trxId], (e3, exists) => {
+                if (!e3 && exists) return;
+
+                db.run("UPDATE users SET reward_balance = reward_balance + ? WHERE id = ?", [commission, refUser.id], (e4) => {
+                    if (e4) return;
+                    const stmt = db.prepare("INSERT INTO deposits (user_id, amount, gateway, transaction_id, status, created_at) VALUES (?, ?, ?, ?, ?, ?)");
+                    stmt.run(refUser.id, commission, 'Referral Commission', trxId, 'completed', new Date().toISOString());
+                    stmt.finalize();
+                });
+            });
+        });
+    });
+}
+
 app.post('/api/nicepay/subscription/create', async (req, res) => {
     if (!req.session.user) return res.status(401).json({ error: 'Unauthorized' });
     const planId = Number(req.body.plan_id);
@@ -1072,7 +1114,10 @@ app.post('/api/nicepay/notify', (req, res) => {
                                     db.run("UPDATE users SET plan_id = ?, plan_expiry = ? WHERE id = ?", [order.plan_id, expiry, order.user_id], () => res.send('success'));
                                 });
                             } else {
-                                db.run("UPDATE users SET balance = balance + ? WHERE id = ?", [order.amount, order.user_id], () => res.send('success'));
+                                db.run("UPDATE users SET balance = balance + ? WHERE id = ?", [order.amount, order.user_id], () => {
+                                    awardReferralDepositCommission({ referredUserId: order.user_id, depositAmount: order.amount, sourceTransactionId: depositTrx });
+                                    res.send('success');
+                                });
                             }
                         }
                     );
@@ -1892,8 +1937,8 @@ app.get('/api/user/rewards-history', (req, res) => {
     db.serialize(() => {
         const history = {};
         
-        // 1. Earnings (Bonuses) - Look for gateway 'Referral Bonus'
-        db.all("SELECT * FROM deposits WHERE user_id = ? AND gateway = 'Referral Bonus' ORDER BY id DESC", [userId], (err, earnings) => {
+        // 1. Earnings (Bonuses/Commissions)
+        db.all("SELECT * FROM deposits WHERE user_id = ? AND gateway IN ('Referral Bonus','Referral Commission') ORDER BY id DESC", [userId], (err, earnings) => {
             if (err) return res.status(500).json({ error: 'DB Error' });
             history.earnings = earnings;
             
@@ -2014,6 +2059,7 @@ app.post('/api/admin/deposits/status', bodyParser.json(), (req, res) => {
                         // Normal Deposit: Add balance to user
                         db.run("UPDATE users SET balance = balance + ? WHERE id = ?", [deposit.amount, deposit.user_id], (err) => {
                             if (err) console.error("Error adding balance after deposit approval:", err);
+                            awardReferralDepositCommission({ referredUserId: deposit.user_id, depositAmount: deposit.amount, sourceTransactionId: deposit.transaction_id });
                             res.json({ success: true });
                         });
                     }
