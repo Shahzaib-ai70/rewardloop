@@ -73,6 +73,11 @@
                             <small class="form-text text-muted">Users cannot request withdrawal less than this amount (applies even if they have balance).</small>
                             <input type="number" class="form-control" id="min_withdraw_amount" value="0" min="0" step="0.01">
                         </div>
+                        <div class="form-group mb-3">
+                            <label>Referral Deposit Commission (%)</label>
+                            <small class="form-text text-muted">Commission added to referrer rewards when referred user deposit is approved.</small>
+                            <input type="number" class="form-control" id="referral_deposit_commission_pct" value="10" min="0" step="0.01">
+                        </div>
                         <button type="submit" class="btn btn-save mt-2">Save Settings</button>
                     </form>
                 </div>
@@ -101,6 +106,7 @@
                     if (settings.joining_bonus !== undefined) document.getElementById('joining_bonus').value = settings.joining_bonus;
                     if (settings.referral_signup_bonus) document.getElementById('referral_signup_bonus').value = settings.referral_signup_bonus;
                     if (settings.min_withdraw_amount !== undefined) document.getElementById('min_withdraw_amount').value = settings.min_withdraw_amount;
+                    if (settings.referral_deposit_commission_pct !== undefined) document.getElementById('referral_deposit_commission_pct').value = settings.referral_deposit_commission_pct;
                 })
                 .catch(err => console.error('Error loading settings:', err));
         }
@@ -113,7 +119,8 @@
                 currency_symbol: document.getElementById('currency_symbol').value,
                 joining_bonus: document.getElementById('joining_bonus').value,
                 referral_signup_bonus: document.getElementById('referral_signup_bonus').value,
-                min_withdraw_amount: document.getElementById('min_withdraw_amount').value
+                min_withdraw_amount: document.getElementById('min_withdraw_amount').value,
+                referral_deposit_commission_pct: document.getElementById('referral_deposit_commission_pct').value
             };
 
             fetch('/api/admin/settings/general', {

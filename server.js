@@ -271,6 +271,11 @@ db.serialize(() => {
             db.run("INSERT INTO settings (key, value) VALUES ('joining_bonus', '0')");
         }
     });
+    db.get("SELECT value FROM settings WHERE key = 'referral_deposit_commission_pct'", (err, row) => {
+        if (!row) {
+            db.run("INSERT INTO settings (key, value) VALUES ('referral_deposit_commission_pct', '10')");
+        }
+    });
     
     // Create plans table
     db.run("CREATE TABLE IF NOT EXISTS plans (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT, description TEXT, price REAL, duration INTEGER, daily_limit INTEGER, withdraw_limit REAL DEFAULT 0, estimated_profit TEXT, status TEXT DEFAULT 'active', created_at TEXT)", (err) => {
@@ -973,11 +978,15 @@ function awardReferralDepositCommission(opts) {
     if (sourceTransactionId.startsWith('REFERRAL-') || sourceTransactionId.startsWith('REF-COMMISSION-')) return;
     if (sourceTransactionId.startsWith('REDEEM-')) return;
 
-    const pct = 10;
-    const commission = Math.round(((depositAmount * pct) / 100) * 100) / 100;
-    if (!Number.isFinite(commission) || commission <= 0) return;
+    db.get("SELECT value FROM settings WHERE key = 'referral_deposit_commission_pct' LIMIT 1", (sErr, sRow) => {
+        const pctRaw = !sErr && sRow && sRow.value !== undefined && sRow.value !== null ? Number(sRow.value) : 10;
+        const pct = Number.isFinite(pctRaw) ? Math.min(Math.max(pctRaw, 0), 100) : 10;
+        if (pct <= 0) return;
 
-    db.get("SELECT referral FROM users WHERE id = ?", [referredUserId], (e1, u) => {
+        const commission = Math.round(((depositAmount * pct) / 100) * 100) / 100;
+        if (!Number.isFinite(commission) || commission <= 0) return;
+
+        db.get("SELECT referral FROM users WHERE id = ?", [referredUserId], (e1, u) => {
         if (e1 || !u || !u.referral) return;
         const referralCode = String(u.referral || '').trim();
         if (!referralCode) return;
@@ -997,6 +1006,7 @@ function awardReferralDepositCommission(opts) {
                     stmt.finalize();
                 });
             });
+        });
         });
     });
 }
@@ -1145,7 +1155,7 @@ app.post('/api/admin/settings/general', bodyParser.json(), (req, res) => {
         return res.status(403).json({ error: 'Unauthorized' });
     }
     
-    const { referral_signup_bonus, joining_bonus, site_name, currency_symbol, min_withdraw_amount } = req.body;
+    const { referral_signup_bonus, joining_bonus, site_name, currency_symbol, min_withdraw_amount, referral_deposit_commission_pct } = req.body;
     
     db.serialize(() => {
         const stmt = db.prepare("INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)");
@@ -1155,6 +1165,7 @@ app.post('/api/admin/settings/general', bodyParser.json(), (req, res) => {
         if (site_name !== undefined) stmt.run('site_name', site_name);
         if (currency_symbol !== undefined) stmt.run('currency_symbol', currency_symbol);
         if (min_withdraw_amount !== undefined) stmt.run('min_withdraw_amount', min_withdraw_amount);
+        if (referral_deposit_commission_pct !== undefined) stmt.run('referral_deposit_commission_pct', referral_deposit_commission_pct);
         
         stmt.finalize();
         res.json({ success: true });
