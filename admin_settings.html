@@ -79,11 +79,22 @@
                             <input type="number" class="form-control" id="referral_deposit_commission_pct" value="10" min="0" step="0.01">
                         </div>
                         <div class="form-group mb-3">
-                            <label>Subscription Help Media (Image/Video)</label>
-                            <small class="form-text text-muted">This will show as a popup on the subscription page to explain how to pay/subscribe.</small>
-                            <input type="file" class="form-control" id="subscription_help_media" accept="image/*,video/*">
-                            <div id="subscriptionHelpPreview" style="margin-top: 10px;"></div>
-                            <button type="button" class="btn btn-primary mt-2" onclick="uploadSubscriptionHelpMedia()">Upload Media</button>
+                            <label>Page Help Media (Image/Video)</label>
+                            <small class="form-text text-muted">Select a page and upload a help video/image to show as a popup for users.</small>
+                            <select class="form-control" id="helpMediaPage" onchange="loadHelpMediaForSelectedPage()">
+                                <option value="subscriptions">Subscriptions</option>
+                                <option value="withdraw">Withdraw</option>
+                                <option value="referral">Referral</option>
+                                <option value="deposit">Deposit</option>
+                                <option value="ads">Ads</option>
+                                <option value="rewards">Rewards</option>
+                            </select>
+                            <input type="file" class="form-control" id="helpMediaFile" accept="image/*,video/*" style="margin-top: 10px;">
+                            <div id="helpMediaPreview" style="margin-top: 10px;"></div>
+                            <div style="display:flex; gap:10px; flex-wrap:wrap; margin-top: 10px;">
+                                <button type="button" class="btn btn-primary" onclick="uploadHelpMedia()">Upload Media</button>
+                                <button type="button" class="btn btn-danger" onclick="clearHelpMedia()">Clear Media</button>
+                            </div>
                         </div>
                         <button type="submit" class="btn btn-save mt-2">Save Settings</button>
                     </form>
@@ -114,7 +125,9 @@
                     if (settings.referral_signup_bonus) document.getElementById('referral_signup_bonus').value = settings.referral_signup_bonus;
                     if (settings.min_withdraw_amount !== undefined) document.getElementById('min_withdraw_amount').value = settings.min_withdraw_amount;
                     if (settings.referral_deposit_commission_pct !== undefined) document.getElementById('referral_deposit_commission_pct').value = settings.referral_deposit_commission_pct;
-                    renderSubscriptionHelpPreview(settings.subscription_help_media || '');
+                    const pageSelect = document.getElementById('helpMediaPage');
+                    if (pageSelect && !pageSelect.value) pageSelect.value = 'subscriptions';
+                    loadHelpMediaForSelectedPage();
                 })
                 .catch(err => console.error('Error loading settings:', err));
         }
@@ -147,8 +160,8 @@
             .catch(err => showToast('Server error: ' + err.message, 'error'));
         }
 
-        function renderSubscriptionHelpPreview(url) {
-            const box = document.getElementById('subscriptionHelpPreview');
+        function renderHelpMediaPreview(url) {
+            const box = document.getElementById('helpMediaPreview');
             if (!box) return;
             box.innerHTML = '';
             if (!url) {
@@ -163,26 +176,61 @@
             }
         }
 
-        function uploadSubscriptionHelpMedia() {
-            const input = document.getElementById('subscription_help_media');
+        function loadHelpMediaForSelectedPage() {
+            const page = document.getElementById('helpMediaPage') ? document.getElementById('helpMediaPage').value : '';
+            fetch(`/api/settings/help-media?page=${encodeURIComponent(page)}`)
+                .then(res => res.json())
+                .then(data => {
+                    renderHelpMediaPreview(data && data.media_url ? data.media_url : '');
+                })
+                .catch(() => renderHelpMediaPreview(''));
+        }
+
+        function uploadHelpMedia() {
+            const page = document.getElementById('helpMediaPage') ? document.getElementById('helpMediaPage').value : '';
+            const input = document.getElementById('helpMediaFile');
+            if (!page) {
+                showToast('Please select a page', 'warning');
+                return;
+            }
             if (!input || !input.files || !input.files[0]) {
                 showToast('Please select an image or video file', 'warning');
                 return;
             }
             const form = new FormData();
+            form.append('page', page);
             form.append('media', input.files[0]);
-            fetch('/api/admin/settings/subscription-help', {
-                method: 'POST',
-                body: form
-            })
+            fetch('/api/admin/settings/help-media', { method: 'POST', body: form })
                 .then(res => res.json())
                 .then(result => {
                     if (result && result.success) {
                         input.value = '';
-                        renderSubscriptionHelpPreview(result.media_url || '');
-                        showToast('Subscription help media updated', 'success');
+                        renderHelpMediaPreview(result.media_url || '');
+                        showToast('Help media updated', 'success');
                     } else {
                         showToast((result && result.error) ? result.error : 'Error uploading media', 'error');
+                    }
+                })
+                .catch(err => showToast('Server error: ' + err.message, 'error'));
+        }
+
+        function clearHelpMedia() {
+            const page = document.getElementById('helpMediaPage') ? document.getElementById('helpMediaPage').value : '';
+            if (!page) {
+                showToast('Please select a page', 'warning');
+                return;
+            }
+            const form = new FormData();
+            form.append('page', page);
+            form.append('clear', '1');
+            fetch('/api/admin/settings/help-media', { method: 'POST', body: form })
+                .then(res => res.json())
+                .then(result => {
+                    if (result && result.success) {
+                        renderHelpMediaPreview('');
+                        showToast('Help media cleared', 'success');
+                    } else {
+                        showToast((result && result.error) ? result.error : 'Error clearing media', 'error');
                     }
                 })
                 .catch(err => showToast('Server error: ' + err.message, 'error'));

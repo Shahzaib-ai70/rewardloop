@@ -1,4 +1,4 @@
-﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿<!DOCTYPE html>
+﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -67,6 +67,9 @@
             <div class="referral-banner">
                 <div class="banner-content">
                     <h2>Earn 10% commission for every friend who subscribes!</h2>
+                    <div style="margin-top: 10px;">
+                        <button onclick="openHelpModal()" class="btn btn-purple-outline"><i class="fas fa-circle-info"></i> How Referral Works</button>
+                    </div>
                     
                     <div class="referral-steps">
                         <div class="step-item">
@@ -157,6 +160,20 @@
         </div>
     </main>
 
+    <div id="helpModal" class="modal-overlay" style="display: none;">
+        <div class="modal-content" style="max-width: 800px;">
+            <div class="modal-header">
+                <h3>How Referral Works</h3>
+                <span class="close-modal" onclick="closeHelpModal()">&times;</span>
+            </div>
+            <div class="modal-body">
+                <div id="helpBody" style="text-align:center;">
+                    <div style="opacity:0.7;">No help media added yet.</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <script>
         // Toggle Sidebar for mobile
         document.querySelector('.menu-toggle').addEventListener('click', function() {
@@ -175,6 +192,37 @@
             navigator.clipboard.writeText(copyText.value);
             showToast("Referral link copied!", 'success');
         }
+
+        let helpMediaUrl = '';
+        function openHelpModal() {
+            const modal = document.getElementById('helpModal');
+            const body = document.getElementById('helpBody');
+            if (!modal || !body) return;
+            modal.style.display = 'flex';
+            if (!helpMediaUrl) {
+                body.innerHTML = '<div style="opacity:0.8;">No help media added yet.</div>';
+                return;
+            }
+            const lower = helpMediaUrl.toLowerCase();
+            if (lower.endsWith('.mp4') || lower.endsWith('.webm') || lower.endsWith('.ogg')) {
+                body.innerHTML = `<video src="${helpMediaUrl}" controls style="width:100%; max-height:480px; border-radius:12px; background:#000;"></video>`;
+            } else {
+                body.innerHTML = `<img src="${helpMediaUrl}" alt="Referral Help" style="width:100%; max-height:480px; object-fit:contain; border-radius:12px; background:#f8f9fa; border:1px solid #eee;">`;
+            }
+        }
+
+        function closeHelpModal() {
+            const modal = document.getElementById('helpModal');
+            if (modal) modal.style.display = 'none';
+        }
+
+        fetch('/api/settings/help-media?page=referral')
+            .then(res => res.json())
+            .then(data => {
+                helpMediaUrl = (data && data.media_url) ? String(data.media_url) : '';
+                if (helpMediaUrl) openHelpModal();
+            })
+            .catch(() => {});
 
         // Fetch user info for link
         const linkInput = document.getElementById('referralLink');

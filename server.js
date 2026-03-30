@@ -1203,6 +1203,50 @@ app.get('/api/settings/subscription-help', (req, res) => {
     });
 });
 
+function resolveHelpMediaKey(page) {
+    const p = String(page || '').trim().toLowerCase();
+    if (!p || !/^[a-z0-9_-]+$/.test(p)) return null;
+    if (p === 'subscriptions' || p === 'subscription') return 'subscription_help_media';
+    return `help_media_${p}`;
+}
+
+app.get('/api/settings/help-media', (req, res) => {
+    const key = resolveHelpMediaKey(req.query.page);
+    if (!key) return res.status(400).json({ error: 'Invalid page' });
+    db.get("SELECT value FROM settings WHERE key = ? LIMIT 1", [key], (err, row) => {
+        if (err) return res.status(500).json({ error: 'DB Error' });
+        res.json({ media_url: row && row.value ? String(row.value) : '' });
+    });
+});
+
+app.post('/api/admin/settings/help-media', upload.single('media'), (req, res) => {
+    if (!req.session.user || req.session.user.role !== 'admin') {
+        return res.status(403).json({ error: 'Unauthorized' });
+    }
+
+    const key = resolveHelpMediaKey(req.body && req.body.page);
+    if (!key) return res.status(400).json({ error: 'Invalid page' });
+
+    const clear = req.body && (req.body.clear === '1' || req.body.clear === 'true');
+    if (clear) {
+        db.run("INSERT OR REPLACE INTO settings (key, value) VALUES (?, '')", [key], (err) => {
+            if (err) return res.status(500).json({ error: 'DB Error' });
+            res.json({ success: true, media_url: '' });
+        });
+        return;
+    }
+
+    if (!req.file || !req.file.filename) {
+        return res.status(400).json({ error: 'No media uploaded' });
+    }
+
+    const mediaUrl = `/uploads/${req.file.filename}`;
+    db.run("INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)", [key, mediaUrl], (err) => {
+        if (err) return res.status(500).json({ error: 'DB Error' });
+        res.json({ success: true, media_url: mediaUrl });
+    });
+});
+
 app.post('/api/admin/settings/subscription-help', upload.single('media'), (req, res) => {
     if (!req.session.user || req.session.user.role !== 'admin') {
         return res.status(403).json({ error: 'Unauthorized' });
