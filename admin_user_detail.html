@@ -722,7 +722,7 @@
                                     </div>
                                     <div style="display: flex; gap: 15px; margin-top: 20px;">
                                         <button type="submit" class="btn btn-purple" style="flex: 1; padding: 12px;">Change Password</button>
-                                        <button type="button" class="btn btn-danger" onclick="resetUserAds()" style="flex: 1; padding: 12px;">Reset Ads History</button>
+                                        <button type="button" class="btn btn-danger" onclick="resetUserAds()" style="flex: 1; padding: 12px;">Reset Ads + Revert Earnings</button>
                                     </div>
                                 </form>
                             </div>
@@ -973,13 +973,16 @@
         function resetUserAds() {
             showConfirm(
                 'Reset Ads?', 
-                'Are you sure? This will allow the user to watch all ads again.', 
+                'This will delete all Ad View history and deduct the earned ad amount from the user balance. Then the user can watch ads again as per plan.', 
                 () => {
                     fetch(`/api/admin/users/${userId}/reset-ads`, { method: 'POST' })
                         .then(res => res.json())
                         .then(data => {
                             if(data.success) {
                                 showToast('Ads reset successfully!', 'success');
+                                if (data.newBalance !== undefined) {
+                                    document.getElementById('uBalance').textContent = `PKR ${data.newBalance}`;
+                                }
                                 loadUserStats();
                                 loadUserViewedAds();
                             } else {
@@ -1283,4 +1286,3 @@
     <script src="js/translation.js"></script>
 </body>
 </html>
-
