@@ -276,6 +276,11 @@ db.serialize(() => {
             db.run("INSERT INTO settings (key, value) VALUES ('referral_deposit_commission_pct', '10')");
         }
     });
+    db.get("SELECT value FROM settings WHERE key = 'subscription_help_media'", (err, row) => {
+        if (!row) {
+            db.run("INSERT INTO settings (key, value) VALUES ('subscription_help_media', '')");
+        }
+    });
     
     // Create plans table
     db.run("CREATE TABLE IF NOT EXISTS plans (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT, description TEXT, price REAL, duration INTEGER, daily_limit INTEGER, withdraw_limit REAL DEFAULT 0, estimated_profit TEXT, status TEXT DEFAULT 'active', created_at TEXT)", (err) => {
@@ -1149,6 +1154,38 @@ app.get('/api/nicepay/order/:outOrder', (req, res) => {
         if (err) return res.status(500).json({ error: 'DB Error' });
         if (!row) return res.status(404).json({ error: 'Not found' });
         res.json(row);
+    });
+});
+
+app.get('/api/settings/subscription-help', (req, res) => {
+    db.get("SELECT value FROM settings WHERE key = 'subscription_help_media' LIMIT 1", (err, row) => {
+        if (err) return res.status(500).json({ error: 'DB Error' });
+        res.json({ media_url: row && row.value ? String(row.value) : '' });
+    });
+});
+
+app.post('/api/admin/settings/subscription-help', upload.single('media'), (req, res) => {
+    if (!req.session.user || req.session.user.role !== 'admin') {
+        return res.status(403).json({ error: 'Unauthorized' });
+    }
+
+    const clear = req.body && (req.body.clear === '1' || req.body.clear === 'true');
+    if (clear) {
+        db.run("INSERT OR REPLACE INTO settings (key, value) VALUES ('subscription_help_media', '')", (err) => {
+            if (err) return res.status(500).json({ error: 'DB Error' });
+            res.json({ success: true, media_url: '' });
+        });
+        return;
+    }
+
+    if (!req.file || !req.file.filename) {
+        return res.status(400).json({ error: 'No media uploaded' });
+    }
+
+    const mediaUrl = `/uploads/${req.file.filename}`;
+    db.run("INSERT OR REPLACE INTO settings (key, value) VALUES ('subscription_help_media', ?)", [mediaUrl], (err) => {
+        if (err) return res.status(500).json({ error: 'DB Error' });
+        res.json({ success: true, media_url: mediaUrl });
     });
 });
 

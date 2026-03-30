@@ -78,6 +78,13 @@
                             <small class="form-text text-muted">Commission added to referrer rewards when referred user deposit is approved.</small>
                             <input type="number" class="form-control" id="referral_deposit_commission_pct" value="10" min="0" step="0.01">
                         </div>
+                        <div class="form-group mb-3">
+                            <label>Subscription Help Media (Image/Video)</label>
+                            <small class="form-text text-muted">This will show as a popup on the subscription page to explain how to pay/subscribe.</small>
+                            <input type="file" class="form-control" id="subscription_help_media" accept="image/*,video/*">
+                            <div id="subscriptionHelpPreview" style="margin-top: 10px;"></div>
+                            <button type="button" class="btn btn-primary mt-2" onclick="uploadSubscriptionHelpMedia()">Upload Media</button>
+                        </div>
                         <button type="submit" class="btn btn-save mt-2">Save Settings</button>
                     </form>
                 </div>
@@ -107,6 +114,7 @@
                     if (settings.referral_signup_bonus) document.getElementById('referral_signup_bonus').value = settings.referral_signup_bonus;
                     if (settings.min_withdraw_amount !== undefined) document.getElementById('min_withdraw_amount').value = settings.min_withdraw_amount;
                     if (settings.referral_deposit_commission_pct !== undefined) document.getElementById('referral_deposit_commission_pct').value = settings.referral_deposit_commission_pct;
+                    renderSubscriptionHelpPreview(settings.subscription_help_media || '');
                 })
                 .catch(err => console.error('Error loading settings:', err));
         }
@@ -137,6 +145,47 @@
                 }
             })
             .catch(err => showToast('Server error: ' + err.message, 'error'));
+        }
+
+        function renderSubscriptionHelpPreview(url) {
+            const box = document.getElementById('subscriptionHelpPreview');
+            if (!box) return;
+            box.innerHTML = '';
+            if (!url) {
+                box.innerHTML = '<div style="opacity:0.7; font-size:0.9rem;">No media uploaded</div>';
+                return;
+            }
+            const lower = String(url).toLowerCase();
+            if (lower.endsWith('.mp4') || lower.endsWith('.webm') || lower.endsWith('.ogg')) {
+                box.innerHTML = `<video src="${url}" controls style="width:100%; max-height:260px; border-radius:10px; background:#000;"></video>`;
+            } else {
+                box.innerHTML = `<img src="${url}" alt="Subscription Help" style="width:100%; max-height:260px; object-fit:contain; border-radius:10px; background:#f8f9fa; border:1px solid #eee;">`;
+            }
+        }
+
+        function uploadSubscriptionHelpMedia() {
+            const input = document.getElementById('subscription_help_media');
+            if (!input || !input.files || !input.files[0]) {
+                showToast('Please select an image or video file', 'warning');
+                return;
+            }
+            const form = new FormData();
+            form.append('media', input.files[0]);
+            fetch('/api/admin/settings/subscription-help', {
+                method: 'POST',
+                body: form
+            })
+                .then(res => res.json())
+                .then(result => {
+                    if (result && result.success) {
+                        input.value = '';
+                        renderSubscriptionHelpPreview(result.media_url || '');
+                        showToast('Subscription help media updated', 'success');
+                    } else {
+                        showToast((result && result.error) ? result.error : 'Error uploading media', 'error');
+                    }
+                })
+                .catch(err => showToast('Server error: ' + err.message, 'error'));
         }
 
         loadSettings();

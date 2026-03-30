@@ -1,4 +1,4 @@
-﻿﻿﻿﻿<!DOCTYPE html>
+﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -65,7 +65,10 @@
         <div class="content-wrapper">
             <div class="page-header">
                 <h2>Subscription Plans</h2>
-                <button onclick="openHistoryModal()" class="btn btn-purple-outline"><i class="fas fa-history"></i> Subscription History</button>
+                <div style="display:flex; gap:10px; flex-wrap:wrap; justify-content:flex-end;">
+                    <button onclick="openSubscriptionHelpModal()" class="btn btn-purple-outline"><i class="fas fa-circle-info"></i> How to Subscribe</button>
+                    <button onclick="openHistoryModal()" class="btn btn-purple-outline"><i class="fas fa-history"></i> Subscription History</button>
+                </div>
             </div>
 
             <div class="plans-grid" id="plansContainer">
@@ -122,6 +125,21 @@
                         <tr><td colspan="4" class="text-center">Loading...</td></tr>
                     </tbody>
                 </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Subscription Help Modal -->
+    <div id="subscriptionHelpModal" class="modal-overlay" style="display: none;">
+        <div class="modal-content" style="max-width: 800px;">
+            <div class="modal-header">
+                <h3>How to Subscribe</h3>
+                <span class="close-modal" onclick="closeSubscriptionHelpModal()">&times;</span>
+            </div>
+            <div class="modal-body">
+                <div id="subscriptionHelpBody" style="text-align:center;">
+                    <div style="opacity:0.7;">Loading...</div>
+                </div>
             </div>
         </div>
     </div>
@@ -196,6 +214,37 @@
         function closeHistoryModal() {
             document.getElementById('historyModal').style.display = 'none';
         }
+
+        let subscriptionHelpMediaUrl = '';
+        function openSubscriptionHelpModal() {
+            const modal = document.getElementById('subscriptionHelpModal');
+            const body = document.getElementById('subscriptionHelpBody');
+            modal.style.display = 'flex';
+            if (!subscriptionHelpMediaUrl) {
+                body.innerHTML = '<div style="opacity:0.8;">No help media added yet.</div>';
+                return;
+            }
+            const lower = subscriptionHelpMediaUrl.toLowerCase();
+            if (lower.endsWith('.mp4') || lower.endsWith('.webm') || lower.endsWith('.ogg')) {
+                body.innerHTML = `<video src="${subscriptionHelpMediaUrl}" controls style="width:100%; max-height:480px; border-radius:12px; background:#000;"></video>`;
+            } else {
+                body.innerHTML = `<img src="${subscriptionHelpMediaUrl}" alt="Subscription Help" style="width:100%; max-height:480px; object-fit:contain; border-radius:12px; background:#f8f9fa; border:1px solid #eee;">`;
+            }
+        }
+
+        function closeSubscriptionHelpModal() {
+            document.getElementById('subscriptionHelpModal').style.display = 'none';
+        }
+
+        fetch('/api/settings/subscription-help')
+            .then(res => res.json())
+            .then(data => {
+                subscriptionHelpMediaUrl = (data && data.media_url) ? String(data.media_url) : '';
+                if (subscriptionHelpMediaUrl) {
+                    openSubscriptionHelpModal();
+                }
+            })
+            .catch(() => {});
 
         // Load Plans
         fetch('/api/plans')
