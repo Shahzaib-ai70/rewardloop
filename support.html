@@ -1,4 +1,4 @@
-﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿<!DOCTYPE html>
+﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -100,6 +100,11 @@
                             <div class="chat-header">
                                 <div class="chat-header-user">
                                     <div class="chat-status">Support Agent Online</div>
+                                </div>
+                                <div style="display:flex; gap:10px; align-items:center;">
+                                    <button class="btn btn-purple-outline" type="button" onclick="enableChatNotifications()" style="padding: 8px 12px; font-size: 0.85rem;">
+                                        <i class="fas fa-bell"></i> Enable Notifications
+                                    </button>
                                 </div>
                             </div>
                             <div class="chat-messages-area" id="messagesArea">
@@ -284,6 +289,25 @@
         let chatInterval;
         let lastChatId = 0;
 
+        function enableChatNotifications() {
+            if (typeof Notification === 'undefined') {
+                showToast('Browser notifications not supported', 'warning');
+                return;
+            }
+            Notification.requestPermission().then(permission => {
+                if (permission === 'granted') {
+                    showToast('Notifications enabled', 'success');
+                    try {
+                        new Notification('Support Notifications Enabled', { body: 'You will receive alerts for new support messages.' });
+                    } catch (e) {}
+                } else {
+                    showToast('Notifications permission not granted', 'warning');
+                }
+            }).catch(() => {
+                showToast('Notifications permission blocked', 'warning');
+            });
+        }
+
         function loadMessages() {
             fetch('/api/chat')
                 .then(res => res.json())
@@ -299,8 +323,11 @@
                         if (newAdmin.length) {
                             const text = String(newAdmin[newAdmin.length - 1].message || '').slice(0, 120);
                             showToast('New message from support', 'info');
-                            if (typeof Notification !== 'undefined' && Notification.permission === 'granted' && document.hidden) {
-                                new Notification('Support Message', { body: text });
+                            if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
+                                const shouldNotify = document.hidden || (typeof document.hasFocus === 'function' && !document.hasFocus());
+                                if (shouldNotify) {
+                                    new Notification('Support Message', { body: text });
+                                }
                             }
                         }
                     }
