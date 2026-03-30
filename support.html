@@ -1,4 +1,4 @@
-﻿﻿<!DOCTYPE html>
+﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -282,6 +282,7 @@
 
         // --- Live Chat Logic ---
         let chatInterval;
+        let lastChatId = 0;
 
         function loadMessages() {
             fetch('/api/chat')
@@ -291,6 +292,19 @@
                     const wasScrolledToBottom = area.scrollHeight - area.scrollTop === area.clientHeight;
                     
                     if (msgs.length === 0) return; 
+
+                    const newestId = msgs[msgs.length - 1] && msgs[msgs.length - 1].id ? Number(msgs[msgs.length - 1].id) : 0;
+                    if (lastChatId && newestId > lastChatId) {
+                        const newAdmin = msgs.filter(m => Number(m.id) > lastChatId && m.sender === 'admin');
+                        if (newAdmin.length) {
+                            const text = String(newAdmin[newAdmin.length - 1].message || '').slice(0, 120);
+                            showToast('New message from support', 'info');
+                            if (typeof Notification !== 'undefined' && Notification.permission === 'granted' && document.hidden) {
+                                new Notification('Support Message', { body: text });
+                            }
+                        }
+                    }
+                    if (newestId) lastChatId = newestId;
 
                     area.innerHTML = msgs.map(m => `
                         <div class="chat-msg ${m.sender === 'user' ? 'sent' : 'received'}">

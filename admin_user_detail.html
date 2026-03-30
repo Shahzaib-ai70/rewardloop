@@ -726,6 +726,21 @@
                                     </div>
                                 </form>
                             </div>
+
+                            <div class="card" style="margin-top: 30px;">
+                                <div class="card-top-header">
+                                    <h3>Live Chat</h3>
+                                </div>
+                                <div class="card-body">
+                                    <div class="form-group">
+                                        <label>SEND MESSAGE TO USER</label>
+                                        <textarea id="adminChatMessage" class="form-control" rows="3" placeholder="Type message..."></textarea>
+                                    </div>
+                                    <button type="button" class="btn btn-purple btn-block" onclick="sendAdminChatMessage()" style="margin-top: 10px;">
+                                        <i class="fas fa-paper-plane"></i> Send Message
+                                    </button>
+                                </div>
+                            </div>
                         </div>
 
                      <!-- Tab Content: Ads -->
@@ -994,6 +1009,31 @@
                 'Cancel',
                 true
             );
+        }
+
+        function sendAdminChatMessage() {
+            const input = document.getElementById('adminChatMessage');
+            const message = input ? input.value.trim() : '';
+            if (!message) {
+                showToast('Please type a message', 'warning');
+                return;
+            }
+
+            fetch('/api/admin/chat', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ userId, message })
+            })
+                .then(res => res.json())
+                .then(data => {
+                    if (data && data.success) {
+                        if (input) input.value = '';
+                        showToast('Message sent', 'success');
+                    } else {
+                        showToast((data && data.error) ? data.error : 'Error sending message', 'error');
+                    }
+                })
+                .catch(() => showToast('Error sending message', 'error'));
         }
 
         function loadUser() {
