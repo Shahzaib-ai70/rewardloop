@@ -1078,13 +1078,16 @@ app.post('/api/nicepay/notify', (req, res) => {
 
     const expectedIp = (process.env.NICEPAY_CALLBACK_IP || '165.154.199.139').trim();
     const clientIp = getRequestIp(req);
-    if (process.env.NODE_ENV === 'production' && expectedIp && clientIp && clientIp !== expectedIp) return res.status(403).send('fail');
+    if (process.env.NODE_ENV === 'production' && expectedIp) {
+        const allow = expectedIp.split(',').map(s => s.trim()).filter(Boolean);
+        if (allow.length && clientIp && !allow.includes(clientIp)) return res.status(403).send('fail');
+    }
 
     const merchantId = (process.env.NICEPAY_MERCHANT_ID || '').trim();
     if (merchantId && payload.merchant_id && String(payload.merchant_id).trim() !== merchantId) return res.status(400).send('fail');
 
     const receivedSign = payload.sign;
-    const computed = nicePaySign({ ...payload, action: 'callback' }, key);
+    const computed = nicePaySign(payload, key);
     if (!receivedSign || String(receivedSign).trim().toUpperCase() !== computed) return res.status(400).send('fail');
 
     const outOrderNumber = (payload.out_order_number || payload.outOrderNumber || payload.order_no || payload.orderNo || '').toString().trim();
