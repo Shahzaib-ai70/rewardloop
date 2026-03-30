@@ -1,4 +1,4 @@
-﻿﻿<!DOCTYPE html>
+﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -7,6 +7,22 @@
     <link rel="stylesheet" href="style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        .cs-modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.55); display: none; align-items: center; justify-content: center; z-index: 9999; padding: 16px; }
+        .cs-modal { width: 100%; max-width: 520px; background: #fff; border-radius: 14px; box-shadow: 0 15px 45px rgba(0,0,0,0.25); overflow: hidden; }
+        .cs-modal-header { display: flex; align-items: center; justify-content: space-between; padding: 14px 16px; border-bottom: 1px solid #f1f3f5; }
+        .cs-modal-title { font-size: 1.05rem; font-weight: 700; color: #222; display: flex; align-items: center; gap: 10px; }
+        .cs-close { border: 0; background: transparent; font-size: 1.2rem; color: #555; cursor: pointer; padding: 6px 8px; border-radius: 8px; }
+        .cs-modal-body { padding: 16px; }
+        .cs-desc { color: #666; margin-bottom: 14px; font-size: 0.95rem; line-height: 1.4; }
+        .cs-actions { display: grid; grid-template-columns: 1fr; gap: 10px; }
+        .cs-btn { display: flex; align-items: center; justify-content: center; gap: 10px; padding: 12px 14px; border-radius: 10px; text-decoration: none; font-weight: 700; border: 1px solid transparent; }
+        .cs-btn-chat { background: #6c5ce7; color: #fff; }
+        .cs-btn-wa { background: #22c55e; color: #fff; }
+        .cs-btn-tg { background: #38bdf8; color: #fff; }
+        .cs-hint { margin-top: 12px; font-size: 0.85rem; color: #94a3b8; }
+        @media (min-width: 520px) { .cs-actions { grid-template-columns: 1fr 1fr; } .cs-actions .cs-btn-chat { grid-column: 1 / -1; } }
+    </style>
 </head>
 <body class="dashboard-body">
     
@@ -184,6 +200,24 @@
         </div>
     </main>
 
+    <div class="cs-modal-overlay" id="customerServiceOverlay" aria-hidden="true">
+        <div class="cs-modal" role="dialog" aria-modal="true" aria-labelledby="csTitle">
+            <div class="cs-modal-header">
+                <div class="cs-modal-title" id="csTitle"><i class="fas fa-headset"></i> Customer Service</div>
+                <button class="cs-close" type="button" onclick="closeCustomerService()"><i class="fas fa-times"></i></button>
+            </div>
+            <div class="cs-modal-body">
+                <div class="cs-desc">Need help? Contact our support team using any option below.</div>
+                <div class="cs-actions">
+                    <a class="cs-btn cs-btn-chat" href="support.html"><i class="fas fa-comments"></i> Live Chat</a>
+                    <a class="cs-btn cs-btn-wa" id="csWhatsapp" href="#" target="_blank" rel="noopener noreferrer"><i class="fab fa-whatsapp"></i> WhatsApp</a>
+                    <a class="cs-btn cs-btn-tg" id="csTelegram" href="#" target="_blank" rel="noopener noreferrer"><i class="fab fa-telegram"></i> Telegram</a>
+                </div>
+                <div class="cs-hint">This message shows on every login/refresh for quick support access.</div>
+            </div>
+        </div>
+    </div>
+
     <script>
         // Toggle Sidebar for mobile
         document.querySelector('.menu-toggle').addEventListener('click', function() {
@@ -210,6 +244,34 @@
             }
         });
 
+        function openCustomerService() {
+            const overlay = document.getElementById('customerServiceOverlay');
+            if (!overlay) return;
+            overlay.style.display = 'flex';
+            overlay.setAttribute('aria-hidden', 'false');
+
+            fetch('/api/settings/contact')
+                .then(res => res.json())
+                .then(data => {
+                    const wa = document.getElementById('csWhatsapp');
+                    const tg = document.getElementById('csTelegram');
+                    if (wa && data && data.whatsapp_link) wa.href = data.whatsapp_link;
+                    if (tg && data && data.telegram_link) tg.href = data.telegram_link;
+                })
+                .catch(() => {});
+        }
+
+        function closeCustomerService() {
+            const overlay = document.getElementById('customerServiceOverlay');
+            if (!overlay) return;
+            overlay.style.display = 'none';
+            overlay.setAttribute('aria-hidden', 'true');
+        }
+
+        window.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') closeCustomerService();
+        });
+
         // Fetch user data with cache busting
         fetch('/api/user-info?t=' + new Date().getTime())
             .then(response => response.json())
@@ -218,6 +280,7 @@
                 if (data.error) {
                     window.location.href = 'login.html';
                 } else {
+                    openCustomerService();
                     const balance = data.balance !== undefined ? data.balance : 0;
                     document.getElementById('balance-value').textContent = `PKR ${balance}`;
 
