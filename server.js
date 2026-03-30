@@ -1243,33 +1243,52 @@ app.get('/api/user/ads', (req, res) => {
             if (err || !plan) return res.json([]); // Should not happen if plan_id is valid
             
             const limit = plan.daily_limit;
-            
-            // 3. Fetch Ads with Limit
-            // Filter by Plan ID (if set on ad) or allow if ad has no plan (optional, but user asked for specific plans)
-            // We will fetch ads that match the user's plan_id OR have no plan_id assigned (global ads)
-            const planId = user.plan_id;
-            
-            db.all("SELECT * FROM ads WHERE status = 'active' AND (plan_id = ? OR plan_id IS NULL OR plan_id = 0) ORDER BY id DESC LIMIT ?", [planId, limit], (err, ads) => {
-                if (err) return res.status(500).json({ error: 'DB Error' });
-                
-                // Get viewed ads for this user TODAY
-                const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
-                db.all("SELECT transaction_id FROM deposits WHERE user_id = ? AND gateway = 'Ad View' AND created_at LIKE ?", [userId, `${today}%`], (err, views) => {
-                    if (err) return res.status(500).json({ error: 'DB Error fetching views' });
-                    
-                    // Map viewed Ad IDs
-                    const viewedAdIds = views.map(v => {
-                        const parts = v.transaction_id.split('-'); // Format: AD-{id}-{timestamp}
-                        return parts.length >= 2 ? parseInt(parts[1]) : null;
+
+            db.get("SELECT created_at FROM deposits WHERE user_id = ? AND transaction_id LIKE 'SUB-%' ORDER BY id DESC LIMIT 1", [userId], (sErr, sRow) => {
+                const planStart = !sErr && sRow && sRow.created_at ? String(sRow.created_at) : null;
+
+                let countSql = "SELECT COUNT(*) as count FROM deposits WHERE user_id = ? AND gateway = 'Ad View'";
+                const countParams = [userId];
+                if (planStart) {
+                    countSql += " AND created_at >= ?";
+                    countParams.push(planStart);
+                }
+
+                db.get(countSql, countParams, (cErr, cRow) => {
+                    if (cErr) return res.status(500).json({ error: 'DB Error' });
+                    const watchedCount = cRow && cRow.count ? Number(cRow.count) : 0;
+                    const remaining = Math.max(0, (Number(limit) || 0) - watchedCount);
+                    if (remaining <= 0) {
+                        return res.status(403).json({ error: 'Your plan is finished. Subscribe your next plan.' });
+                    }
+
+                    const planId = user.plan_id;
+                    db.all("SELECT * FROM ads WHERE status = 'active' AND (plan_id = ? OR plan_id IS NULL OR plan_id = 0) ORDER BY id DESC LIMIT ?", [planId, remaining], (aErr, ads) => {
+                        if (aErr) return res.status(500).json({ error: 'DB Error' });
+
+                        let viewsSql = "SELECT transaction_id FROM deposits WHERE user_id = ? AND gateway = 'Ad View'";
+                        const viewsParams = [userId];
+                        if (planStart) {
+                            viewsSql += " AND created_at >= ?";
+                            viewsParams.push(planStart);
+                        }
+
+                        db.all(viewsSql, viewsParams, (vErr, views) => {
+                            if (vErr) return res.status(500).json({ error: 'DB Error fetching views' });
+
+                            const viewedAdIds = (views || []).map(v => {
+                                const parts = String(v.transaction_id || '').split('-');
+                                return parts.length >= 2 ? parseInt(parts[1]) : null;
+                            }).filter(v => Number.isFinite(v));
+
+                            const adsWithStatus = (ads || []).map(ad => ({
+                                ...ad,
+                                completed: viewedAdIds.includes(ad.id)
+                            }));
+
+                            res.json(adsWithStatus);
+                        });
                     });
-                    
-                    // Add 'completed' flag to each ad
-                    const adsWithStatus = ads.map(ad => ({
-                        ...ad,
-                        completed: viewedAdIds.includes(ad.id)
-                    }));
-                    
-                    res.json(adsWithStatus);
                 });
             });
         });
@@ -1324,13 +1343,19 @@ app.post('/api/user/ads/view', bodyParser.json(), (req, res) => {
     db.get("SELECT * FROM ads WHERE id = ? AND status = 'active'", [ad_id], (err, ad) => {
         if (err || !ad) return res.status(404).json({ error: 'Ad not found or inactive' });
         
-        // Check if already viewed TODAY
-        const today = new Date().toISOString().split('T')[0];
-        db.get("SELECT id FROM deposits WHERE user_id = ? AND gateway = 'Ad View' AND transaction_id LIKE ? AND created_at LIKE ?", 
-            [req.session.user.id, `AD-${ad_id}-%`, `${today}%`], (err, existing) => {
+        db.get("SELECT created_at FROM deposits WHERE user_id = ? AND transaction_id LIKE 'SUB-%' ORDER BY id DESC LIMIT 1", [req.session.user.id], (sErr, sRow) => {
+        const planStart = !sErr && sRow && sRow.created_at ? String(sRow.created_at) : null;
+        let existSql = "SELECT id FROM deposits WHERE user_id = ? AND gateway = 'Ad View' AND transaction_id LIKE ?";
+        const existParams = [req.session.user.id, `AD-${ad_id}-%`];
+        if (planStart) {
+            existSql += " AND created_at >= ?";
+            existParams.push(planStart);
+        }
+
+        db.get(existSql, existParams, (err, existing) => {
             
             if (existing) {
-                return res.status(400).json({ error: 'Ad already viewed today' });
+                return res.status(400).json({ error: 'Ad already viewed' });
             }
 
             // Check Daily Limit
@@ -1342,9 +1367,16 @@ app.post('/api/user/ads/view', bodyParser.json(), (req, res) => {
                 db.get("SELECT daily_limit FROM plans WHERE id = ?", [user.plan_id], (err, plan) => {
                     if (err || !plan) return res.status(400).json({ error: 'Plan error' });
 
-                    db.get("SELECT COUNT(*) as count FROM deposits WHERE user_id = ? AND gateway = 'Ad View' AND created_at LIKE ?", [req.session.user.id, `${today}%`], (err, row) => {
-                        if (row.count >= plan.daily_limit) {
-                            return res.status(400).json({ error: 'Daily ad limit reached' });
+                    let cntSql = "SELECT COUNT(*) as count FROM deposits WHERE user_id = ? AND gateway = 'Ad View'";
+                    const cntParams = [req.session.user.id];
+                    if (planStart) {
+                        cntSql += " AND created_at >= ?";
+                        cntParams.push(planStart);
+                    }
+
+                    db.get(cntSql, cntParams, (err, row) => {
+                        if ((row && row.count ? Number(row.count) : 0) >= (Number(plan.daily_limit) || 0)) {
+                            return res.status(400).json({ error: 'Your plan is finished. Subscribe your next plan.' });
                         }
 
                         // Add balance to user
@@ -1363,6 +1395,7 @@ app.post('/api/user/ads/view', bodyParser.json(), (req, res) => {
                     });
                 });
             });
+        });
         });
     });
 });

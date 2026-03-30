@@ -1,4 +1,4 @@
-﻿﻿<!DOCTYPE html>
+﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -226,7 +226,12 @@
 
                 // If plan is active, THEN fetch ads
                 fetch('/api/user/ads')
-                .then(res => res.json())
+                .then(res => {
+                    if (!res.ok) {
+                        return res.json().then(e => { throw e; });
+                    }
+                    return res.json();
+                })
                 .then(ads => {
                     document.getElementById('loadingState').style.display = 'none';
                     
@@ -270,6 +275,13 @@
                             </div>
                         `;
                     });
+                })
+                .catch(err => {
+                    document.getElementById('loadingState').style.display = 'none';
+                    grid.style.display = 'none';
+                    emptyState.style.display = 'block';
+                    const msg = (err && err.error) ? err.error : 'No ads available.';
+                    emptyText.innerHTML = `${msg}<br><a href='subscriptions.html' style='color: var(--primary-color); text-decoration: underline;'>Subscribe to a plan</a>`;
                 });
             });
             
@@ -441,7 +453,12 @@
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ ad_id: adId })
             })
-            .then(res => res.json())
+            .then(res => {
+                if (!res.ok) {
+                    return res.json().then(e => { throw e; });
+                }
+                return res.json();
+            })
             .then(data => {
                 closeAdModal(); // NOW close the modal
                 if (data.success) {
@@ -450,6 +467,11 @@
                 } else {
                     showToast(data.error || 'Error claiming reward', 'error');
                 }
+            })
+            .catch(err => {
+                closeAdModal();
+                showToast((err && err.error) ? err.error : 'Error claiming reward', 'error');
+                loadAds();
             });
         }
 
