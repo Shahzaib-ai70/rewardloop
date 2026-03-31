@@ -2129,6 +2129,52 @@ app.get('/api/admin/subscription-orders/sync-history', (req, res) => {
     );
 });
 
+app.get('/api/admin/nicepay-sync-history', (req, res) => {
+    if (!req.session || !req.session.user) {
+        return res.status(401).json({ error: 'Unauthorized: Not logged in' });
+    }
+    if (req.session.user.role !== 'admin') {
+        return res.status(403).json({ error: 'Forbidden: Not an admin' });
+    }
+
+    const q = (req.query.q ? String(req.query.q) : '').trim();
+    const limitRaw = req.query.limit !== undefined ? Number(req.query.limit) : 200;
+    const limit = Number.isFinite(limitRaw) ? Math.min(Math.max(limitRaw, 1), 1000) : 200;
+
+    let sql = `
+        SELECT
+            id,
+            out_order_number,
+            admin_id,
+            admin_username,
+            endpoint,
+            result,
+            response_code,
+            response_status,
+            response_amount,
+            response_real_amount,
+            response_msg,
+            created_at
+        FROM nicepay_sync_history
+        WHERE 1=1
+    `;
+
+    const params = [];
+    if (q) {
+        sql += ` AND (out_order_number LIKE ? OR admin_username LIKE ? OR result LIKE ? OR response_msg LIKE ?)`;
+        const like = `%${q}%`;
+        params.push(like, like, like, like);
+    }
+
+    sql += ` ORDER BY id DESC LIMIT ?`;
+    params.push(limit);
+
+    db.all(sql, params, (err, rows) => {
+        if (err) return res.status(500).json({ error: 'DB Error' });
+        res.json(Array.isArray(rows) ? rows : []);
+    });
+});
+
 app.post('/api/admin/subscription-orders/activate', bodyParser.json(), (req, res) => {
     if (!req.session || !req.session.user) {
         return res.status(401).json({ error: 'Unauthorized: Not logged in' });
