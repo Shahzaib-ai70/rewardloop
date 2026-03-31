@@ -270,6 +270,7 @@ db.serialize(() => {
     db.run("CREATE TABLE IF NOT EXISTS ticket_replies (id INTEGER PRIMARY KEY AUTOINCREMENT, ticket_id INTEGER, sender TEXT, message TEXT, created_at TEXT)");
     db.run("CREATE TABLE IF NOT EXISTS payment_methods (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT, account_number TEXT, currency TEXT, rate REAL, min_amount REAL, max_amount REAL, instructions TEXT, image_path TEXT, status TEXT DEFAULT 'active', created_at TEXT)");
     db.run("CREATE TABLE IF NOT EXISTS payment_orders (id INTEGER PRIMARY KEY AUTOINCREMENT, provider TEXT, out_order_number TEXT UNIQUE, user_id INTEGER, order_type TEXT, plan_id INTEGER, amount REAL, status TEXT DEFAULT 'pending', created_at TEXT, paid_at TEXT)");
+    db.run("CREATE TABLE IF NOT EXISTS nicepay_sync_history (id INTEGER PRIMARY KEY AUTOINCREMENT, out_order_number TEXT, admin_id INTEGER, admin_username TEXT, endpoint TEXT, result TEXT, response_code INTEGER, response_status TEXT, response_amount REAL, response_real_amount REAL, response_msg TEXT, response_json TEXT, created_at TEXT)");
     db.run("CREATE TABLE IF NOT EXISTS transfers (id INTEGER PRIMARY KEY AUTOINCREMENT, sender_id INTEGER, receiver_id INTEGER, amount REAL, created_at TEXT)");
     db.run("CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT)");
     
@@ -1005,6 +1006,40 @@ function nicePaySign(params, key) {
     keys.sort();
     const base = keys.map(k => `${k}=${params[k]}`).join('&');
     return crypto.createHash('md5').update(`${base}&key=${key}`).digest('hex').toUpperCase();
+}
+
+function logNicePaySyncHistory(opts) {
+    const outOrderNumber = (opts && opts.outOrderNumber ? String(opts.outOrderNumber) : '').trim();
+    if (!outOrderNumber) return;
+
+    const adminId = Number(opts && opts.adminId);
+    const adminUsername = opts && opts.adminUsername ? String(opts.adminUsername) : '';
+    const endpoint = opts && opts.endpoint ? String(opts.endpoint) : '';
+    const result = opts && opts.result ? String(opts.result) : '';
+    const responseCode = opts && opts.responseCode !== undefined && opts.responseCode !== null ? Number(opts.responseCode) : null;
+    const responseStatus = opts && opts.responseStatus !== undefined && opts.responseStatus !== null ? String(opts.responseStatus) : '';
+    const responseAmount = opts && opts.responseAmount !== undefined && opts.responseAmount !== null ? Number(opts.responseAmount) : null;
+    const responseRealAmount = opts && opts.responseRealAmount !== undefined && opts.responseRealAmount !== null ? Number(opts.responseRealAmount) : null;
+    const responseMsg = opts && opts.responseMsg ? String(opts.responseMsg) : '';
+    const responseJson = opts && opts.responseJson ? String(opts.responseJson) : '';
+
+    db.run(
+        "INSERT INTO nicepay_sync_history (out_order_number, admin_id, admin_username, endpoint, result, response_code, response_status, response_amount, response_real_amount, response_msg, response_json, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        [
+            outOrderNumber,
+            Number.isFinite(adminId) ? adminId : null,
+            adminUsername,
+            endpoint,
+            result,
+            Number.isFinite(responseCode) ? responseCode : null,
+            responseStatus,
+            Number.isFinite(responseAmount) ? responseAmount : null,
+            Number.isFinite(responseRealAmount) ? responseRealAmount : null,
+            responseMsg,
+            responseJson,
+            new Date().toISOString()
+        ]
+    );
 }
 
 function getRequestIp(req) {
@@ -1901,6 +1936,14 @@ app.post('/api/admin/subscription-orders/sync', bodyParser.json(), async (req, r
     const statusApiUrl = (process.env.NICEPAY_STATUS_API_URL || process.env.NICEPAY_QUERY_API_URL || 'https://api.nicepay.club/v1/orderInfo').trim();
 
     if (!key || !merchantId || !statusApiUrl) {
+        logNicePaySyncHistory({
+            outOrderNumber,
+            adminId: req.session.user && req.session.user.id,
+            adminUsername: req.session.user && req.session.user.username,
+            endpoint: statusApiUrl,
+            result: 'error',
+            responseMsg: 'NicePay status API not configured (missing NICEPAY_KEY / NICEPAY_MERCHANT_ID)'
+        });
         return res.status(500).json({ error: 'NicePay status API not configured (missing NICEPAY_KEY / NICEPAY_MERCHANT_ID)' });
     }
 
@@ -1927,15 +1970,46 @@ app.post('/api/admin/subscription-orders/sync', bodyParser.json(), async (req, r
             });
             providerData = await apiRes.json().catch(() => ({}));
             if (!apiRes.ok) {
+                logNicePaySyncHistory({
+                    outOrderNumber,
+                    adminId: req.session.user && req.session.user.id,
+                    adminUsername: req.session.user && req.session.user.username,
+                    endpoint: statusApiUrl,
+                    result: 'error',
+                    responseCode: providerData && providerData.code !== undefined ? providerData.code : null,
+                    responseStatus: providerData && providerData.data && providerData.data.status !== undefined ? providerData.data.status : null,
+                    responseAmount: providerData && providerData.data && providerData.data.amount !== undefined ? providerData.data.amount : null,
+                    responseRealAmount: providerData && providerData.data && providerData.data.real_amount !== undefined ? providerData.data.real_amount : null,
+                    responseMsg: providerData && providerData.msg ? providerData.msg : 'NicePay status check failed',
+                    responseJson: JSON.stringify(providerData || {})
+                });
                 return res.status(502).json({ error: 'NicePay status check failed', details: providerData });
             }
         } catch (e) {
+            logNicePaySyncHistory({
+                outOrderNumber,
+                adminId: req.session.user && req.session.user.id,
+                adminUsername: req.session.user && req.session.user.username,
+                endpoint: statusApiUrl,
+                result: 'error',
+                responseMsg: 'NicePay status check error'
+            });
             return res.status(502).json({ error: 'NicePay status check error' });
         }
 
         const code = providerData && providerData.code !== undefined && providerData.code !== null ? Number(providerData.code) : null;
         if (code !== 0) {
             const msg = providerData && providerData.msg ? String(providerData.msg) : 'NicePay query failed';
+            logNicePaySyncHistory({
+                outOrderNumber,
+                adminId: req.session.user && req.session.user.id,
+                adminUsername: req.session.user && req.session.user.username,
+                endpoint: statusApiUrl,
+                result: 'error',
+                responseCode: code,
+                responseMsg: msg,
+                responseJson: JSON.stringify(providerData || {})
+            });
             return res.status(502).json({ error: msg, details: providerData });
         }
 
@@ -1947,6 +2021,19 @@ app.post('/api/admin/subscription-orders/sync', bodyParser.json(), async (req, r
         const finalAmount = Number.isFinite(realAmount) ? realAmount : (Number.isFinite(amount) ? amount : null);
 
         if (finalAmount !== null && Number.isFinite(Number(order.amount)) && finalAmount !== Number(order.amount)) {
+            logNicePaySyncHistory({
+                outOrderNumber,
+                adminId: req.session.user && req.session.user.id,
+                adminUsername: req.session.user && req.session.user.username,
+                endpoint: statusApiUrl,
+                result: 'amount_mismatch',
+                responseCode: code,
+                responseStatus: statusRaw,
+                responseAmount: amount,
+                responseRealAmount: realAmount,
+                responseMsg: 'Amount mismatch',
+                responseJson: JSON.stringify(providerData || {})
+            });
             db.run("UPDATE payment_orders SET status = ? WHERE id = ?", ['failed', order.id], () => {
                 res.status(409).json({ error: 'Amount mismatch', status: 'failed' });
             });
@@ -1954,6 +2041,19 @@ app.post('/api/admin/subscription-orders/sync', bodyParser.json(), async (req, r
         }
 
         if (!paid) {
+            logNicePaySyncHistory({
+                outOrderNumber,
+                adminId: req.session.user && req.session.user.id,
+                adminUsername: req.session.user && req.session.user.username,
+                endpoint: statusApiUrl,
+                result: statusRaw === '-1' ? 'failed' : 'pending',
+                responseCode: code,
+                responseStatus: statusRaw,
+                responseAmount: amount,
+                responseRealAmount: realAmount,
+                responseMsg: providerData && providerData.msg ? String(providerData.msg) : '',
+                responseJson: JSON.stringify(providerData || {})
+            });
             if (statusRaw === '-1') {
                 db.run("UPDATE payment_orders SET status = ? WHERE id = ?", ['failed', order.id], () => {
                     res.json({ success: false, status: 'failed' });
@@ -1962,6 +2062,20 @@ app.post('/api/admin/subscription-orders/sync', bodyParser.json(), async (req, r
             }
             return res.json({ success: false, status: 'pending' });
         }
+
+        logNicePaySyncHistory({
+            outOrderNumber,
+            adminId: req.session.user && req.session.user.id,
+            adminUsername: req.session.user && req.session.user.username,
+            endpoint: statusApiUrl,
+            result: 'paid',
+            responseCode: code,
+            responseStatus: statusRaw,
+            responseAmount: amount,
+            responseRealAmount: realAmount,
+            responseMsg: providerData && providerData.msg ? String(providerData.msg) : '',
+            responseJson: JSON.stringify(providerData || {})
+        });
 
         const paidAt = new Date().toISOString();
         db.serialize(() => {
@@ -1992,6 +2106,27 @@ app.post('/api/admin/subscription-orders/sync', bodyParser.json(), async (req, r
             });
         });
     });
+});
+
+app.get('/api/admin/subscription-orders/sync-history', (req, res) => {
+    if (!req.session || !req.session.user) {
+        return res.status(401).json({ error: 'Unauthorized: Not logged in' });
+    }
+    if (req.session.user.role !== 'admin') {
+        return res.status(403).json({ error: 'Forbidden: Not an admin' });
+    }
+
+    const outOrderNumber = (req.query && req.query.out_order_number ? String(req.query.out_order_number) : '').trim();
+    if (!outOrderNumber) return res.status(400).json({ error: 'out_order_number is required' });
+
+    db.all(
+        "SELECT id, out_order_number, admin_id, admin_username, endpoint, result, response_code, response_status, response_amount, response_real_amount, response_msg, created_at FROM nicepay_sync_history WHERE out_order_number = ? ORDER BY id DESC LIMIT 50",
+        [outOrderNumber],
+        (err, rows) => {
+            if (err) return res.status(500).json({ error: 'DB Error' });
+            res.json(Array.isArray(rows) ? rows : []);
+        }
+    );
 });
 
 app.post('/api/admin/subscription-orders/activate', bodyParser.json(), (req, res) => {
@@ -2042,7 +2177,20 @@ app.post('/api/admin/subscription-orders/activate', bodyParser.json(), (req, res
                             db.run(
                                 "UPDATE users SET plan_id = ?, plan_expiry = ?, plan_started_at = ?, plan_ads_used = 0, plan_ads_total = ? WHERE id = ?",
                                 [planId, expiry, startedAt, totalAds, order.user_id],
-                                () => res.json({ success: true, status: 'paid', activated: true })
+                                () => {
+                                    logNicePaySyncHistory({
+                                        outOrderNumber,
+                                        adminId: req.session.user && req.session.user.id,
+                                        adminUsername: req.session.user && req.session.user.username,
+                                        endpoint: 'manual',
+                                        result: 'manual_activate',
+                                        responseStatus: 'paid',
+                                        responseAmount: Number(order.amount),
+                                        responseRealAmount: Number(order.amount),
+                                        responseMsg: 'Manual activation'
+                                    });
+                                    res.json({ success: true, status: 'paid', activated: true });
+                                }
                             );
                         });
                     });

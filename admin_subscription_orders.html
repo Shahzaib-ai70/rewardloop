@@ -188,6 +188,7 @@
                         const canSync = st === 'pending';
                         const canActivate = st === 'pending';
                         const poId = r.id;
+                        const canHistory = !!orderNo;
                         const planSelect = canActivate ? `
                             <div style="margin-top: 6px; display:flex; gap:6px; flex-wrap:wrap;">
                                 <select id="planSelect-${poId}" class="form-control" style="max-width: 220px; padding: 6px 10px;">
@@ -214,6 +215,7 @@
                             <td>
                                 <a class="btn btn-sm btn-primary" href="${userLink}">View User</a>
                                 ${canSync ? `<button class="btn btn-sm btn-purple" style="margin-left:6px;" onclick="syncNicePayOrder('${orderNo}')"><i class="fas fa-arrows-rotate"></i> Sync</button>` : ''}
+                                ${canHistory ? `<button class="btn btn-sm btn-dark" style="margin-left:6px;" onclick="viewSyncHistory('${orderNo}')"><i class="fas fa-clock-rotate-left"></i> History</button>` : ''}
                                 ${planSelect}
                             </td>
                         `;
@@ -304,6 +306,61 @@
                 'Cancel',
                 true
             );
+        }
+
+        function escHtml(s) {
+            return String(s || '').replace(/[&<>"']/g, (ch) => ({
+                '&': '&amp;',
+                '<': '&lt;',
+                '>': '&gt;',
+                '"': '&quot;',
+                "'": '&#39;'
+            }[ch]));
+        }
+
+        function viewSyncHistory(outOrderNumber) {
+            if (!outOrderNumber) return;
+            fetch(`/api/admin/subscription-orders/sync-history?out_order_number=${encodeURIComponent(outOrderNumber)}`)
+                .then(async (res) => {
+                    const data = await res.json().catch(() => ([]));
+                    if (!res.ok) throw data;
+                    return data;
+                })
+                .then((rows) => {
+                    if (!Array.isArray(rows) || rows.length === 0) {
+                        showToast('No sync history found', 'info');
+                        return;
+                    }
+
+                    const items = rows.map(r => {
+                        const time = r.created_at ? new Date(r.created_at).toLocaleString() : '—';
+                        const admin = r.admin_username ? escHtml(r.admin_username) : 'Admin';
+                        const result = escHtml(r.result || '');
+                        const st = escHtml(r.response_status || '');
+                        const amt = (r.response_real_amount !== undefined && r.response_real_amount !== null) ? `Real: ${escHtml(r.response_real_amount)}` : '';
+                        const msg = r.response_msg ? escHtml(r.response_msg) : '';
+                        return `<div style="padding:10px 0; border-bottom:1px solid #eee;">
+                            <div style="font-weight:600;">${time} — ${admin} — ${result}</div>
+                            <div style="color:#64748b; font-size:0.9rem;">Status: ${st} ${amt ? ' — ' + amt : ''}</div>
+                            ${msg ? `<div style="color:#64748b; font-size:0.9rem;">${msg}</div>` : ''}
+                        </div>`;
+                    }).join('');
+
+                    showConfirm(
+                        'Sync History',
+                        `<div style="max-height:360px; overflow:auto; text-align:left;">
+                            <div style="font-weight:600; margin-bottom:8px;" class="mono">${escHtml(outOrderNumber)}</div>
+                            ${items}
+                        </div>`,
+                        null,
+                        'Close',
+                        'Close',
+                        false
+                    );
+                })
+                .catch(() => {
+                    showToast('Failed to load history', 'error');
+                });
         }
 
         document.getElementById('searchInput').addEventListener('keydown', (e) => {
