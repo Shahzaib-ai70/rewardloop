@@ -1008,6 +1008,10 @@ function nicePaySign(params, key) {
 }
 
 function getRequestIp(req) {
+    const cf = req.headers['cf-connecting-ip'];
+    if (cf && typeof cf === 'string' && cf.trim()) return cf.trim();
+    const xr = req.headers['x-real-ip'];
+    if (xr && typeof xr === 'string' && xr.trim()) return xr.trim();
     const xf = req.headers['x-forwarded-for'];
     if (xf && typeof xf === 'string') {
         const first = xf.split(',')[0].trim();
@@ -1153,8 +1157,10 @@ app.post('/api/nicepay/notify', (req, res) => {
     if (merchantId && payload.merchant_id && String(payload.merchant_id).trim() !== merchantId) return res.status(400).send('fail');
 
     const receivedSign = payload.sign;
-    const computed = nicePaySign(payload, key);
-    if (!receivedSign || String(receivedSign).trim().toUpperCase() !== computed) return res.status(400).send('fail');
+    const computedA = nicePaySign(payload, key);
+    const computedB = nicePaySign({ ...payload, action: 'callback' }, key);
+    const receivedUp = receivedSign ? String(receivedSign).trim().toUpperCase() : '';
+    if (!receivedUp || (receivedUp !== computedA && receivedUp !== computedB)) return res.status(400).send('fail');
 
     const outOrderNumber = (payload.out_order_number || payload.outOrderNumber || payload.order_no || payload.orderNo || '').toString().trim();
     if (!outOrderNumber) return res.status(400).send('fail');
