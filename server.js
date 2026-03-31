@@ -1985,6 +1985,64 @@ app.post('/api/admin/subscription-orders/sync', bodyParser.json(), async (req, r
     });
 });
 
+app.post('/api/admin/subscription-orders/activate', bodyParser.json(), (req, res) => {
+    if (!req.session || !req.session.user) {
+        return res.status(401).json({ error: 'Unauthorized: Not logged in' });
+    }
+    if (req.session.user.role !== 'admin') {
+        return res.status(403).json({ error: 'Forbidden: Not an admin' });
+    }
+
+    const outOrderNumber = (req.body && req.body.out_order_number ? String(req.body.out_order_number) : '').trim();
+    const planIdRaw = req.body && req.body.plan_id !== undefined && req.body.plan_id !== null ? Number(req.body.plan_id) : null;
+    if (!outOrderNumber) return res.status(400).json({ error: 'out_order_number is required' });
+
+    db.get("SELECT * FROM payment_orders WHERE provider = 'nicepay' AND out_order_number = ? AND order_type = 'subscription' LIMIT 1", [outOrderNumber], (err, order) => {
+        if (err) return res.status(500).json({ error: 'DB Error' });
+        if (!order) return res.status(404).json({ error: 'Order not found' });
+
+        const planId = Number.isFinite(planIdRaw) && planIdRaw > 0 ? planIdRaw : Number(order.plan_id);
+        if (!Number.isFinite(planId) || planId <= 0) return res.status(400).json({ error: 'Invalid plan_id' });
+
+        db.get("SELECT id, duration, daily_limit FROM plans WHERE id = ? AND status = 'active' LIMIT 1", [planId], (pErr, plan) => {
+            if (pErr) return res.status(500).json({ error: 'DB Error' });
+            if (!plan) return res.status(404).json({ error: 'Plan not found' });
+
+            const paidAt = new Date().toISOString();
+            const depositGateway = 'NicePay Subscription';
+            const depositTrx = outOrderNumber;
+            const expiry = new Date(Date.now() + Number(plan.duration) * 24 * 60 * 60 * 1000).toISOString();
+            const startedAt = new Date().toISOString();
+            const totalAds = Number(plan.daily_limit) || 0;
+
+            db.serialize(() => {
+                db.run("UPDATE payment_orders SET status = 'paid', paid_at = COALESCE(paid_at, ?), plan_id = ? WHERE id = ?", [paidAt, planId, order.id], () => {
+                    db.get("SELECT * FROM deposits WHERE transaction_id = ? LIMIT 1", [depositTrx], (dErr, existing) => {
+                        if (dErr) return res.status(500).json({ error: 'DB Error' });
+
+                        const ensureDeposit = (cb) => {
+                            if (existing) return cb();
+                            db.run(
+                                "INSERT INTO deposits (user_id, amount, gateway, transaction_id, status, created_at, proof_image) VALUES (?, ?, ?, ?, ?, ?, ?)",
+                                [order.user_id, order.amount, depositGateway, depositTrx, 'approved', new Date().toISOString(), null],
+                                () => cb()
+                            );
+                        };
+
+                        ensureDeposit(() => {
+                            db.run(
+                                "UPDATE users SET plan_id = ?, plan_expiry = ?, plan_started_at = ?, plan_ads_used = 0, plan_ads_total = ? WHERE id = ?",
+                                [planId, expiry, startedAt, totalAds, order.user_id],
+                                () => res.json({ success: true, status: 'paid', activated: true })
+                            );
+                        });
+                    });
+                });
+            });
+        });
+    });
+});
+
 
 
 // Admin API: Get Deposits

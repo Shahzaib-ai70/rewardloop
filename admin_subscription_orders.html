@@ -111,22 +111,63 @@
             return d.toLocaleString();
         }
 
-        function loadOrders() {
-            const tbody = document.querySelector('#ordersTable tbody');
-            tbody.innerHTML = '<tr><td colspan="8" class="text-center">Loading...</td></tr>';
-
-            const q = (document.getElementById('searchInput').value || '').trim();
-            fetch(`/api/admin/subscription-orders?q=${encodeURIComponent(q)}&limit=500`)
+        let plansCache = null;
+        let plansPromise = null;
+        function ensurePlansLoaded() {
+            if (Array.isArray(plansCache)) return Promise.resolve(plansCache);
+            if (plansPromise) return plansPromise;
+            plansPromise = fetch('/api/admin/plans')
                 .then(res => {
                     if (res.status === 401 || res.status === 403) {
                         window.location.href = '/admin_login.html';
                         throw new Error('Unauthorized');
                     }
-                    if (!res.ok) throw new Error('Network error');
+                    if (!res.ok) throw new Error('Failed to load plans');
                     return res.json();
                 })
-                .then(rows => {
-                    if (!Array.isArray(rows) || rows.length === 0) {
+                .then(plans => {
+                    plansCache = (Array.isArray(plans) ? plans : []).filter(p => (p.status || '').toString().toLowerCase() === 'active');
+                    return plansCache;
+                })
+                .catch(err => {
+                    plansCache = [];
+                    throw err;
+                });
+            return plansPromise;
+        }
+
+        function renderPlanOptions(selectedPlanId) {
+            const sel = Number(selectedPlanId);
+            const opts = (plansCache || []).map(p => {
+                const id = Number(p.id);
+                const name = (p.name || `Plan #${id}`).toString();
+                const price = Number(p.price);
+                const label = Number.isFinite(price) ? `${name} (PKR ${price})` : name;
+                const selected = Number.isFinite(sel) && sel === id ? 'selected' : '';
+                return `<option value="${id}" ${selected}>${label}</option>`;
+            });
+            return opts.length ? opts.join('') : `<option value="">No active plans</option>`;
+        }
+
+        function loadOrders() {
+            const tbody = document.querySelector('#ordersTable tbody');
+            tbody.innerHTML = '<tr><td colspan="8" class="text-center">Loading...</td></tr>';
+
+            const q = (document.getElementById('searchInput').value || '').trim();
+            Promise.all([
+                ensurePlansLoaded().catch(() => []),
+                fetch(`/api/admin/subscription-orders?q=${encodeURIComponent(q)}&limit=500`)
+                    .then(res => {
+                        if (res.status === 401 || res.status === 403) {
+                            window.location.href = '/admin_login.html';
+                            throw new Error('Unauthorized');
+                        }
+                        if (!res.ok) throw new Error('Network error');
+                        return res.json();
+                    })
+            ])
+                .then(([, finalRows]) => {
+                    if (!Array.isArray(finalRows) || finalRows.length === 0) {
                         tbody.innerHTML = '<tr><td colspan="8" class="text-center">No subscription orders found</td></tr>';
                         return;
                     }
@@ -134,7 +175,7 @@
                     const filter = (document.getElementById('statusFilter').value || '').toLowerCase();
                     tbody.innerHTML = '';
 
-                    rows.forEach(r => {
+                    finalRows.forEach(r => {
                         const st = (r.order_status || '').toString().toLowerCase();
                         if (filter && st !== filter) return;
 
@@ -145,6 +186,18 @@
                         const amountText = amount !== null && Number.isFinite(amount) ? `PKR ${amount}` : '—';
                         const userLink = `admin_user_detail.html?id=${r.user_id}`;
                         const canSync = st === 'pending';
+                        const canActivate = st === 'pending';
+                        const poId = r.id;
+                        const planSelect = canActivate ? `
+                            <div style="margin-top: 6px; display:flex; gap:6px; flex-wrap:wrap;">
+                                <select id="planSelect-${poId}" class="form-control" style="max-width: 220px; padding: 6px 10px;">
+                                    ${renderPlanOptions(r.plan_id)}
+                                </select>
+                                <button class="btn btn-sm btn-success" onclick="activateOrderPlan(${poId}, '${orderNo}')">
+                                    <i class="fas fa-bolt"></i> Activate
+                                </button>
+                            </div>
+                        ` : '';
 
                         const tr = document.createElement('tr');
                         tr.innerHTML = `
@@ -161,6 +214,7 @@
                             <td>
                                 <a class="btn btn-sm btn-primary" href="${userLink}">View User</a>
                                 ${canSync ? `<button class="btn btn-sm btn-purple" style="margin-left:6px;" onclick="syncNicePayOrder('${orderNo}')"><i class="fas fa-arrows-rotate"></i> Sync</button>` : ''}
+                                ${planSelect}
                             </td>
                         `;
                         tbody.appendChild(tr);
@@ -205,6 +259,48 @@
                         });
                 },
                 'Yes, Sync',
+                'Cancel',
+                true
+            );
+        }
+
+        function activateOrderPlan(orderId, outOrderNumber) {
+            const select = document.getElementById(`planSelect-${orderId}`);
+            const planId = select && select.value ? Number(select.value) : null;
+            if (!outOrderNumber) return;
+            if (!planId || !Number.isFinite(planId) || planId <= 0) {
+                showToast('Please select a plan', 'warning');
+                return;
+            }
+
+            showConfirm(
+                'Activate Plan?',
+                `This will mark the order as paid in admin and activate the selected plan for the user.\nOrder: ${outOrderNumber}`,
+                () => {
+                    fetch('/api/admin/subscription-orders/activate', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ out_order_number: outOrderNumber, plan_id: planId })
+                    })
+                        .then(async (res) => {
+                            const data = await res.json().catch(() => ({}));
+                            if (!res.ok) throw data;
+                            return data;
+                        })
+                        .then((data) => {
+                            if (data && data.success) {
+                                showToast('Plan activated successfully', 'success');
+                                loadOrders();
+                            } else {
+                                showToast('Activation failed', 'error');
+                            }
+                        })
+                        .catch((err) => {
+                            const msg = (err && err.error) ? err.error : 'Activation failed';
+                            showToast(msg, 'error');
+                        });
+                },
+                'Yes, Activate',
                 'Cancel',
                 true
             );
