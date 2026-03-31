@@ -117,6 +117,20 @@
                     <label>Min Ads View (Per Day)</label>
                     <input type="number" id="daily_limit" name="daily_limit" class="form-control" placeholder="e.g. 10" required>
                 </div>
+                <div class="form-group" style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px;">
+                    <div>
+                        <label>Double Profit After Ads</label>
+                        <input type="number" id="double_profit_after_ads" name="double_profit_after_ads" class="form-control" placeholder="e.g. 2" value="0">
+                    </div>
+                    <div>
+                        <label>Double Profit Fee (PKR)</label>
+                        <input type="number" id="double_profit_fee" name="double_profit_fee" class="form-control" placeholder="e.g. 100" value="0">
+                    </div>
+                    <div>
+                        <label>Bonus %</label>
+                        <input type="number" id="double_profit_bonus_pct" name="double_profit_bonus_pct" class="form-control" placeholder="e.g. 100" value="0">
+                    </div>
+                </div>
                 <div class="form-group">
                     <label>Estimated Profit</label>
                     <input type="text" id="estimated_profit" name="estimated_profit" class="form-control" placeholder="e.g. PKR 500">
@@ -205,6 +219,9 @@
             document.getElementById('price').value = plan.price;
             document.getElementById('duration').value = plan.duration;
             document.getElementById('daily_limit').value = plan.daily_limit;
+            document.getElementById('double_profit_after_ads').value = plan.double_profit_after_ads || 0;
+            document.getElementById('double_profit_fee').value = plan.double_profit_fee || 0;
+            document.getElementById('double_profit_bonus_pct').value = plan.double_profit_bonus_pct || 0;
             document.getElementById('estimated_profit').value = plan.estimated_profit || '';
             document.getElementById('status').value = plan.status;
         }
@@ -218,6 +235,9 @@
                 price: parseFloat(document.getElementById('price').value),
                 duration: parseInt(document.getElementById('duration').value),
                 daily_limit: parseInt(document.getElementById('daily_limit').value),
+                double_profit_after_ads: parseInt(document.getElementById('double_profit_after_ads').value || 0),
+                double_profit_fee: parseFloat(document.getElementById('double_profit_fee').value || 0),
+                double_profit_bonus_pct: parseFloat(document.getElementById('double_profit_bonus_pct').value || 0),
                 estimated_profit: document.getElementById('estimated_profit').value,
                 status: document.getElementById('status').value
             };

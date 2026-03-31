@@ -1,4 +1,4 @@
-﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿<!DOCTYPE html>
+﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -367,56 +367,91 @@
         }
 
         let adInterval;
+        function maybeShowDoubleProfitOffer(next) {
+            fetch('/api/user/double-profit/offer')
+                .then(res => res.json().catch(() => ({})))
+                .then(data => {
+                    if (!data || !data.show) return next();
+                    const fee = Number(data.fee) || 0;
+                    const pct = Number(data.bonus_pct) || 0;
+                    const afterAds = Number(data.after_ads) || 0;
+                    showConfirm(
+                        'Double Profit Task',
+                        `You watched ${afterAds} ads. Unlock Double Profit +${pct}% for next ads.<br>Pay fee: PKR ${fee}`,
+                        () => {
+                            fetch('/api/user/double-profit/purchase', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({})
+                            })
+                                .then(res => {
+                                    if (!res.ok) return res.json().then(e => { throw e; });
+                                    return res.json();
+                                })
+                                .then(() => next())
+                                .catch(err => {
+                                    showToast((err && err.error) ? err.error : 'Failed to activate double profit', 'error');
+                                });
+                        },
+                        'Pay & Continue',
+                        'Cancel',
+                        false
+                    );
+                })
+                .catch(() => next());
+        }
         function viewAd(id, url, duration, reward) {
-            const videoId = getYouTubeId(url);
-            const modal = document.getElementById('adModal');
-            const timerDisplay = document.getElementById('timerCount');
-            const frame = document.getElementById('adFrame');
-            const container = document.querySelector('.modal-content div[style*="flex-direction: column"]');
-            
-            if(container) container.style.display = 'flex';
-            const msg = document.getElementById('adMessage');
-            if(msg) msg.remove();
+            maybeShowDoubleProfitOffer(() => {
+                const videoId = getYouTubeId(url);
+                const modal = document.getElementById('adModal');
+                const timerDisplay = document.getElementById('timerCount');
+                const frame = document.getElementById('adFrame');
+                const container = document.querySelector('.modal-content div[style*="flex-direction: column"]');
+                
+                if(container) container.style.display = 'flex';
+                const msg = document.getElementById('adMessage');
+                if(msg) msg.remove();
 
-            modal.style.display = 'block';
-            frame.style.display = 'block';
+                modal.style.display = 'block';
+                frame.style.display = 'block';
 
-            // Set Timer
-            let timeLeft = duration;
-            timerDisplay.innerText = timeLeft;
-            
-            if (videoId) {
-                // Keep YouTube logic for valid YT IDs
-                frame.src = `https://www.youtube.com/embed/${videoId}?autoplay=1&mute=1&controls=0&rel=0&origin=${window.location.origin}`;
-            } else {
-                // GENERIC URL SUPPORT (Vimeo, Dailymotion, MP4, Website)
-                if (url.includes('vimeo.com')) {
-                    // Convert Vimeo URL to Embed
-                    const vimeoId = url.split('/').pop();
-                    frame.src = `https://player.vimeo.com/video/${vimeoId}?autoplay=1&muted=1`;
-                } else if (url.includes('dailymotion.com')) {
-                    // Convert Dailymotion URL to Embed
-                    const dmId = url.split('/video/')[1];
-                    frame.src = `https://www.dailymotion.com/embed/video/${dmId}?autoplay=1&mute=1`;
-                } else {
-                    // Direct Website or MP4 Link
-                    frame.src = url;
-                }
-            }
-
-            // Clear any existing interval
-            if (adInterval) clearInterval(adInterval);
-
-            adInterval = setInterval(() => {
-                timeLeft--;
+                // Set Timer
+                let timeLeft = duration;
                 timerDisplay.innerText = timeLeft;
                 
-                if (timeLeft <= 0) {
-                    clearInterval(adInterval);
-                    adInterval = null; 
-                    claimReward(id);
+                if (videoId) {
+                    // Keep YouTube logic for valid YT IDs
+                    frame.src = `https://www.youtube.com/embed/${videoId}?autoplay=1&mute=1&controls=0&rel=0&origin=${window.location.origin}`;
+                } else {
+                    // GENERIC URL SUPPORT (Vimeo, Dailymotion, MP4, Website)
+                    if (url.includes('vimeo.com')) {
+                        // Convert Vimeo URL to Embed
+                        const vimeoId = url.split('/').pop();
+                        frame.src = `https://player.vimeo.com/video/${vimeoId}?autoplay=1&muted=1`;
+                    } else if (url.includes('dailymotion.com')) {
+                        // Convert Dailymotion URL to Embed
+                        const dmId = url.split('/video/')[1];
+                        frame.src = `https://www.dailymotion.com/embed/video/${dmId}?autoplay=1&mute=1`;
+                    } else {
+                        // Direct Website or MP4 Link
+                        frame.src = url;
+                    }
                 }
-            }, 1000);
+
+                // Clear any existing interval
+                if (adInterval) clearInterval(adInterval);
+
+                adInterval = setInterval(() => {
+                    timeLeft--;
+                    timerDisplay.innerText = timeLeft;
+                    
+                    if (timeLeft <= 0) {
+                        clearInterval(adInterval);
+                        adInterval = null; 
+                        claimReward(id);
+                    }
+                }, 1000);
+            });
         }
 
         function closeAdModal() {
