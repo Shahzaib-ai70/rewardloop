@@ -1879,6 +1879,112 @@ app.get('/api/admin/subscription-orders', (req, res) => {
     });
 });
 
+app.post('/api/admin/subscription-orders/sync', bodyParser.json(), async (req, res) => {
+    if (!req.session || !req.session.user) {
+        return res.status(401).json({ error: 'Unauthorized: Not logged in' });
+    }
+    if (req.session.user.role !== 'admin') {
+        return res.status(403).json({ error: 'Forbidden: Not an admin' });
+    }
+
+    const outOrderNumber = (req.body && req.body.out_order_number ? String(req.body.out_order_number) : '').trim();
+    if (!outOrderNumber) return res.status(400).json({ error: 'out_order_number is required' });
+
+    const key = (process.env.NICEPAY_KEY || '').trim();
+    const merchantId = (process.env.NICEPAY_MERCHANT_ID || '').trim();
+    const gateId = (process.env.NICEPAY_GATE_ID || '').trim();
+    const statusApiUrl = (process.env.NICEPAY_STATUS_API_URL || process.env.NICEPAY_QUERY_API_URL || '').trim();
+
+    if (!key || !merchantId || !gateId || !statusApiUrl) {
+        return res.status(500).json({ error: 'NicePay status API not configured (set NICEPAY_STATUS_API_URL)' });
+    }
+
+    db.get("SELECT * FROM payment_orders WHERE provider = 'nicepay' AND out_order_number = ? AND order_type = 'subscription' LIMIT 1", [outOrderNumber], async (err, order) => {
+        if (err) return res.status(500).json({ error: 'DB Error' });
+        if (!order) return res.status(404).json({ error: 'Order not found' });
+        if (String(order.status).toLowerCase() === 'paid') {
+            return res.json({ success: true, status: 'paid', message: 'Already paid' });
+        }
+
+        const queryParams = {
+            out_order_number: outOrderNumber,
+            merchant_id: merchantId,
+            gate_id: gateId
+        };
+        const sign = nicePaySign(queryParams, key);
+        const payload = { ...queryParams, sign };
+
+        let providerData = null;
+        try {
+            const apiRes = await fetch(statusApiUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            providerData = await apiRes.json().catch(() => ({}));
+            if (!apiRes.ok) {
+                return res.status(502).json({ error: 'NicePay status check failed', details: providerData });
+            }
+        } catch (e) {
+            return res.status(502).json({ error: 'NicePay status check error' });
+        }
+
+        const body = providerData && providerData.data ? providerData.data : providerData;
+        const paid = isNicePayPaid(body);
+        const realAmount = body && body.real_amount !== undefined && body.real_amount !== null ? Number(body.real_amount) : null;
+        const amount = body && body.amount !== undefined && body.amount !== null ? Number(body.amount) : null;
+        const finalAmount = Number.isFinite(realAmount) ? realAmount : (Number.isFinite(amount) ? amount : null);
+
+        if (finalAmount !== null && Number.isFinite(Number(order.amount)) && finalAmount !== Number(order.amount)) {
+            db.run("UPDATE payment_orders SET status = ? WHERE id = ?", ['failed', order.id], () => {
+                res.status(409).json({ error: 'Amount mismatch', status: 'failed' });
+            });
+            return;
+        }
+
+        if (!paid) {
+            const rawStatus = (body && (body.status ?? body.pay_status ?? body.trade_status ?? body.order_status)) ?? 'pending';
+            const next = String(rawStatus).trim().toLowerCase();
+            if (['fail', 'failed', 'cancel', 'canceled', 'cancelled', 'expired', 'reject', 'rejected'].includes(next)) {
+                db.run("UPDATE payment_orders SET status = ? WHERE id = ?", ['failed', order.id], () => {
+                    res.json({ success: false, status: 'failed' });
+                });
+                return;
+            }
+            return res.json({ success: false, status: 'pending' });
+        }
+
+        const paidAt = new Date().toISOString();
+        db.serialize(() => {
+            db.run("UPDATE payment_orders SET status = 'paid', paid_at = ? WHERE id = ?", [paidAt, order.id], () => {
+                const depositGateway = 'NicePay Subscription';
+                const depositTrx = outOrderNumber;
+                db.get("SELECT * FROM deposits WHERE transaction_id = ?", [depositTrx], (e2, existing) => {
+                    if (existing && existing.status === 'approved') return res.json({ success: true, status: 'paid', activated: true });
+
+                    db.run(
+                        "INSERT INTO deposits (user_id, amount, gateway, transaction_id, status, created_at, proof_image) VALUES (?, ?, ?, ?, ?, ?, ?)",
+                        [order.user_id, order.amount, depositGateway, depositTrx, 'approved', new Date().toISOString(), null],
+                        function () {
+                            db.get("SELECT duration, daily_limit FROM plans WHERE id = ?", [order.plan_id], (e3, plan) => {
+                                if (!plan) return res.json({ success: true, status: 'paid', activated: false });
+                                const expiry = new Date(Date.now() + Number(plan.duration) * 24 * 60 * 60 * 1000).toISOString();
+                                const startedAt = new Date().toISOString();
+                                const totalAds = Number(plan.daily_limit) || 0;
+                                db.run(
+                                    "UPDATE users SET plan_id = ?, plan_expiry = ?, plan_started_at = ?, plan_ads_used = 0, plan_ads_total = ? WHERE id = ?",
+                                    [order.plan_id, expiry, startedAt, totalAds, order.user_id],
+                                    () => res.json({ success: true, status: 'paid', activated: true })
+                                );
+                            });
+                        }
+                    );
+                });
+            });
+        });
+    });
+});
+
 
 
 // Admin API: Get Deposits

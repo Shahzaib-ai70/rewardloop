@@ -144,6 +144,7 @@
                         const amount = (r.amount !== undefined && r.amount !== null) ? Number(r.amount) : null;
                         const amountText = amount !== null && Number.isFinite(amount) ? `PKR ${amount}` : '—';
                         const userLink = `admin_user_detail.html?id=${r.user_id}`;
+                        const canSync = st === 'pending';
 
                         const tr = document.createElement('tr');
                         tr.innerHTML = `
@@ -159,6 +160,7 @@
                             <td>${fmtDate(r.paid_at)}</td>
                             <td>
                                 <a class="btn btn-sm btn-primary" href="${userLink}">View User</a>
+                                ${canSync ? `<button class="btn btn-sm btn-purple" style="margin-left:6px;" onclick="syncNicePayOrder('${orderNo}')"><i class="fas fa-arrows-rotate"></i> Sync</button>` : ''}
                             </td>
                         `;
                         tbody.appendChild(tr);
@@ -173,6 +175,41 @@
                 });
         }
 
+        function syncNicePayOrder(outOrderNumber) {
+            if (!outOrderNumber) return;
+            showConfirm(
+                'Sync NicePay Payment?',
+                `This will re-check payment status for order: ${outOrderNumber}. If paid, it will auto-activate the plan.`,
+                () => {
+                    fetch('/api/admin/subscription-orders/sync', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ out_order_number: outOrderNumber })
+                    })
+                        .then(async (res) => {
+                            const data = await res.json().catch(() => ({}));
+                            if (!res.ok) throw data;
+                            return data;
+                        })
+                        .then((data) => {
+                            if (data && data.success) {
+                                showToast('Synced successfully', 'success');
+                                loadOrders();
+                            } else {
+                                showToast('Still pending in NicePay', 'warning');
+                            }
+                        })
+                        .catch((err) => {
+                            const msg = (err && err.error) ? err.error : 'Sync failed';
+                            showToast(msg, 'error');
+                        });
+                },
+                'Yes, Sync',
+                'Cancel',
+                true
+            );
+        }
+
         document.getElementById('searchInput').addEventListener('keydown', (e) => {
             if (e.key === 'Enter') loadOrders();
         });
@@ -183,4 +220,3 @@
     <script src="js/translation.js"></script>
 </body>
 </html>
-
