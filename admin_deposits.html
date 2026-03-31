@@ -223,6 +223,7 @@
         }
 
         function depositRowHtml(dep) {
+            const deleteBtn = `<button class="btn btn-sm btn-danger" onclick="deleteDeposit(${dep.id})">Delete</button>`;
             return `
                 <tr>
                     <td>${dep.id}</td>
@@ -238,7 +239,8 @@
                         ${dep.status === 'pending' ? `
                         <button class="btn btn-sm btn-success" onclick="updateStatus(${dep.id}, 'approved')">Approve</button>
                         <button class="btn btn-sm btn-danger" onclick="updateStatus(${dep.id}, 'rejected')">Reject</button>
-                        ` : '-'}
+                        ${deleteBtn}
+                        ` : deleteBtn}
                     </td>
                 </tr>
             `;
@@ -298,6 +300,29 @@
                 `Yes, ${status.charAt(0).toUpperCase() + status.slice(1)}`,
                 'Cancel',
                 status === 'rejected'
+            );
+        }
+
+        function deleteDeposit(id) {
+            showConfirm(
+                'Delete Deposit?',
+                'Are you sure you want to delete this record? It will be removed from dashboard stats.',
+                () => {
+                    fetch(`/api/admin/deposits/${id}`, { method: 'DELETE' })
+                        .then(res => res.json())
+                        .then(data => {
+                            if (data && data.success) {
+                                showToast('Deposit deleted', 'success');
+                                loadDeposits();
+                            } else {
+                                showToast((data && data.error) ? data.error : 'Error deleting deposit', 'error');
+                            }
+                        })
+                        .catch(() => showToast('Error deleting deposit', 'error'));
+                },
+                'Yes, Delete',
+                'Cancel',
+                true
             );
         }
 

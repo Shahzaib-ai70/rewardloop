@@ -1766,9 +1766,22 @@ app.get('/api/admin/deposits', (req, res) => {
     if (!req.session.user || req.session.user.role !== 'admin') {
         return res.status(403).json({ error: 'Unauthorized' });
     }
-    db.all("SELECT deposits.*, users.username FROM deposits JOIN users ON deposits.user_id = users.id ORDER BY deposits.id DESC", (err, rows) => {
+    db.all("SELECT deposits.*, users.username FROM deposits JOIN users ON deposits.user_id = users.id WHERE deposits.status != 'deleted' ORDER BY deposits.id DESC", (err, rows) => {
         if (err) return res.status(500).json({ error: 'DB Error' });
         res.json(rows);
+    });
+});
+
+// Admin API: Delete Deposit (soft delete)
+app.delete('/api/admin/deposits/:id', (req, res) => {
+    if (!req.session.user || req.session.user.role !== 'admin') {
+        return res.status(403).json({ error: 'Unauthorized' });
+    }
+    const id = Number(req.params.id);
+    if (!Number.isFinite(id) || id <= 0) return res.status(400).json({ error: 'Invalid id' });
+    db.run("UPDATE deposits SET status = 'deleted' WHERE id = ?", [id], function (err) {
+        if (err) return res.status(500).json({ error: 'DB Error' });
+        res.json({ success: true });
     });
 });
 
@@ -1825,9 +1838,22 @@ app.get('/api/admin/withdrawals', (req, res) => {
     if (!req.session.user || req.session.user.role !== 'admin') {
         return res.status(403).json({ error: 'Unauthorized' });
     }
-    db.all("SELECT withdrawals.*, users.username FROM withdrawals JOIN users ON withdrawals.user_id = users.id ORDER BY withdrawals.id DESC", (err, rows) => {
+    db.all("SELECT withdrawals.*, users.username FROM withdrawals JOIN users ON withdrawals.user_id = users.id WHERE withdrawals.status != 'deleted' ORDER BY withdrawals.id DESC", (err, rows) => {
         if (err) return res.status(500).json({ error: 'DB Error' });
         res.json(rows);
+    });
+});
+
+// Admin API: Delete Withdrawal (soft delete)
+app.delete('/api/admin/withdrawals/:id', (req, res) => {
+    if (!req.session.user || req.session.user.role !== 'admin') {
+        return res.status(403).json({ error: 'Unauthorized' });
+    }
+    const id = Number(req.params.id);
+    if (!Number.isFinite(id) || id <= 0) return res.status(400).json({ error: 'Invalid id' });
+    db.run("UPDATE withdrawals SET status = 'deleted' WHERE id = ?", [id], function (err) {
+        if (err) return res.status(500).json({ error: 'DB Error' });
+        res.json({ success: true });
     });
 });
 

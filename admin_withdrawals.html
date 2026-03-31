@@ -92,7 +92,8 @@
                             const actionButtons = wd.status === 'pending' ? `
                                 <button class="btn btn-sm btn-success" onclick="updateStatus(${wd.id}, 'approved')">Approve</button>
                                 <button class="btn btn-sm btn-danger" onclick="updateStatus(${wd.id}, 'rejected')">Reject</button>
-                            ` : '-';
+                                <button class="btn btn-sm btn-danger" onclick="deleteWithdrawal(${wd.id})">Delete</button>
+                            ` : `<button class="btn btn-sm btn-danger" onclick="deleteWithdrawal(${wd.id})">Delete</button>`;
                             
                             tbody.innerHTML += `
                                 <tr>
@@ -137,6 +138,29 @@
             );
         }
 
+        function deleteWithdrawal(id) {
+            showConfirm(
+                'Delete Withdrawal?',
+                'Are you sure you want to delete this record? It will be removed from dashboard stats.',
+                () => {
+                    fetch(`/api/admin/withdrawals/${id}`, { method: 'DELETE' })
+                        .then(res => res.json())
+                        .then(data => {
+                            if (data && data.success) {
+                                showToast('Withdrawal deleted', 'success');
+                                loadWithdrawals();
+                            } else {
+                                showToast((data && data.error) ? data.error : 'Error deleting withdrawal', 'error');
+                            }
+                        })
+                        .catch(() => showToast('Error deleting withdrawal', 'error'));
+                },
+                'Yes, Delete',
+                'Cancel',
+                true
+            );
+        }
+
         // Initial Load
         loadWithdrawals();
     </script>
@@ -144,4 +168,3 @@
     <script src="js/translation.js"></script>
 </body>
 </html>
-
