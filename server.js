@@ -1898,11 +1898,10 @@ app.post('/api/admin/subscription-orders/sync', bodyParser.json(), async (req, r
 
     const key = (process.env.NICEPAY_KEY || '').trim();
     const merchantId = (process.env.NICEPAY_MERCHANT_ID || '').trim();
-    const gateId = (process.env.NICEPAY_GATE_ID || '').trim();
-    const statusApiUrl = (process.env.NICEPAY_STATUS_API_URL || process.env.NICEPAY_QUERY_API_URL || '').trim();
+    const statusApiUrl = (process.env.NICEPAY_STATUS_API_URL || process.env.NICEPAY_QUERY_API_URL || 'https://api.nicepay.club/v1/orderInfo').trim();
 
-    if (!key || !merchantId || !gateId || !statusApiUrl) {
-        return res.status(500).json({ error: 'NicePay status API not configured (set NICEPAY_STATUS_API_URL)' });
+    if (!key || !merchantId || !statusApiUrl) {
+        return res.status(500).json({ error: 'NicePay status API not configured (missing NICEPAY_KEY / NICEPAY_MERCHANT_ID)' });
     }
 
     db.get("SELECT * FROM payment_orders WHERE provider = 'nicepay' AND out_order_number = ? AND order_type = 'subscription' LIMIT 1", [outOrderNumber], async (err, order) => {
@@ -1914,8 +1913,7 @@ app.post('/api/admin/subscription-orders/sync', bodyParser.json(), async (req, r
 
         const queryParams = {
             out_order_number: outOrderNumber,
-            merchant_id: merchantId,
-            gate_id: gateId
+            merchant_id: merchantId
         };
         const sign = nicePaySign(queryParams, key);
         const payload = { ...queryParams, sign };
@@ -1935,8 +1933,15 @@ app.post('/api/admin/subscription-orders/sync', bodyParser.json(), async (req, r
             return res.status(502).json({ error: 'NicePay status check error' });
         }
 
-        const body = providerData && providerData.data ? providerData.data : providerData;
+        const code = providerData && providerData.code !== undefined && providerData.code !== null ? Number(providerData.code) : null;
+        if (code !== 0) {
+            const msg = providerData && providerData.msg ? String(providerData.msg) : 'NicePay query failed';
+            return res.status(502).json({ error: msg, details: providerData });
+        }
+
+        const body = providerData && providerData.data ? providerData.data : {};
         const paid = isNicePayPaid(body);
+        const statusRaw = body && body.status !== undefined && body.status !== null ? String(body.status).trim() : '';
         const realAmount = body && body.real_amount !== undefined && body.real_amount !== null ? Number(body.real_amount) : null;
         const amount = body && body.amount !== undefined && body.amount !== null ? Number(body.amount) : null;
         const finalAmount = Number.isFinite(realAmount) ? realAmount : (Number.isFinite(amount) ? amount : null);
@@ -1949,9 +1954,7 @@ app.post('/api/admin/subscription-orders/sync', bodyParser.json(), async (req, r
         }
 
         if (!paid) {
-            const rawStatus = (body && (body.status ?? body.pay_status ?? body.trade_status ?? body.order_status)) ?? 'pending';
-            const next = String(rawStatus).trim().toLowerCase();
-            if (['fail', 'failed', 'cancel', 'canceled', 'cancelled', 'expired', 'reject', 'rejected'].includes(next)) {
+            if (statusRaw === '-1') {
                 db.run("UPDATE payment_orders SET status = ? WHERE id = ?", ['failed', order.id], () => {
                     res.json({ success: false, status: 'failed' });
                 });
