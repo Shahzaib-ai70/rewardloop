@@ -63,7 +63,7 @@
                     </div>
 
                     <div class="filters-bar">
-                        <input id="searchInput" class="form-control" placeholder="Search order number / admin / message" />
+                        <input id="searchInput" class="form-control" placeholder="Search order / user / admin / message" />
                         <select id="resultFilter" class="form-control" style="max-width: 220px;">
                             <option value="">All results</option>
                             <option value="paid">Paid</option>
@@ -81,6 +81,7 @@
                             <thead>
                                 <tr>
                                     <th>Order Number</th>
+                                    <th>User</th>
                                     <th>Result</th>
                                     <th>Status</th>
                                     <th>Real Amount</th>
@@ -118,7 +119,7 @@
 
         function loadHistory() {
             const tbody = document.querySelector('#historyTable tbody');
-            tbody.innerHTML = '<tr><td colspan="7" class="text-center">Loading...</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="8" class="text-center">Loading...</td></tr>';
 
             const q = (document.getElementById('searchInput').value || '').trim();
             fetch(`/api/admin/nicepay-sync-history?q=${encodeURIComponent(q)}&limit=500`)
@@ -132,7 +133,7 @@
                 })
                 .then(rows => {
                     if (!Array.isArray(rows) || rows.length === 0) {
-                        tbody.innerHTML = '<tr><td colspan="7" class="text-center">No history found</td></tr>';
+                        tbody.innerHTML = '<tr><td colspan="8" class="text-center">No history found</td></tr>';
                         return;
                     }
 
@@ -144,6 +145,11 @@
                         if (filter && result !== filter) return;
 
                         const orderNo = r.out_order_number || '';
+                        const userId = r.user_id !== undefined && r.user_id !== null ? String(r.user_id) : '';
+                        const userName = r.user_username || '';
+                        const userEmail = r.user_email || '';
+                        const userLine = userName ? userName : (userEmail ? userEmail : (userId ? `ID: ${userId}` : '—'));
+                        const userLink = userId ? `admin_user_detail.html?id=${encodeURIComponent(userId)}` : '';
                         const st = r.response_status !== undefined && r.response_status !== null ? String(r.response_status) : '—';
                         const realAmt = r.response_real_amount !== undefined && r.response_real_amount !== null ? `PKR ${Number(r.response_real_amount)}` : '—';
                         const admin = r.admin_username || '—';
@@ -151,6 +157,7 @@
                         const tr = document.createElement('tr');
                         tr.innerHTML = `
                             <td class="mono">${orderNo}</td>
+                            <td>${userLink ? `<a href="${userLink}" style="color: var(--primary-color); text-decoration: underline;">${userLine}</a>` : `${userLine}`}</td>
                             <td>${pillResult(r.result)}</td>
                             <td class="mono">${st}</td>
                             <td>${realAmt}</td>
@@ -162,11 +169,11 @@
                     });
 
                     if (!tbody.children.length) {
-                        tbody.innerHTML = '<tr><td colspan="7" class="text-center">No matching history</td></tr>';
+                        tbody.innerHTML = '<tr><td colspan="8" class="text-center">No matching history</td></tr>';
                     }
                 })
                 .catch(err => {
-                    tbody.innerHTML = `<tr><td colspan="7" class="text-center text-danger">Error: ${err.message}</td></tr>`;
+                    tbody.innerHTML = `<tr><td colspan="8" class="text-center text-danger">Error: ${err.message}</td></tr>`;
                 });
         }
 

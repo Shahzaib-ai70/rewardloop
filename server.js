@@ -2143,27 +2143,32 @@ app.get('/api/admin/nicepay-sync-history', (req, res) => {
 
     let sql = `
         SELECT
-            id,
-            out_order_number,
-            admin_id,
-            admin_username,
-            endpoint,
-            result,
-            response_code,
-            response_status,
-            response_amount,
-            response_real_amount,
-            response_msg,
-            created_at
-        FROM nicepay_sync_history
+            h.id,
+            h.out_order_number,
+            h.admin_id,
+            h.admin_username,
+            h.endpoint,
+            h.result,
+            h.response_code,
+            h.response_status,
+            h.response_amount,
+            h.response_real_amount,
+            h.response_msg,
+            h.created_at,
+            po.user_id,
+            u.username AS user_username,
+            u.email AS user_email
+        FROM nicepay_sync_history h
+        LEFT JOIN payment_orders po ON po.out_order_number = h.out_order_number
+        LEFT JOIN users u ON u.id = po.user_id
         WHERE 1=1
     `;
 
     const params = [];
     if (q) {
-        sql += ` AND (out_order_number LIKE ? OR admin_username LIKE ? OR result LIKE ? OR response_msg LIKE ?)`;
+        sql += ` AND (h.out_order_number LIKE ? OR h.admin_username LIKE ? OR h.result LIKE ? OR h.response_msg LIKE ? OR u.username LIKE ? OR u.email LIKE ?)`;
         const like = `%${q}%`;
-        params.push(like, like, like, like);
+        params.push(like, like, like, like, like, like);
     }
 
     sql += ` ORDER BY id DESC LIMIT ?`;
