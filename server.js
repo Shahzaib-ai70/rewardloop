@@ -1310,14 +1310,19 @@ app.get('/api/admin/stats', (req, res) => {
             stats.totalUsers = row.count;
 
             // 2. Total Deposits (Approved)
-            db.get("SELECT SUM(amount) as total FROM deposits WHERE status = 'approved'", (err, row) => {
+            db.get("SELECT COALESCE(SUM(d.amount), 0) as total FROM deposits d JOIN users u ON u.id = d.user_id WHERE d.status = 'approved'", (err, row) => {
                 if (err) return res.status(500).json({ error: 'DB Error' });
                 stats.totalDeposits = row.total || 0;
 
                 // 3. Pending Withdrawals
-                db.get("SELECT COUNT(*) as count FROM withdrawals WHERE status = 'pending'", (err, row) => {
+                db.get("SELECT COUNT(*) as count FROM withdrawals w JOIN users u ON u.id = w.user_id WHERE w.status = 'pending'", (err, row) => {
                     if (err) return res.status(500).json({ error: 'DB Error' });
                     stats.pendingWithdrawals = row.count;
+
+                    // 4. Total Withdrawn (Approved)
+                    db.get("SELECT COALESCE(SUM(w.amount), 0) as total FROM withdrawals w JOIN users u ON u.id = w.user_id WHERE w.status = 'approved'", (err, row) => {
+                        if (err) return res.status(500).json({ error: 'DB Error' });
+                        stats.totalWithdrawn = row.total || 0;
 
                     // 4. Pending KYC (Disabled)
                     // db.get("SELECT COUNT(*) as count FROM kyc_requests WHERE status = 'pending'", (err, row) => {
@@ -1332,6 +1337,7 @@ app.get('/api/admin/stats', (req, res) => {
                             res.json(stats);
                         });
                     // });
+                    });
                 });
             });
         });

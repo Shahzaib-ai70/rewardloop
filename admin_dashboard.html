@@ -133,6 +133,14 @@
                     <div class="desc">Requests waiting approval</div>
                 </div>
 
+                <!-- Total Withdrawn -->
+                <div class="stat-card card-purple">
+                    <div class="icon-bg"><i class="fas fa-hand-holding-usd"></i></div>
+                    <h3>Total Withdrawn</h3>
+                    <div class="value">PKR 0</div>
+                    <div class="desc">Approved withdrawals</div>
+                </div>
+
 
             </div>
 
@@ -241,6 +249,10 @@
                 // Update Pending Withdrawals
                 const pendingWithdrawalsCard = document.querySelector('.card-orange .value');
                 if (pendingWithdrawalsCard) pendingWithdrawalsCard.textContent = data.pendingWithdrawals;
+
+                // Update Total Withdrawn
+                const totalWithdrawnCard = document.querySelector('.card-purple .value');
+                if (totalWithdrawnCard) totalWithdrawnCard.textContent = 'PKR ' + parseFloat(data.totalWithdrawn || 0).toFixed(2);
 
 
 
