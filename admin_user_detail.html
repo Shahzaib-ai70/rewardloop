@@ -507,6 +507,7 @@
                             
                             <div class="profile-actions">
                                 <button onclick="loginAsUser()" class="action-btn-icon btn-login" title="Login as User"><i class="fas fa-sign-in-alt"></i></button>
+                                <button onclick="contactWhatsApp()" class="action-btn-icon" style="background: #25D366;" title="Contact on WhatsApp"><i class="fab fa-whatsapp"></i></button>
                                 <button class="action-btn-icon btn-mail" title="Send Email"><i class="fas fa-envelope"></i></button>
                                 <button class="action-btn-icon btn-ban" title="Ban User"><i class="fas fa-ban"></i></button>
                                 <button onclick="deleteUser()" class="action-btn-icon btn-delete" title="Delete User"><i class="fas fa-trash"></i></button>
@@ -1184,6 +1185,24 @@
                     showToast('Error logging in as user', 'error');
                 }
             });
+        }
+
+        function contactWhatsApp() {
+            const phone = document.getElementById('phone').value;
+            const name = document.getElementById('firstname').value || document.getElementById('username').value || 'User';
+            
+            if (!phone) {
+                showToast('No phone number available for this user', 'warning');
+                return;
+            }
+
+            // Clean phone number (remove spaces, dashes, etc.) but keep the country code logic if present
+            const cleanPhone = phone.replace(/[^0-9+]/g, '');
+            
+            // Personalize the message to lower the chance of being marked as spam
+            const message = encodeURIComponent(`Hello ${name}, this is Admin from Support regarding your account. `);
+            
+            window.open(`https://wa.me/${cleanPhone}?text=${message}`, '_blank');
         }
 
         function deleteUser() {

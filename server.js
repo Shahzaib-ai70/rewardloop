@@ -172,6 +172,27 @@ db.serialize(() => {
                 else console.log("Added 'withdrawal_error_text' column to users table.");
             });
         }
+
+        const hasPlanStartedAt = rows.some(row => row.name === 'plan_started_at');
+        if (!hasPlanStartedAt) {
+            db.run("ALTER TABLE users ADD COLUMN plan_started_at TEXT", (err) => {
+                if (err) console.error("Error adding plan_started_at column:", err);
+            });
+        }
+
+        const hasPlanAdsUsed = rows.some(row => row.name === 'plan_ads_used');
+        if (!hasPlanAdsUsed) {
+            db.run("ALTER TABLE users ADD COLUMN plan_ads_used INTEGER DEFAULT 0", (err) => {
+                if (err) console.error("Error adding plan_ads_used column:", err);
+            });
+        }
+
+        const hasPlanAdsTotal = rows.some(row => row.name === 'plan_ads_total');
+        if (!hasPlanAdsTotal) {
+            db.run("ALTER TABLE users ADD COLUMN plan_ads_total INTEGER DEFAULT 0", (err) => {
+                if (err) console.error("Error adding plan_ads_total column:", err);
+            });
+        }
     });
 
     // Check if 'withdraw_limit' column exists in plans
@@ -739,7 +760,7 @@ app.post('/api/admin/users/:id/activate-plan-wallet', bodyParser.json(), (req, r
         return res.status(400).json({ error: 'Invalid plan id' });
     }
 
-    db.get("SELECT id, price, duration FROM plans WHERE id = ? AND status = 'active'", [planId], (pErr, plan) => {
+    db.get("SELECT id, price, duration, daily_limit FROM plans WHERE id = ? AND status = 'active'", [planId], (pErr, plan) => {
         if (pErr) return res.status(500).json({ error: 'DB Error' });
         if (!plan) return res.status(404).json({ error: 'Plan not found' });
 
@@ -765,6 +786,7 @@ app.post('/api/admin/users/:id/activate-plan-wallet', bodyParser.json(), (req, r
 
             const transactionId = `SUB-${planId}-${Date.now()}-${userId}`;
             const createdAt = new Date().toISOString();
+            const totalAds = Number(plan.daily_limit) || 0;
 
             const rollback = (status, payload) => {
                 db.run('ROLLBACK', () => res.status(status).json(payload));
@@ -774,8 +796,8 @@ app.post('/api/admin/users/:id/activate-plan-wallet', bodyParser.json(), (req, r
                 db.run('BEGIN TRANSACTION');
 
                 db.run(
-                    "UPDATE users SET balance = balance - ?, plan_id = ?, plan_expiry = ? WHERE id = ? AND balance >= ?",
-                    [planPrice, planId, newExpiry, userId, planPrice],
+                    "UPDATE users SET balance = balance - ?, plan_id = ?, plan_expiry = ?, plan_started_at = ?, plan_ads_used = 0, plan_ads_total = ? WHERE id = ? AND balance >= ?",
+                    [planPrice, planId, newExpiry, createdAt, totalAds, userId, planPrice],
                     function (upErr) {
                         if (upErr) return rollback(500, { error: 'DB Error' });
                         if (!this.changes) return rollback(400, { error: 'Insufficient balance' });
@@ -1165,10 +1187,12 @@ app.post('/api/nicepay/notify', (req, res) => {
                         [order.user_id, order.amount, depositGateway, depositTrx, 'approved', new Date().toISOString(), null],
                         function () {
                             if (order.order_type === 'subscription') {
-                                db.get("SELECT duration FROM plans WHERE id = ?", [order.plan_id], (e3, plan) => {
+                                db.get("SELECT duration, daily_limit FROM plans WHERE id = ?", [order.plan_id], (e3, plan) => {
                                     if (!plan) return res.send('success');
                                     const expiry = new Date(Date.now() + Number(plan.duration) * 24 * 60 * 60 * 1000).toISOString();
-                                    db.run("UPDATE users SET plan_id = ?, plan_expiry = ? WHERE id = ?", [order.plan_id, expiry, order.user_id], () => res.send('success'));
+                                    const startedAt = new Date().toISOString();
+                                    const totalAds = Number(plan.daily_limit) || 0;
+                                    db.run("UPDATE users SET plan_id = ?, plan_expiry = ?, plan_started_at = ?, plan_ads_used = 0, plan_ads_total = ? WHERE id = ?", [order.plan_id, expiry, startedAt, totalAds, order.user_id], () => res.send('success'));
                                 });
                             } else {
                                 db.run("UPDATE users SET balance = balance + ? WHERE id = ?", [order.amount, order.user_id], () => {
@@ -1359,7 +1383,7 @@ app.get('/api/user/ads', (req, res) => {
     const userId = req.session.user.id;
     
     // 1. Check User's Plan
-    db.get("SELECT plan_id, plan_expiry FROM users WHERE id = ?", [userId], (err, user) => {
+    db.get("SELECT plan_id, plan_expiry, plan_started_at, plan_ads_total FROM users WHERE id = ?", [userId], (err, user) => {
         if (err) return res.status(500).json({ error: 'DB Error' });
         
         // If no plan or plan expired
@@ -1368,39 +1392,89 @@ app.get('/api/user/ads', (req, res) => {
         }
         
         // 2. Get Plan Limit
-        db.get("SELECT daily_limit FROM plans WHERE id = ?", [user.plan_id], (err, plan) => {
+        db.get("SELECT daily_limit, duration FROM plans WHERE id = ?", [user.plan_id], (err, plan) => {
             if (err || !plan) return res.json([]); // Should not happen if plan_id is valid
             
-            const limit = plan.daily_limit;
-            
-            const today = new Date().toISOString().split('T')[0];
-            db.get("SELECT COUNT(*) as count FROM deposits WHERE user_id = ? AND gateway = 'Ad View' AND created_at LIKE ?", [userId, `${today}%`], (cErr, cRow) => {
-                if (cErr) return res.status(500).json({ error: 'DB Error' });
-                const watchedToday = cRow && cRow.count ? Number(cRow.count) : 0;
-                if (watchedToday >= (Number(limit) || 0)) {
-                    return res.status(403).json({ error: 'Daily ad limit reached. You can watch again tomorrow.' });
-                }
+            const totalAllowed = Number(user.plan_ads_total) > 0 ? Number(user.plan_ads_total) : (Number(plan.daily_limit) || 0);
+            if (totalAllowed <= 0) return res.json([]);
 
-                const planId = user.plan_id;
-                db.all("SELECT * FROM ads WHERE status = 'active' AND (plan_id = ? OR plan_id IS NULL OR plan_id = 0) ORDER BY id DESC LIMIT ?", [planId, limit], (aErr, ads) => {
-                    if (aErr) return res.status(500).json({ error: 'DB Error' });
+            const expiry = new Date(user.plan_expiry);
+            const isValidExpiry = !isNaN(expiry.getTime());
+            const durationDays = Number(plan.duration) || 0;
 
-                    db.all("SELECT transaction_id FROM deposits WHERE user_id = ? AND gateway = 'Ad View' AND created_at LIKE ?", [userId, `${today}%`], (vErr, views) => {
-                        if (vErr) return res.status(500).json({ error: 'DB Error fetching views' });
+            const parseIso = (v) => {
+                const d = v ? new Date(v) : null;
+                return d && !isNaN(d.getTime()) ? d.toISOString() : null;
+            };
 
-                        const viewedAdIds = (views || []).map(v => {
-                            const parts = String(v.transaction_id || '').split('-'); // AD-{id}-{timestamp}
-                            return parts.length >= 2 ? parseInt(parts[1]) : null;
-                        }).filter(v => Number.isFinite(v));
+            const fromUser = parseIso(user.plan_started_at);
 
-                        const adsWithStatus = (ads || []).map(ad => ({
-                            ...ad,
-                            completed: viewedAdIds.includes(ad.id)
-                        }));
+            const inferFromExpiry = () => {
+                if (!isValidExpiry || durationDays <= 0) return null;
+                const start = new Date(expiry.getTime() - durationDays * 24 * 60 * 60 * 1000);
+                return start.toISOString();
+            };
 
-                        res.json(adsWithStatus);
-                    });
-                });
+            const loadPlanStart = (cb) => {
+                if (fromUser) return cb(fromUser);
+                db.get(
+                    "SELECT created_at FROM deposits WHERE user_id = ? AND (gateway IN ('NicePay Subscription','Wallet Subscription') OR transaction_id LIKE 'SUB-%') AND status IN ('approved','completed') ORDER BY id DESC LIMIT 1",
+                    [userId],
+                    (sErr, sRow) => {
+                        if (!sErr && sRow && sRow.created_at) {
+                            const iso = parseIso(sRow.created_at);
+                            if (iso) return cb(iso);
+                        }
+                        cb(inferFromExpiry());
+                    }
+                );
+            };
+
+            loadPlanStart((startIso) => {
+                const start = startIso || '1970-01-01T00:00:00.000Z';
+                db.get(
+                    "SELECT COUNT(*) as count FROM deposits WHERE user_id = ? AND gateway = 'Ad View' AND created_at >= ?",
+                    [userId, start],
+                    (cErr, cRow) => {
+                        if (cErr) return res.status(500).json({ error: 'DB Error' });
+                        const used = cRow && cRow.count ? Number(cRow.count) : 0;
+                        const remaining = totalAllowed - used;
+                        if (remaining <= 0) {
+                            return res.status(403).json({ error: 'Your plan is finished. Subscribe your next plan.' });
+                        }
+
+                        const planId = user.plan_id;
+                        const fetchLimit = Math.max(1, Math.min(remaining, totalAllowed));
+
+                        db.all(
+                            "SELECT * FROM ads WHERE status = 'active' AND (plan_id = ? OR plan_id IS NULL OR plan_id = 0) ORDER BY id DESC LIMIT ?",
+                            [planId, fetchLimit],
+                            (aErr, ads) => {
+                                if (aErr) return res.status(500).json({ error: 'DB Error' });
+
+                                db.all(
+                                    "SELECT transaction_id FROM deposits WHERE user_id = ? AND gateway = 'Ad View' AND created_at >= ?",
+                                    [userId, start],
+                                    (vErr, views) => {
+                                        if (vErr) return res.status(500).json({ error: 'DB Error fetching views' });
+
+                                        const viewedAdIds = (views || []).map(v => {
+                                            const parts = String(v.transaction_id || '').split('-');
+                                            return parts.length >= 2 ? parseInt(parts[1]) : null;
+                                        }).filter(v => Number.isFinite(v));
+
+                                        const adsWithStatus = (ads || []).map(ad => ({
+                                            ...ad,
+                                            completed: viewedAdIds.includes(ad.id)
+                                        }));
+
+                                        res.json(adsWithStatus);
+                                    }
+                                );
+                            }
+                        );
+                    }
+                );
             });
         });
     });
@@ -1453,42 +1527,88 @@ app.post('/api/user/ads/view', bodyParser.json(), (req, res) => {
     
     db.get("SELECT * FROM ads WHERE id = ? AND status = 'active'", [ad_id], (err, ad) => {
         if (err || !ad) return res.status(404).json({ error: 'Ad not found or inactive' });
-        const today = new Date().toISOString().split('T')[0];
-        db.get("SELECT id FROM deposits WHERE user_id = ? AND gateway = 'Ad View' AND transaction_id LIKE ? AND created_at LIKE ?",
-            [req.session.user.id, `AD-${ad_id}-%`, `${today}%`], (err, existing) => {
-            
-            if (existing) {
-                return res.status(400).json({ error: 'Ad already viewed today' });
+        const userId = req.session.user.id;
+        db.get("SELECT plan_id, plan_expiry, plan_started_at, plan_ads_total FROM users WHERE id = ?", [userId], (uErr, user) => {
+            if (uErr || !user || !user.plan_id || new Date(user.plan_expiry) < new Date()) {
+                return res.status(400).json({ error: 'No active plan' });
             }
 
-            // Check Daily Limit
-            db.get("SELECT plan_id, plan_expiry FROM users WHERE id = ?", [req.session.user.id], (err, user) => {
-                if (err || !user.plan_id || new Date(user.plan_expiry) < new Date()) {
-                    return res.status(400).json({ error: 'No active plan' });
-                }
+            db.get("SELECT daily_limit, duration FROM plans WHERE id = ?", [user.plan_id], (pErr, plan) => {
+                if (pErr || !plan) return res.status(400).json({ error: 'Plan error' });
 
-                db.get("SELECT daily_limit FROM plans WHERE id = ?", [user.plan_id], (err, plan) => {
-                    if (err || !plan) return res.status(400).json({ error: 'Plan error' });
+                const totalAllowed = Number(user.plan_ads_total) > 0 ? Number(user.plan_ads_total) : (Number(plan.daily_limit) || 0);
+                if (totalAllowed <= 0) return res.status(400).json({ error: 'Plan error' });
 
-                    db.get("SELECT COUNT(*) as count FROM deposits WHERE user_id = ? AND gateway = 'Ad View' AND created_at LIKE ?", [req.session.user.id, `${today}%`], (err, row) => {
-                        if ((row && row.count ? Number(row.count) : 0) >= (Number(plan.daily_limit) || 0)) {
-                            return res.status(400).json({ error: 'Daily ad limit reached. You can watch again tomorrow.' });
+                const expiry = new Date(user.plan_expiry);
+                const isValidExpiry = !isNaN(expiry.getTime());
+                const durationDays = Number(plan.duration) || 0;
+
+                const parseIso = (v) => {
+                    const d = v ? new Date(v) : null;
+                    return d && !isNaN(d.getTime()) ? d.toISOString() : null;
+                };
+
+                const fromUser = parseIso(user.plan_started_at);
+
+                const inferFromExpiry = () => {
+                    if (!isValidExpiry || durationDays <= 0) return null;
+                    const start = new Date(expiry.getTime() - durationDays * 24 * 60 * 60 * 1000);
+                    return start.toISOString();
+                };
+
+                const loadPlanStart = (cb) => {
+                    if (fromUser) return cb(fromUser);
+                    db.get(
+                        "SELECT created_at FROM deposits WHERE user_id = ? AND (gateway IN ('NicePay Subscription','Wallet Subscription') OR transaction_id LIKE 'SUB-%') AND status IN ('approved','completed') ORDER BY id DESC LIMIT 1",
+                        [userId],
+                        (sErr, sRow) => {
+                            if (!sErr && sRow && sRow.created_at) {
+                                const iso = parseIso(sRow.created_at);
+                                if (iso) return cb(iso);
+                            }
+                            cb(inferFromExpiry());
                         }
+                    );
+                };
 
-                        // Add balance to user
-                        db.run("UPDATE users SET balance = balance + ? WHERE id = ?", [ad.reward, req.session.user.id], (err) => {
-                            if (err) return res.status(500).json({ error: 'DB Error updating balance' });
-                            
-                            // Log transaction
-                            const stmt = db.prepare("INSERT INTO deposits (user_id, amount, gateway, transaction_id, status, created_at) VALUES (?, ?, ?, ?, ?, ?)");
-                            // We use 'deposits' table for transactions for now, with 'Ad View' as gateway/method
-                            stmt.run(req.session.user.id, ad.reward, 'Ad View', `AD-${ad_id}-${Date.now()}`, 'completed', new Date().toISOString(), function(err) {
-                                if (err) console.error("Error logging ad view transaction:", err);
-                                res.json({ success: true, reward: ad.reward });
-                            });
-                            stmt.finalize();
-                        });
-                    });
+                loadPlanStart((startIso) => {
+                    const start = startIso || '1970-01-01T00:00:00.000Z';
+
+                    db.get(
+                        "SELECT id FROM deposits WHERE user_id = ? AND gateway = 'Ad View' AND transaction_id LIKE ? AND created_at >= ?",
+                        [userId, `AD-${ad_id}-%`, start],
+                        (eErr, existing) => {
+                            if (eErr) return res.status(500).json({ error: 'DB Error' });
+                            if (existing) return res.status(400).json({ error: 'Ad already viewed' });
+
+                            db.get(
+                                "SELECT COUNT(*) as count FROM deposits WHERE user_id = ? AND gateway = 'Ad View' AND created_at >= ?",
+                                [userId, start],
+                                (cErr, row) => {
+                                    if (cErr) return res.status(500).json({ error: 'DB Error' });
+                                    const used = row && row.count ? Number(row.count) : 0;
+                                    if (used >= totalAllowed) {
+                                        return res.status(400).json({ error: 'Your plan is finished. Subscribe your next plan.' });
+                                    }
+
+                                    db.run(
+                                        "UPDATE users SET balance = balance + ?, plan_ads_used = COALESCE(plan_ads_used, 0) + 1, plan_ads_total = ?, plan_started_at = COALESCE(plan_started_at, ?) WHERE id = ?",
+                                        [ad.reward, totalAllowed, startIso || start, userId],
+                                        (bErr) => {
+                                            if (bErr) return res.status(500).json({ error: 'DB Error updating balance' });
+
+                                            const stmt = db.prepare("INSERT INTO deposits (user_id, amount, gateway, transaction_id, status, created_at) VALUES (?, ?, ?, ?, ?, ?)");
+                                            stmt.run(userId, ad.reward, 'Ad View', `AD-${ad_id}-${Date.now()}`, 'completed', new Date().toISOString(), function (iErr) {
+                                                if (iErr) console.error("Error logging ad view transaction:", iErr);
+                                                res.json({ success: true, reward: ad.reward });
+                                            });
+                                            stmt.finalize();
+                                        }
+                                    );
+                                }
+                            );
+                        }
+                    );
                 });
             });
         });
@@ -2203,7 +2323,7 @@ app.post('/api/admin/deposits/status', bodyParser.json(), (req, res) => {
                         
                         if (planId) {
                             // Get Plan Duration
-                            db.get("SELECT duration FROM plans WHERE id = ?", [planId], (err, plan) => {
+                            db.get("SELECT duration, daily_limit FROM plans WHERE id = ?", [planId], (err, plan) => {
                                 if (err || !plan) {
                                     console.error("Plan not found for approved subscription:", planId);
                                     return res.json({ success: true, warning: 'Plan not found, but status updated.' });
@@ -2211,7 +2331,9 @@ app.post('/api/admin/deposits/status', bodyParser.json(), (req, res) => {
                                 
                                 // Activate Plan for User (Without adding balance)
                                 const expiry = new Date(Date.now() + plan.duration * 24 * 60 * 60 * 1000).toISOString();
-                                db.run("UPDATE users SET plan_id = ?, plan_expiry = ? WHERE id = ?", [planId, expiry, deposit.user_id], (err) => {
+                                const startedAt = new Date().toISOString();
+                                const totalAds = Number(plan.daily_limit) || 0;
+                                db.run("UPDATE users SET plan_id = ?, plan_expiry = ?, plan_started_at = ?, plan_ads_used = 0, plan_ads_total = ? WHERE id = ?", [planId, expiry, startedAt, totalAds, deposit.user_id], (err) => {
                                     if (err) console.error("Error activating plan:", err);
 
                                     res.json({ success: true });
