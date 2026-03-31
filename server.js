@@ -314,6 +314,8 @@ db.serialize(() => {
     db.run("CREATE TABLE IF NOT EXISTS payment_orders (id INTEGER PRIMARY KEY AUTOINCREMENT, provider TEXT, out_order_number TEXT UNIQUE, user_id INTEGER, order_type TEXT, plan_id INTEGER, amount REAL, status TEXT DEFAULT 'pending', created_at TEXT, paid_at TEXT)");
     db.run("CREATE TABLE IF NOT EXISTS nicepay_sync_history (id INTEGER PRIMARY KEY AUTOINCREMENT, out_order_number TEXT, admin_id INTEGER, admin_username TEXT, endpoint TEXT, result TEXT, response_code INTEGER, response_status TEXT, response_amount REAL, response_real_amount REAL, response_msg TEXT, response_json TEXT, created_at TEXT)");
     db.run("CREATE TABLE IF NOT EXISTS double_profit_purchases (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER, plan_id INTEGER, fee REAL, bonus_pct REAL, created_at TEXT)");
+    db.run("CREATE TABLE IF NOT EXISTS double_profit_offers (id INTEGER PRIMARY KEY AUTOINCREMENT, plan_id INTEGER, after_ads INTEGER, fee REAL, bonus_pct REAL, status TEXT DEFAULT 'active', created_at TEXT)");
+    db.run("CREATE TABLE IF NOT EXISTS double_profit_offer_purchases (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER, plan_id INTEGER, ad_id INTEGER, offer_id INTEGER, offer_after_ads INTEGER, fee REAL, bonus_pct REAL, used_at TEXT, created_at TEXT)");
     db.run("CREATE TABLE IF NOT EXISTS transfers (id INTEGER PRIMARY KEY AUTOINCREMENT, sender_id INTEGER, receiver_id INTEGER, amount REAL, created_at TEXT)");
     db.run("CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT)");
     
@@ -1569,6 +1571,9 @@ app.get('/api/user/double-profit/offer', (req, res) => {
         return res.status(401).json({ error: 'Unauthorized' });
     }
     const userId = req.session.user.id;
+    const adId = req.query && req.query.ad_id !== undefined && req.query.ad_id !== null ? Number(req.query.ad_id) : null;
+    if (!Number.isFinite(adId) || adId <= 0) return res.json({ show: false });
+
     db.get("SELECT plan_id, plan_expiry, plan_started_at, plan_ads_total, double_profit_unlocked FROM users WHERE id = ?", [userId], (uErr, user) => {
         if (uErr) return res.status(500).json({ error: 'DB Error' });
         if (!user || !user.plan_id || new Date(user.plan_expiry) < new Date()) {
@@ -1578,10 +1583,6 @@ app.get('/api/user/double-profit/offer', (req, res) => {
         db.get("SELECT duration, daily_limit, double_profit_after_ads, double_profit_fee, double_profit_bonus_pct FROM plans WHERE id = ?", [user.plan_id], (pErr, plan) => {
             if (pErr || !plan) return res.json({ show: false });
 
-            const afterAds = Number(plan.double_profit_after_ads) || 0;
-            const fee = Number(plan.double_profit_fee) || 0;
-            const bonusPct = Number(plan.double_profit_bonus_pct) || 0;
-            if (afterAds <= 0 || fee <= 0 || bonusPct <= 0) return res.json({ show: false });
             if (Number(user.double_profit_unlocked) === 1) return res.json({ show: false });
 
             const totalAllowed = Number(user.plan_ads_total) > 0 ? Number(user.plan_ads_total) : (Number(plan.daily_limit) || 0);
@@ -1627,8 +1628,31 @@ app.get('/api/user/double-profit/offer', (req, res) => {
                     (cErr, cRow) => {
                         if (cErr) return res.status(500).json({ error: 'DB Error' });
                         const used = cRow && cRow.count ? Number(cRow.count) : 0;
-                        if (used !== afterAds) return res.json({ show: false });
-                        return res.json({ show: true, fee, bonus_pct: bonusPct, after_ads: afterAds });
+
+                        db.get(
+                            "SELECT id, after_ads, fee, bonus_pct FROM double_profit_offers WHERE plan_id = ? AND status = 'active' AND after_ads = ? ORDER BY id ASC LIMIT 1",
+                            [user.plan_id, used],
+                            (oErr, offer) => {
+                                if (oErr) return res.json({ show: false });
+
+                                const offerId = offer && offer.id ? Number(offer.id) : null;
+                                const afterAds = offer ? Number(offer.after_ads) || 0 : (Number(plan.double_profit_after_ads) || 0);
+                                const fee = offer ? Number(offer.fee) || 0 : (Number(plan.double_profit_fee) || 0);
+                                const bonusPct = offer ? Number(offer.bonus_pct) || 0 : (Number(plan.double_profit_bonus_pct) || 0);
+                                if (afterAds <= 0 || fee <= 0 || bonusPct <= 0) return res.json({ show: false });
+                                if (used !== afterAds) return res.json({ show: false });
+
+                                db.get(
+                                    "SELECT id FROM double_profit_offer_purchases WHERE user_id = ? AND plan_id = ? AND ad_id = ? AND offer_after_ads = ? AND used_at IS NULL AND created_at >= ? LIMIT 1",
+                                    [userId, user.plan_id, adId, afterAds, start],
+                                    (p2Err, existing) => {
+                                        if (p2Err) return res.json({ show: false });
+                                        if (existing) return res.json({ show: false });
+                                        return res.json({ show: true, offer_id: offerId, fee, bonus_pct: bonusPct, after_ads: afterAds });
+                                    }
+                                );
+                            }
+                        );
                     }
                 );
             });
@@ -1641,22 +1665,18 @@ app.post('/api/user/double-profit/purchase', bodyParser.json(), (req, res) => {
         return res.status(401).json({ error: 'Unauthorized' });
     }
     const userId = req.session.user.id;
+    const adId = req.body && req.body.ad_id !== undefined && req.body.ad_id !== null ? Number(req.body.ad_id) : null;
+    const offerIdRaw = req.body && req.body.offer_id !== undefined && req.body.offer_id !== null ? Number(req.body.offer_id) : null;
+    if (!Number.isFinite(adId) || adId <= 0) return res.status(400).json({ error: 'Invalid ad_id' });
+
     db.get("SELECT id, balance, plan_id, plan_expiry, plan_started_at, plan_ads_total, double_profit_unlocked FROM users WHERE id = ?", [userId], (uErr, user) => {
         if (uErr) return res.status(500).json({ error: 'DB Error' });
         if (!user || !user.plan_id || new Date(user.plan_expiry) < new Date()) {
             return res.status(400).json({ error: 'No active plan' });
         }
-        if (Number(user.double_profit_unlocked) === 1) {
-            return res.json({ success: true });
-        }
 
         db.get("SELECT id, duration, daily_limit, double_profit_after_ads, double_profit_fee, double_profit_bonus_pct FROM plans WHERE id = ?", [user.plan_id], (pErr, plan) => {
             if (pErr || !plan) return res.status(400).json({ error: 'Plan error' });
-
-            const afterAds = Number(plan.double_profit_after_ads) || 0;
-            const fee = Number(plan.double_profit_fee) || 0;
-            const bonusPct = Number(plan.double_profit_bonus_pct) || 0;
-            if (afterAds <= 0 || fee <= 0 || bonusPct <= 0) return res.status(400).json({ error: 'Double profit not available' });
 
             const totalAllowed = Number(user.plan_ads_total) > 0 ? Number(user.plan_ads_total) : (Number(plan.daily_limit) || 0);
             if (totalAllowed <= 0) return res.status(400).json({ error: 'Plan error' });
@@ -1701,24 +1721,59 @@ app.post('/api/user/double-profit/purchase', bodyParser.json(), (req, res) => {
                     (cErr, cRow) => {
                         if (cErr) return res.status(500).json({ error: 'DB Error' });
                         const used = cRow && cRow.count ? Number(cRow.count) : 0;
-                        if (used < afterAds) return res.status(400).json({ error: 'Not eligible yet' });
 
-                        const bal = Number(user.balance) || 0;
-                        if (bal < fee) return res.status(400).json({ error: 'Insufficient balance' });
+                        const pickOffer = (cb) => {
+                            if (Number.isFinite(offerIdRaw) && offerIdRaw > 0) {
+                                db.get(
+                                    "SELECT id, after_ads, fee, bonus_pct FROM double_profit_offers WHERE id = ? AND plan_id = ? AND status = 'active' LIMIT 1",
+                                    [offerIdRaw, user.plan_id],
+                                    (oErr, offer) => cb(oErr, offer)
+                                );
+                                return;
+                            }
+                            db.get(
+                                "SELECT id, after_ads, fee, bonus_pct FROM double_profit_offers WHERE plan_id = ? AND status = 'active' AND after_ads = ? ORDER BY id ASC LIMIT 1",
+                                [user.plan_id, used],
+                                (oErr, offer) => cb(oErr, offer)
+                            );
+                        };
 
-                        const nowIso = new Date().toISOString();
-                        db.serialize(() => {
-                            db.run(
-                                "UPDATE users SET balance = balance - ?, double_profit_unlocked = 1, double_profit_bonus_pct = ?, double_profit_unlocked_at = ? WHERE id = ? AND balance >= ?",
-                                [fee, bonusPct, nowIso, userId, fee],
-                                function (upErr) {
-                                    if (upErr) return res.status(500).json({ error: 'DB Error' });
-                                    if (!this.changes) return res.status(400).json({ error: 'Insufficient balance' });
-                                    db.run(
-                                        "INSERT INTO double_profit_purchases (user_id, plan_id, fee, bonus_pct, created_at) VALUES (?, ?, ?, ?, ?)",
-                                        [userId, plan.id, fee, bonusPct, nowIso],
-                                        () => res.json({ success: true })
-                                    );
+                        pickOffer((oErr, offer) => {
+                            if (oErr) return res.status(500).json({ error: 'DB Error' });
+
+                            const offerId = offer && offer.id ? Number(offer.id) : null;
+                            const afterAds = offer ? Number(offer.after_ads) || 0 : (Number(plan.double_profit_after_ads) || 0);
+                            const fee = offer ? Number(offer.fee) || 0 : (Number(plan.double_profit_fee) || 0);
+                            const bonusPct = offer ? Number(offer.bonus_pct) || 0 : (Number(plan.double_profit_bonus_pct) || 0);
+                            if (afterAds <= 0 || fee <= 0 || bonusPct <= 0) return res.status(400).json({ error: 'Double profit not available' });
+                            if (used !== afterAds) return res.status(400).json({ error: 'Not eligible yet' });
+
+                            db.get(
+                                "SELECT id FROM double_profit_offer_purchases WHERE user_id = ? AND plan_id = ? AND ad_id = ? AND offer_after_ads = ? AND used_at IS NULL AND created_at >= ? LIMIT 1",
+                                [userId, user.plan_id, adId, afterAds, start],
+                                (xErr, existing) => {
+                                    if (xErr) return res.status(500).json({ error: 'DB Error' });
+                                    if (existing) return res.json({ success: true });
+
+                                    const bal = Number(user.balance) || 0;
+                                    if (bal < fee) return res.status(400).json({ error: 'Insufficient balance' });
+
+                                    const nowIso = new Date().toISOString();
+                                    db.serialize(() => {
+                                        db.run(
+                                            "UPDATE users SET balance = balance - ? WHERE id = ? AND balance >= ?",
+                                            [fee, userId, fee],
+                                            function (upErr) {
+                                                if (upErr) return res.status(500).json({ error: 'DB Error' });
+                                                if (!this.changes) return res.status(400).json({ error: 'Insufficient balance' });
+                                                db.run(
+                                                    "INSERT INTO double_profit_offer_purchases (user_id, plan_id, ad_id, offer_id, offer_after_ads, fee, bonus_pct, used_at, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, NULL, ?)",
+                                                    [userId, user.plan_id, adId, offerId, afterAds, fee, bonusPct, nowIso],
+                                                    () => res.json({ success: true })
+                                                );
+                                            }
+                                        );
+                                    });
                                 }
                             );
                         });
@@ -1840,26 +1895,43 @@ app.post('/api/user/ads/view', bodyParser.json(), (req, res) => {
                                         return res.status(400).json({ error: 'Your plan is finished. Subscribe your next plan.' });
                                     }
 
-                                    const unlocked = Number(user.double_profit_unlocked) === 1;
-                                    const bonusPct = Number(user.double_profit_bonus_pct) || 0;
-                                    let rewardToAdd = Number(ad.reward) || 0;
-                                    if (unlocked && bonusPct > 0) {
-                                        rewardToAdd = rewardToAdd * (1 + (bonusPct / 100));
-                                    }
-                                    rewardToAdd = Math.round(rewardToAdd * 100) / 100;
+                                    db.get(
+                                        "SELECT id, bonus_pct FROM double_profit_offer_purchases WHERE user_id = ? AND plan_id = ? AND ad_id = ? AND offer_after_ads = ? AND used_at IS NULL AND created_at >= ? ORDER BY id DESC LIMIT 1",
+                                        [userId, user.plan_id, Number(ad_id), used, start],
+                                        (dpErr, dpRow) => {
+                                            if (dpErr) return res.status(500).json({ error: 'DB Error' });
 
-                                    db.run(
-                                        "UPDATE users SET balance = balance + ?, plan_ads_used = COALESCE(plan_ads_used, 0) + 1, plan_ads_total = ?, plan_started_at = COALESCE(plan_started_at, ?) WHERE id = ?",
-                                        [rewardToAdd, totalAllowed, startIso || start, userId],
-                                        (bErr) => {
-                                            if (bErr) return res.status(500).json({ error: 'DB Error updating balance' });
+                                            const unlocked = Number(user.double_profit_unlocked) === 1;
+                                            const userBonusPct = Number(user.double_profit_bonus_pct) || 0;
+                                            const offerBonusPct = dpRow && dpRow.bonus_pct !== undefined && dpRow.bonus_pct !== null ? Number(dpRow.bonus_pct) || 0 : 0;
+                                            const bonusPct = offerBonusPct > 0 ? offerBonusPct : (unlocked ? userBonusPct : 0);
 
-                                            const stmt = db.prepare("INSERT INTO deposits (user_id, amount, gateway, transaction_id, status, created_at) VALUES (?, ?, ?, ?, ?, ?)");
-                                            stmt.run(userId, rewardToAdd, 'Ad View', `AD-${ad_id}-${Date.now()}`, 'completed', new Date().toISOString(), function (iErr) {
-                                                if (iErr) console.error("Error logging ad view transaction:", iErr);
-                                                res.json({ success: true, reward: rewardToAdd });
-                                            });
-                                            stmt.finalize();
+                                            let rewardToAdd = Number(ad.reward) || 0;
+                                            if (bonusPct > 0) {
+                                                rewardToAdd = rewardToAdd * (1 + (bonusPct / 100));
+                                            }
+                                            rewardToAdd = Math.round(rewardToAdd * 100) / 100;
+
+                                            db.run(
+                                                "UPDATE users SET balance = balance + ?, plan_ads_used = COALESCE(plan_ads_used, 0) + 1, plan_ads_total = ?, plan_started_at = COALESCE(plan_started_at, ?) WHERE id = ?",
+                                                [rewardToAdd, totalAllowed, startIso || start, userId],
+                                                (bErr) => {
+                                                    if (bErr) return res.status(500).json({ error: 'DB Error updating balance' });
+
+                                                    const stmt = db.prepare("INSERT INTO deposits (user_id, amount, gateway, transaction_id, status, created_at) VALUES (?, ?, ?, ?, ?, ?)");
+                                                    stmt.run(userId, rewardToAdd, 'Ad View', `AD-${ad_id}-${Date.now()}`, 'completed', new Date().toISOString(), function (iErr) {
+                                                        if (iErr) console.error("Error logging ad view transaction:", iErr);
+                                                        if (dpRow && dpRow.id) {
+                                                            db.run("UPDATE double_profit_offer_purchases SET used_at = ? WHERE id = ? AND used_at IS NULL", [new Date().toISOString(), dpRow.id], () => {
+                                                                res.json({ success: true, reward: rewardToAdd });
+                                                            });
+                                                            return;
+                                                        }
+                                                        res.json({ success: true, reward: rewardToAdd });
+                                                    });
+                                                    stmt.finalize();
+                                                }
+                                            );
                                         }
                                     );
                                 }
@@ -2994,6 +3066,60 @@ app.delete('/api/admin/plans/:id', (req, res) => {
     db.run("DELETE FROM plans WHERE id = ?", [req.params.id], function(err) {
         if (err) return res.status(500).json({ error: 'DB Error' });
         res.json({ success: true });
+    });
+});
+
+app.get('/api/admin/plans/:id/double-profit-offers', (req, res) => {
+    if (!req.session.user || req.session.user.role !== 'admin') {
+        return res.status(403).json({ error: 'Unauthorized' });
+    }
+    const planId = Number(req.params.id);
+    if (!Number.isFinite(planId) || planId <= 0) return res.status(400).json({ error: 'Invalid plan id' });
+
+    db.all(
+        "SELECT id, plan_id, after_ads, fee, bonus_pct, status, created_at FROM double_profit_offers WHERE plan_id = ? ORDER BY after_ads ASC, id ASC",
+        [planId],
+        (err, rows) => {
+            if (err) return res.status(500).json({ error: 'DB Error' });
+            res.json(Array.isArray(rows) ? rows : []);
+        }
+    );
+});
+
+app.put('/api/admin/plans/:id/double-profit-offers', bodyParser.json(), (req, res) => {
+    if (!req.session.user || req.session.user.role !== 'admin') {
+        return res.status(403).json({ error: 'Unauthorized' });
+    }
+    const planId = Number(req.params.id);
+    if (!Number.isFinite(planId) || planId <= 0) return res.status(400).json({ error: 'Invalid plan id' });
+
+    const offers = Array.isArray(req.body && req.body.offers) ? req.body.offers : [];
+    const cleaned = offers
+        .map(o => ({
+            after_ads: Number(o && o.after_ads),
+            fee: Number(o && o.fee),
+            bonus_pct: Number(o && o.bonus_pct),
+            status: (o && o.status ? String(o.status) : 'active').toLowerCase()
+        }))
+        .filter(o => Number.isFinite(o.after_ads) && o.after_ads > 0 && Number.isFinite(o.fee) && o.fee > 0 && Number.isFinite(o.bonus_pct) && o.bonus_pct > 0)
+        .slice(0, 50);
+
+    db.serialize(() => {
+        db.run("DELETE FROM double_profit_offers WHERE plan_id = ?", [planId], (dErr) => {
+            if (dErr) return res.status(500).json({ error: 'DB Error' });
+            if (!cleaned.length) return res.json({ success: true });
+
+            const stmt = db.prepare("INSERT INTO double_profit_offers (plan_id, after_ads, fee, bonus_pct, status, created_at) VALUES (?, ?, ?, ?, ?, ?)");
+            const now = new Date().toISOString();
+            cleaned.forEach(o => {
+                const st = (o.status === 'inactive' ? 'inactive' : 'active');
+                stmt.run(planId, o.after_ads, o.fee, o.bonus_pct, st, now);
+            });
+            stmt.finalize((fErr) => {
+                if (fErr) return res.status(500).json({ error: 'DB Error' });
+                res.json({ success: true });
+            });
+        });
     });
 });
 

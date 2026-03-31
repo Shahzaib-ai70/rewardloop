@@ -117,19 +117,10 @@
                     <label>Min Ads View (Per Day)</label>
                     <input type="number" id="daily_limit" name="daily_limit" class="form-control" placeholder="e.g. 10" required>
                 </div>
-                <div class="form-group" style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px;">
-                    <div>
-                        <label>Double Profit After Ads</label>
-                        <input type="number" id="double_profit_after_ads" name="double_profit_after_ads" class="form-control" placeholder="e.g. 2" value="0">
-                    </div>
-                    <div>
-                        <label>Double Profit Fee (PKR)</label>
-                        <input type="number" id="double_profit_fee" name="double_profit_fee" class="form-control" placeholder="e.g. 100" value="0">
-                    </div>
-                    <div>
-                        <label>Bonus %</label>
-                        <input type="number" id="double_profit_bonus_pct" name="double_profit_bonus_pct" class="form-control" placeholder="e.g. 100" value="0">
-                    </div>
+                <div class="form-group">
+                    <label>Double Profit Offers</label>
+                    <div id="doubleProfitOffers" style="display:flex; flex-direction:column; gap:10px;"></div>
+                    <button type="button" class="btn btn-sm btn-primary" onclick="addDoubleProfitOfferRow()" style="margin-top: 10px; width: 100%;"><i class="fas fa-plus"></i> Add Another Offer</button>
                 </div>
                 <div class="form-group">
                     <label>Estimated Profit</label>
@@ -200,6 +191,7 @@
             form.reset();
             document.getElementById('planId').value = '';
             document.getElementById('modalTitle').innerText = 'Add Subscription Plan';
+            resetDoubleProfitOffers();
         }
 
         function closeModal() {
@@ -208,6 +200,91 @@
 
         window.onclick = function(event) {
             if (event.target == modal) closeModal();
+        }
+
+        function resetDoubleProfitOffers() {
+            const box = document.getElementById('doubleProfitOffers');
+            if (!box) return;
+            box.innerHTML = '';
+            addDoubleProfitOfferRow();
+        }
+
+        function addDoubleProfitOfferRow(offer) {
+            const box = document.getElementById('doubleProfitOffers');
+            if (!box) return;
+            const afterAds = offer && offer.after_ads !== undefined && offer.after_ads !== null ? Number(offer.after_ads) : 0;
+            const fee = offer && offer.fee !== undefined && offer.fee !== null ? Number(offer.fee) : 0;
+            const bonusPct = offer && offer.bonus_pct !== undefined && offer.bonus_pct !== null ? Number(offer.bonus_pct) : 0;
+            const status = offer && offer.status ? String(offer.status) : 'active';
+
+            const row = document.createElement('div');
+            row.className = 'dp-offer-row';
+            row.style.display = 'grid';
+            row.style.gridTemplateColumns = '1fr 1fr 1fr 120px';
+            row.style.gap = '10px';
+            row.innerHTML = `
+                <div>
+                    <label style="font-size:0.85rem;">After Ads</label>
+                    <input type="number" class="form-control dp-after-ads" placeholder="e.g. 2" value="${Number.isFinite(afterAds) ? afterAds : 0}">
+                </div>
+                <div>
+                    <label style="font-size:0.85rem;">Fee (PKR)</label>
+                    <input type="number" class="form-control dp-fee" placeholder="e.g. 100" value="${Number.isFinite(fee) ? fee : 0}">
+                </div>
+                <div>
+                    <label style="font-size:0.85rem;">Bonus %</label>
+                    <input type="number" class="form-control dp-bonus" placeholder="e.g. 100" value="${Number.isFinite(bonusPct) ? bonusPct : 0}">
+                </div>
+                <div>
+                    <label style="font-size:0.85rem;">&nbsp;</label>
+                    <button type="button" class="btn btn-sm btn-danger" style="background:#d63031; color:#fff; width:100%;" onclick="this.closest('.dp-offer-row').remove()"><i class="fas fa-trash"></i> Remove</button>
+                    <input type="hidden" class="dp-status" value="${status}">
+                </div>
+            `;
+            box.appendChild(row);
+        }
+
+        function getDoubleProfitOffersFromForm() {
+            const box = document.getElementById('doubleProfitOffers');
+            const rows = box ? Array.from(box.querySelectorAll('.dp-offer-row')) : [];
+            const offers = rows.map(r => {
+                const after_ads = Number(r.querySelector('.dp-after-ads') && r.querySelector('.dp-after-ads').value);
+                const fee = Number(r.querySelector('.dp-fee') && r.querySelector('.dp-fee').value);
+                const bonus_pct = Number(r.querySelector('.dp-bonus') && r.querySelector('.dp-bonus').value);
+                const status = (r.querySelector('.dp-status') && r.querySelector('.dp-status').value) ? String(r.querySelector('.dp-status').value) : 'active';
+                return { after_ads, fee, bonus_pct, status };
+            }).filter(o => Number.isFinite(o.after_ads) && o.after_ads > 0 && Number.isFinite(o.fee) && o.fee > 0 && Number.isFinite(o.bonus_pct) && o.bonus_pct > 0);
+            offers.sort((a, b) => a.after_ads - b.after_ads);
+            return offers;
+        }
+
+        function loadDoubleProfitOffers(planId, planFallback) {
+            const box = document.getElementById('doubleProfitOffers');
+            if (!box) return;
+            box.innerHTML = '';
+            if (!planId) {
+                addDoubleProfitOfferRow();
+                return;
+            }
+
+            fetch(`/api/admin/plans/${planId}/double-profit-offers`)
+                .then(res => res.json())
+                .then(rows => {
+                    const list = Array.isArray(rows) ? rows : [];
+                    if (list.length) {
+                        list.forEach(o => addDoubleProfitOfferRow(o));
+                        return;
+                    }
+                    const a = planFallback && Number(planFallback.double_profit_after_ads) || 0;
+                    const f = planFallback && Number(planFallback.double_profit_fee) || 0;
+                    const b = planFallback && Number(planFallback.double_profit_bonus_pct) || 0;
+                    if (a > 0 && f > 0 && b > 0) {
+                        addDoubleProfitOfferRow({ after_ads: a, fee: f, bonus_pct: b, status: 'active' });
+                        return;
+                    }
+                    addDoubleProfitOfferRow();
+                })
+                .catch(() => addDoubleProfitOfferRow());
         }
 
         function editPlan(plan) {
@@ -219,25 +296,25 @@
             document.getElementById('price').value = plan.price;
             document.getElementById('duration').value = plan.duration;
             document.getElementById('daily_limit').value = plan.daily_limit;
-            document.getElementById('double_profit_after_ads').value = plan.double_profit_after_ads || 0;
-            document.getElementById('double_profit_fee').value = plan.double_profit_fee || 0;
-            document.getElementById('double_profit_bonus_pct').value = plan.double_profit_bonus_pct || 0;
             document.getElementById('estimated_profit').value = plan.estimated_profit || '';
             document.getElementById('status').value = plan.status;
+            loadDoubleProfitOffers(plan.id, plan);
         }
 
         function savePlan(e) {
             e.preventDefault();
             const id = document.getElementById('planId').value;
+            const offers = getDoubleProfitOffersFromForm();
+            const firstOffer = offers.length ? offers[0] : { after_ads: 0, fee: 0, bonus_pct: 0 };
             const data = {
                 name: document.getElementById('name').value,
                 description: document.getElementById('description').value,
                 price: parseFloat(document.getElementById('price').value),
                 duration: parseInt(document.getElementById('duration').value),
                 daily_limit: parseInt(document.getElementById('daily_limit').value),
-                double_profit_after_ads: parseInt(document.getElementById('double_profit_after_ads').value || 0),
-                double_profit_fee: parseFloat(document.getElementById('double_profit_fee').value || 0),
-                double_profit_bonus_pct: parseFloat(document.getElementById('double_profit_bonus_pct').value || 0),
+                double_profit_after_ads: Number(firstOffer.after_ads) || 0,
+                double_profit_fee: Number(firstOffer.fee) || 0,
+                double_profit_bonus_pct: Number(firstOffer.bonus_pct) || 0,
                 estimated_profit: document.getElementById('estimated_profit').value,
                 status: document.getElementById('status').value
             };
@@ -253,9 +330,23 @@
             .then(res => res.json())
             .then(data => {
                 if(data.success) {
-                    showToast('Plan saved successfully!', 'success');
-                    closeModal();
-                    loadPlans();
+                    const planId = id ? Number(id) : Number(data.id);
+                    fetch(`/api/admin/plans/${planId}/double-profit-offers`, {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ offers })
+                    })
+                        .then(r => r.json().catch(() => ({})))
+                        .then(() => {
+                            showToast('Plan saved successfully!', 'success');
+                            closeModal();
+                            loadPlans();
+                        })
+                        .catch(() => {
+                            showToast('Plan saved but offers not saved', 'warning');
+                            closeModal();
+                            loadPlans();
+                        });
                 } else {
                     showToast('Error: ' + data.error, 'error');
                 }

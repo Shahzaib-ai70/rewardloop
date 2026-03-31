@@ -1,4 +1,4 @@
-﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿<!DOCTYPE html>
+﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -367,22 +367,23 @@
         }
 
         let adInterval;
-        function maybeShowDoubleProfitOffer(next) {
-            fetch('/api/user/double-profit/offer')
+        function maybeShowDoubleProfitOffer(adId, next) {
+            fetch(`/api/user/double-profit/offer?ad_id=${encodeURIComponent(adId)}`)
                 .then(res => res.json().catch(() => ({})))
                 .then(data => {
                     if (!data || !data.show) return next();
                     const fee = Number(data.fee) || 0;
                     const pct = Number(data.bonus_pct) || 0;
                     const afterAds = Number(data.after_ads) || 0;
+                    const offerId = data.offer_id !== undefined && data.offer_id !== null ? Number(data.offer_id) : null;
                     showConfirm(
                         'Double Profit Task',
-                        `You watched ${afterAds} ads. Unlock Double Profit +${pct}% for next ads.<br>Pay fee: PKR ${fee}`,
+                        `You watched ${afterAds} ads. Unlock +${pct}% profit for this ad.<br>Pay fee: PKR ${fee}`,
                         () => {
                             fetch('/api/user/double-profit/purchase', {
                                 method: 'POST',
                                 headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({})
+                                body: JSON.stringify({ ad_id: adId, offer_id: offerId })
                             })
                                 .then(res => {
                                     if (!res.ok) return res.json().then(e => { throw e; });
@@ -401,7 +402,7 @@
                 .catch(() => next());
         }
         function viewAd(id, url, duration, reward) {
-            maybeShowDoubleProfitOffer(() => {
+            maybeShowDoubleProfitOffer(id, () => {
                 const videoId = getYouTubeId(url);
                 const modal = document.getElementById('adModal');
                 const timerDisplay = document.getElementById('timerCount');
