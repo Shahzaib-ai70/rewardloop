@@ -1675,7 +1675,7 @@ app.post('/api/user/withdraw', bodyParser.json(), (req, res) => {
     }
 
     // Check balance (but don't deduct yet)
-    db.get("SELECT users.balance, users.plan_id, users.withdrawal_error_active, users.withdrawal_error_text, plans.withdraw_limit FROM users LEFT JOIN plans ON users.plan_id = plans.id WHERE users.id = ?", [userId], (err, row) => {
+    db.get("SELECT users.balance, users.plan_id, users.withdrawal_error_active, users.withdrawal_error_text FROM users WHERE users.id = ?", [userId], (err, row) => {
         if (err) return res.status(500).json({ error: 'DB Error' });
         if (!row) return res.status(404).json({ error: 'User not found' });
         
@@ -1684,11 +1684,9 @@ app.post('/api/user/withdraw', bodyParser.json(), (req, res) => {
             return res.status(400).json({ error: row.withdrawal_error_text || 'Withdrawal is currently unavailable for your account.' });
         }
 
-        // Check Withdrawal Limit from Plan
-        const minLimit = row.withdraw_limit || 0;
         db.get("SELECT value FROM settings WHERE key = 'min_withdraw_amount' LIMIT 1", (sErr, sRow) => {
             const globalMin = !sErr && sRow && sRow.value !== undefined && sRow.value !== null ? Number(sRow.value) || 0 : 0;
-            const requiredMin = Math.max(Number(minLimit) || 0, Number(globalMin) || 0);
+            const requiredMin = Math.max(0, Number(globalMin) || 0);
 
             if (amountVal < requiredMin) {
                 return res.status(400).json({ error: `Minimum withdrawal amount is ${requiredMin}` });

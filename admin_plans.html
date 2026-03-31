@@ -114,16 +114,12 @@
                     </div>
                 </div>
                 <div class="form-group">
-                    <label>Daily Ad Limit</label>
+                    <label>Min Ads View (Per Day)</label>
                     <input type="number" id="daily_limit" name="daily_limit" class="form-control" placeholder="e.g. 10" required>
                 </div>
                 <div class="form-group">
                     <label>Estimated Profit</label>
                     <input type="text" id="estimated_profit" name="estimated_profit" class="form-control" placeholder="e.g. PKR 500">
-                </div>
-                <div class="form-group">
-                    <label>Minimum Withdraw Limit (PKR)</label>
-                    <input type="number" id="withdraw_limit" name="withdraw_limit" class="form-control" placeholder="e.g. 500" value="0">
                 </div>
                 <div class="form-group">
                     <label>Status</label>
@@ -165,10 +161,9 @@
                                     <p style="font-size: 0.9rem; color: #636e72; margin-top: 5px;">${p.description || ''}</p>
                                 </div>
                                 <ul class="plan-details">
-                                    <li><i class="fas fa-check-circle"></i> Daily Limit: ${p.daily_limit} Ads</li>
+                                    <li><i class="fas fa-check-circle"></i> Min Ads View: ${p.daily_limit} Ads</li>
                                     <li><i class="fas fa-check-circle"></i> Validity: ${p.duration} Days</li>
                                     <li><i class="fas fa-chart-line"></i> Est. Profit: ${p.estimated_profit || 'N/A'}</li>
-                                    <li><i class="fas fa-money-bill-wave"></i> Min Withdraw: PKR ${p.withdraw_limit || 0}</li>
                                 </ul>
                                 <div class="plan-actions">
                                     <button class="btn btn-sm btn-primary" onclick='editPlan(${JSON.stringify(p)})'><i class="fas fa-edit"></i> Edit</button>
@@ -211,7 +206,6 @@
             document.getElementById('duration').value = plan.duration;
             document.getElementById('daily_limit').value = plan.daily_limit;
             document.getElementById('estimated_profit').value = plan.estimated_profit || '';
-            document.getElementById('withdraw_limit').value = plan.withdraw_limit || 0;
             document.getElementById('status').value = plan.status;
         }
 
@@ -225,7 +219,6 @@
                 duration: parseInt(document.getElementById('duration').value),
                 daily_limit: parseInt(document.getElementById('daily_limit').value),
                 estimated_profit: document.getElementById('estimated_profit').value,
-                withdraw_limit: parseFloat(document.getElementById('withdraw_limit').value || 0),
                 status: document.getElementById('status').value
             };
 
@@ -276,4 +269,3 @@
     <script src="js/translation.js"></script>
 </body>
 </html>
-
