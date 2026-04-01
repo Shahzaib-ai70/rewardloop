@@ -630,6 +630,7 @@
                         <div class="nav-tabs">
                             <button class="nav-link active" onclick="switchTab('info')"><i class="fas fa-user"></i> Information</button>
                             <button class="nav-link" onclick="switchTab('ads')"><i class="fas fa-ad"></i> Ads</button>
+                            <button class="nav-link" onclick="switchTab('double-profit')"><i class="fas fa-bolt"></i> Double Profit</button>
                             <button class="nav-link" onclick="switchTab('subscriptions')"><i class="fas fa-crown"></i> Subscription History</button>
                             <button class="nav-link" onclick="switchTab('transactions')"><i class="fas fa-history"></i> Transactions</button>
                             <button class="nav-link" onclick="switchTab('referral')"><i class="fas fa-users"></i> Referral</button>
@@ -748,6 +749,33 @@
                      <div id="tab-ads" class="tab-content">
                         <h3 style="margin-bottom: 20px;">Ads</h3>
                         <div class="empty-state">Ads content coming soon...</div>
+                    </div>
+
+                    <div id="tab-double-profit" class="tab-content">
+                        <div class="earnings-header" style="background: none; padding: 0; margin-bottom: 20px; justify-content: space-between;">
+                            <h3 style="margin: 0;">Double Profit Tasks</h3>
+                            <button class="btn btn-sm btn-primary" onclick="loadDoubleProfitTasks()" style="white-space: nowrap;"><i class="fas fa-rotate"></i> Refresh</button>
+                        </div>
+                        <div class="earnings-header" style="justify-content: flex-start; gap: 15px;">
+                            <span class="total-earnings-badge" style="background: #30336b;" id="dpPlanInfo">Plan: —</span>
+                            <span class="total-earnings-badge" style="background: #22a6b3;" id="dpWatchedInfo">Ads Watched: 0</span>
+                        </div>
+                        <table class="table-custom" id="dpTasksTable">
+                            <thead>
+                                <tr>
+                                    <th>AFTER ADS</th>
+                                    <th>FEE (PKR)</th>
+                                    <th>BONUS %</th>
+                                    <th>STATUS</th>
+                                    <th>ACTION</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td colspan="5" class="empty-state">No Data Found!</td>
+                                </tr>
+                            </tbody>
+                        </table>
                     </div>
 
                     <!-- Tab Content: Subscription History -->
@@ -925,6 +953,7 @@
             // Load Data
             if (tabName === 'earnings') loadUserEarnings();
             if (tabName === 'viewed-ads') loadUserViewedAds();
+            if (tabName === 'double-profit') loadDoubleProfitTasks();
         }
 
         function loadUserStats() {
@@ -984,6 +1013,91 @@
                         `;
                     });
                 });
+        }
+
+        function pillStatus(s) {
+            const v = (s || '').toString().toLowerCase();
+            if (v === 'completed') return '<span class="total-earnings-badge" style="background:#00b894;">Completed</span>';
+            if (v === 'used') return '<span class="total-earnings-badge" style="background:#6c5ce7;">Used</span>';
+            return '<span class="total-earnings-badge" style="background:#d63031;">Pending</span>';
+        }
+
+        function loadDoubleProfitTasks() {
+            const tbody = document.querySelector('#dpTasksTable tbody');
+            if (!tbody) return;
+            tbody.innerHTML = '<tr><td colspan="5" class="text-center">Loading...</td></tr>';
+
+            fetch(`/api/admin/users/${userId}/double-profit-tasks`)
+                .then(res => res.json())
+                .then(data => {
+                    if (!data || !data.active) {
+                        document.getElementById('dpPlanInfo').textContent = 'Plan: —';
+                        document.getElementById('dpWatchedInfo').textContent = 'Ads Watched: 0';
+                        tbody.innerHTML = '<tr><td colspan="5" class="empty-state">No active plan</td></tr>';
+                        return;
+                    }
+
+                    document.getElementById('dpPlanInfo').textContent = `Plan: ${data.plan_id}`;
+                    document.getElementById('dpWatchedInfo').textContent = `Ads Watched: ${Number(data.ads_watched) || 0}`;
+
+                    const rows = Array.isArray(data.tasks) ? data.tasks : [];
+                    if (!rows.length) {
+                        tbody.innerHTML = '<tr><td colspan="5" class="empty-state">No tasks configured for this plan</td></tr>';
+                        return;
+                    }
+
+                    tbody.innerHTML = '';
+                    rows.forEach(t => {
+                        const afterAds = Number(t.after_ads) || 0;
+                        const fee = Number(t.fee) || 0;
+                        const bonus = Number(t.bonus_pct) || 0;
+                        const st = (t.status || '').toString().toLowerCase();
+                        const canComplete = st === 'pending';
+
+                        const tr = document.createElement('tr');
+                        tr.innerHTML = `
+                            <td>${afterAds}</td>
+                            <td>PKR ${fee}</td>
+                            <td>${bonus}%</td>
+                            <td>${pillStatus(st)}</td>
+                            <td>
+                                ${canComplete ? `<button class="btn btn-sm btn-primary" onclick="completeDoubleProfitTask(${Number(t.offer_id)}, ${afterAds})" style="white-space:nowrap;"><i class="fas fa-check"></i> Mark Completed</button>` : '<span style="color:#64748b;">—</span>'}
+                            </td>
+                        `;
+                        tbody.appendChild(tr);
+                    });
+                })
+                .catch(() => {
+                    tbody.innerHTML = '<tr><td colspan="5" class="text-center">Error loading tasks</td></tr>';
+                });
+        }
+
+        function completeDoubleProfitTask(offerId, afterAds) {
+            if (!offerId) return;
+            showConfirm(
+                'Mark Completed?',
+                `This will allow the user to get +profit bonus for the task after ${afterAds} ads without paying.`,
+                () => {
+                    fetch(`/api/admin/users/${userId}/double-profit-tasks/complete`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ offer_id: offerId })
+                    })
+                        .then(res => res.json())
+                        .then(data => {
+                            if (data && data.success) {
+                                showToast('Task marked completed', 'success');
+                                loadDoubleProfitTasks();
+                            } else {
+                                showToast((data && data.error) ? data.error : 'Error', 'error');
+                            }
+                        })
+                        .catch(() => showToast('Error', 'error'));
+                },
+                'Yes, Mark',
+                'Cancel',
+                true
+            );
         }
 
         function resetUserAds() {
