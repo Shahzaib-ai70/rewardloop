@@ -880,17 +880,33 @@ app.post('/api/admin/users/:id/reset-ads', (req, res) => {
                         db.run("DELETE FROM deposits WHERE user_id = ? AND gateway = 'Ad View'", [userId], (dErr) => {
                             if (dErr) return db.run('ROLLBACK', () => res.status(500).json({ error: 'DB Error' }));
 
-                            db.get("SELECT balance FROM users WHERE id = ?", [userId], (fErr, uRow) => {
-                                if (fErr) return db.run('ROLLBACK', () => res.status(500).json({ error: 'DB Error' }));
+                            db.run("DELETE FROM double_profit_offer_purchases WHERE user_id = ?", [userId], (dpErr) => {
+                                if (dpErr) return db.run('ROLLBACK', () => res.status(500).json({ error: 'DB Error' }));
 
-                                db.run('COMMIT', (cErr) => {
-                                    if (cErr) return db.run('ROLLBACK', () => res.status(500).json({ error: 'DB Error' }));
-                                    res.json({
-                                        success: true,
-                                        count: cnt,
-                                        deducted: total,
-                                        newBalance: uRow ? uRow.balance : 0
-                                    });
+                                db.run("DELETE FROM payment_orders WHERE user_id = ? AND order_type = 'double_profit'", [userId], (poErr) => {
+                                    if (poErr) return db.run('ROLLBACK', () => res.status(500).json({ error: 'DB Error' }));
+
+                                    db.run(
+                                        "UPDATE users SET plan_ads_used = 0, double_profit_unlocked = 0, double_profit_bonus_pct = 0, double_profit_unlocked_at = NULL WHERE id = ?",
+                                        [userId],
+                                        (rErr) => {
+                                            if (rErr) return db.run('ROLLBACK', () => res.status(500).json({ error: 'DB Error' }));
+
+                                            db.get("SELECT balance FROM users WHERE id = ?", [userId], (fErr, uRow) => {
+                                                if (fErr) return db.run('ROLLBACK', () => res.status(500).json({ error: 'DB Error' }));
+
+                                                db.run('COMMIT', (cErr) => {
+                                                    if (cErr) return db.run('ROLLBACK', () => res.status(500).json({ error: 'DB Error' }));
+                                                    res.json({
+                                                        success: true,
+                                                        count: cnt,
+                                                        deducted: total,
+                                                        newBalance: uRow ? uRow.balance : 0
+                                                    });
+                                                });
+                                            });
+                                        }
+                                    );
                                 });
                             });
                         });
