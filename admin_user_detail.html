@@ -509,7 +509,7 @@
                                 <button onclick="loginAsUser()" class="action-btn-icon btn-login" title="Login as User"><i class="fas fa-sign-in-alt"></i></button>
                                 <button onclick="contactWhatsApp()" class="action-btn-icon" style="background: #25D366;" title="Contact on WhatsApp"><i class="fab fa-whatsapp"></i></button>
                                 <button class="action-btn-icon btn-mail" title="Send Email"><i class="fas fa-envelope"></i></button>
-                                <button class="action-btn-icon btn-ban" title="Ban User"><i class="fas fa-ban"></i></button>
+                                <button id="banUserBtn" onclick="toggleBanUser()" class="action-btn-icon btn-ban" title="Ban User"><i class="fas fa-ban"></i></button>
                                 <button onclick="deleteUser()" class="action-btn-icon btn-delete" title="Delete User"><i class="fas fa-trash"></i></button>
                             </div>
                         </div>
@@ -1205,6 +1205,7 @@
                 document.getElementById('withdrawalErrorToggle').checked = user.withdrawal_error_active ? true : false;
                 document.getElementById('withdrawalErrorText').value = user.withdrawal_error_text || '';
                 document.getElementById('doubleProfitDisableToggle').checked = user.double_profit_disabled ? true : false;
+                setBanButton(user.is_banned ? 1 : 0);
                 toggleWithdrawalErrorUI(); // Update visibility
             })
             .catch(err => {
@@ -1222,6 +1223,7 @@
             data.withdrawal_error_active = document.getElementById('withdrawalErrorToggle').checked ? 1 : 0;
             data.withdrawal_error_text = document.getElementById('withdrawalErrorText').value;
             data.double_profit_disabled = document.getElementById('doubleProfitDisableToggle').checked ? 1 : 0;
+            data.is_banned = getBanState();
 
             fetch(`/api/admin/users/${userId}`, {
                 method: 'PUT',
@@ -1254,6 +1256,7 @@
             data.withdrawal_error_active = document.getElementById('withdrawalErrorToggle').checked ? 1 : 0;
             data.withdrawal_error_text = document.getElementById('withdrawalErrorText').value;
             data.double_profit_disabled = document.getElementById('doubleProfitDisableToggle').checked ? 1 : 0;
+            data.is_banned = getBanState();
 
             fetch(`/api/admin/users/${userId}`, {
                 method: 'PUT',
@@ -1278,6 +1281,7 @@
             data.withdrawal_error_active = document.getElementById('withdrawalErrorToggle').checked ? 1 : 0;
             data.withdrawal_error_text = document.getElementById('withdrawalErrorText').value;
             data.double_profit_disabled = document.getElementById('doubleProfitDisableToggle').checked ? 1 : 0;
+            data.is_banned = getBanState();
 
             fetch(`/api/admin/users/${userId}`, {
                 method: 'PUT',
@@ -1292,6 +1296,63 @@
                     showToast('Error: ' + data.error, 'error');
                 }
             });
+        }
+
+        function getBanState() {
+            const btn = document.getElementById('banUserBtn');
+            if (!btn) return 0;
+            return btn.dataset && btn.dataset.banned === '1' ? 1 : 0;
+        }
+
+        function setBanButton(isBanned) {
+            const btn = document.getElementById('banUserBtn');
+            if (!btn) return;
+            btn.dataset.banned = Number(isBanned) === 1 ? '1' : '0';
+            btn.title = Number(isBanned) === 1 ? 'Unban User' : 'Ban User';
+            btn.style.background = Number(isBanned) === 1 ? '#00b894' : '#d63031';
+        }
+
+        function toggleBanUser() {
+            const current = getBanState();
+            const nextState = current ? 0 : 1;
+            const actionText = nextState ? 'Ban' : 'Unban';
+            const msg = nextState
+                ? 'This will logout the user and block login until you unban.'
+                : 'This will allow the user to login again.';
+
+            showConfirm(
+                `${actionText} User?`,
+                msg,
+                () => {
+                    const form = document.getElementById('updateUserForm');
+                    const formData = new FormData(form);
+                    const data = Object.fromEntries(formData.entries());
+
+                    data.withdrawal_error_active = document.getElementById('withdrawalErrorToggle').checked ? 1 : 0;
+                    data.withdrawal_error_text = document.getElementById('withdrawalErrorText').value;
+                    data.double_profit_disabled = document.getElementById('doubleProfitDisableToggle').checked ? 1 : 0;
+                    data.is_banned = nextState;
+
+                    fetch(`/api/admin/users/${userId}`, {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(data)
+                    })
+                    .then(res => res.json())
+                    .then(r => {
+                        if (r && r.success) {
+                            setBanButton(nextState);
+                            showToast(`User ${actionText.toLowerCase()}ned successfully`, 'success');
+                        } else {
+                            showToast((r && r.error) ? r.error : 'Error', 'error');
+                        }
+                    })
+                    .catch(() => showToast('Error', 'error'));
+                },
+                `Yes, ${actionText}`,
+                'Cancel',
+                true
+            );
         }
 
         function changeUserPassword(event) {

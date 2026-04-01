@@ -51,6 +51,8 @@ app.use((req, res, next) => {
         return res.status(403).send('Forbidden');
     }
 
+    const userPages = ['/dashboard.html', '/ads.html', '/deposit.html', '/withdraw.html', '/settings.html', '/support.html'];
+
     // Admin Page Protection
     if (url.startsWith('/admin_') && url.endsWith('.html') && url !== '/admin_login.html') {
         if (!req.session.user) {
@@ -73,12 +75,30 @@ app.use((req, res, next) => {
     }
     
     // User Page Protection (Optional, but good consistency)
-    const userPages = ['/dashboard.html', '/ads.html', '/deposit.html', '/withdraw.html', '/settings.html', '/support.html'];
     if (userPages.includes(url)) {
         if (!req.session.user) {
             return res.redirect('/login.html');
         }
+        if (req.session.user.role === 'user' && !req.session.adminId) {
+            return db.get("SELECT is_banned FROM users WHERE id = ?", [req.session.user.id], (bErr, bRow) => {
+                if (!bErr && bRow && Number(bRow.is_banned) === 1) {
+                    return req.session.destroy(() => res.redirect('/login.html?banned=1'));
+                }
+                req.session.touch();
+                next();
+            });
+        }
         req.session.touch();
+        return next();
+    }
+
+    if (req.session.user && req.session.user.role === 'user' && !req.session.adminId && url.startsWith('/api/')) {
+        return db.get("SELECT is_banned FROM users WHERE id = ?", [req.session.user.id], (bErr, bRow) => {
+            if (!bErr && bRow && Number(bRow.is_banned) === 1) {
+                return req.session.destroy(() => res.status(403).json({ error: 'Your account is banned. Contact customer service.' }));
+            }
+            next();
+        });
     }
 
     next();
@@ -219,6 +239,13 @@ db.serialize(() => {
         if (!hasDoubleProfitDisabled) {
             db.run("ALTER TABLE users ADD COLUMN double_profit_disabled INTEGER DEFAULT 0", (err) => {
                 if (err) console.error("Error adding double_profit_disabled column:", err);
+            });
+        }
+
+        const hasIsBanned = rows.some(row => row.name === 'is_banned');
+        if (!hasIsBanned) {
+            db.run("ALTER TABLE users ADD COLUMN is_banned INTEGER DEFAULT 0", (err) => {
+                if (err) console.error("Error adding is_banned column:", err);
             });
         }
     });
@@ -884,16 +911,17 @@ app.put('/api/admin/users/:id', bodyParser.json(), (req, res) => {
         return res.status(403).json({ error: 'Unauthorized' });
     }
     
-    const { firstname, lastname, email, phone, country, city, zip, address, gender, dob, withdrawal_error_active, withdrawal_error_text, double_profit_disabled } = req.body;
+    const { firstname, lastname, email, phone, country, city, zip, address, gender, dob, withdrawal_error_active, withdrawal_error_text, double_profit_disabled, is_banned } = req.body;
     const dpDisabled = double_profit_disabled === undefined ? null : (Number(double_profit_disabled) ? 1 : 0);
+    const isBanned = is_banned === undefined ? null : (Number(is_banned) ? 1 : 0);
     
     const stmt = db.prepare(`
         UPDATE users 
-        SET firstname = ?, lastname = ?, email = ?, phone = ?, country = ?, city = ?, zip = ?, address = ?, gender = ?, dob = ?, withdrawal_error_active = ?, withdrawal_error_text = ?, double_profit_disabled = COALESCE(?, double_profit_disabled) 
+        SET firstname = ?, lastname = ?, email = ?, phone = ?, country = ?, city = ?, zip = ?, address = ?, gender = ?, dob = ?, withdrawal_error_active = ?, withdrawal_error_text = ?, double_profit_disabled = COALESCE(?, double_profit_disabled), is_banned = COALESCE(?, is_banned) 
         WHERE id = ?
     `);
     
-    stmt.run(firstname, lastname, email, phone, country, city, zip, address, gender, dob, withdrawal_error_active, withdrawal_error_text, dpDisabled, req.params.id, function(err) {
+    stmt.run(firstname, lastname, email, phone, country, city, zip, address, gender, dob, withdrawal_error_active, withdrawal_error_text, dpDisabled, isBanned, req.params.id, function(err) {
         if (err) return res.status(500).json({ error: 'DB Error' });
         res.json({ success: true });
     });
@@ -953,6 +981,7 @@ app.post('/api/admin/login-as-user', bodyParser.json(), (req, res) => {
     const { userId } = req.body;
     db.get("SELECT * FROM users WHERE id = ?", [userId], (err, row) => {
         if (err || !row) return res.status(404).json({ error: 'User not found' });
+        if (Number(row.is_banned) === 1) return res.status(400).json({ error: 'User is banned' });
         
         // Store admin ID to switch back later
         const adminId = req.session.user.id;
@@ -3716,6 +3745,9 @@ app.post('/login', (req, res) => {
             return res.status(500).json({ error: 'Database error' });
         }
         if (row) {
+            if (Number(row.is_banned) === 1) {
+                return res.status(403).json({ error: 'Your account is banned. Contact customer service.' });
+            }
             req.session.user = row;
             res.json({ success: true, redirect: '/dashboard.html' });
         } else {
@@ -3890,7 +3922,7 @@ app.get('/api/user-info', (req, res) => {
     if (req.session.user) {
         // Fetch fresh data from DB to ensure we have all fields including balance and plan info
         db.get(`
-            SELECT users.id, users.firstname, users.lastname, users.username, users.email, users.country, users.phone, users.referral, users.gender, users.address, users.city, users.zip, users.dob, users.created_at, users.balance, users.reward_balance, users.plan_id, users.plan_expiry, users.role, plans.name as plan_name 
+            SELECT users.id, users.firstname, users.lastname, users.username, users.email, users.country, users.phone, users.referral, users.gender, users.address, users.city, users.zip, users.dob, users.created_at, users.balance, users.reward_balance, users.plan_id, users.plan_expiry, users.role, users.is_banned, plans.name as plan_name 
             FROM users 
             LEFT JOIN plans ON users.plan_id = plans.id 
             WHERE users.id = ?
@@ -3899,6 +3931,9 @@ app.get('/api/user-info', (req, res) => {
                 console.error("Error fetching user info:", err);
                 res.status(500).json({ error: 'Database error' });
             } else if (row) {
+                if (!req.session.adminId && Number(row.is_banned) === 1) {
+                    return req.session.destroy(() => res.status(403).json({ error: 'Your account is banned. Contact customer service.' }));
+                }
                 // Update session with fresh data to keep it in sync
                 const adminId = req.session.adminId; // Preserve adminId if it exists
                 req.session.user = row;
