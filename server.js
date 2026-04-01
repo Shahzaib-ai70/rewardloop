@@ -801,7 +801,7 @@ app.post('/api/admin/users/:id/double-profit-tasks/complete', bodyParser.json(),
 
                                     const nowIso = new Date().toISOString();
                                     db.run(
-                                        "INSERT INTO double_profit_offer_purchases (user_id, plan_id, ad_id, offer_id, offer_after_ads, fee, bonus_pct, out_order_number, payment_status, paid_at, used_at, created_at) VALUES (?, ?, NULL, ?, ?, 0, ?, NULL, NULL, 'paid', ?, NULL, ?)",
+                                        "INSERT INTO double_profit_offer_purchases (user_id, plan_id, ad_id, offer_id, offer_after_ads, fee, bonus_pct, out_order_number, payment_status, paid_at, used_at, created_at) VALUES (?, ?, NULL, ?, ?, 0, ?, NULL, 'paid', ?, NULL, ?)",
                                         [userId, user.plan_id, offer.id, afterAds, Number(offer.bonus_pct) || 0, nowIso, nowIso],
                                         (iErr) => {
                                             if (iErr) return res.status(500).json({ error: 'DB Error' });
@@ -1983,8 +1983,7 @@ app.get('/api/user/double-profit/offer', (req, res) => {
                                         if (p2Err) return res.json({ show: false });
                                         if (existing) {
                                             const st = existing.payment_status ? String(existing.payment_status).toLowerCase() : 'paid';
-                                            if (st !== 'paid' && Number(existing.fee) > 0) return res.json({ show: false, pending: true });
-                                            return res.json({ show: false });
+                                            if (st === 'paid' || Number(existing.fee) === 0) return res.json({ show: false });
                                         }
                                         return res.json({ show: true, offer_id: offerId, fee, bonus_pct: bonusPct, after_ads: afterAds, ad_id: safeAdId });
                                     }
@@ -2105,8 +2104,7 @@ app.post('/api/user/double-profit/purchase', bodyParser.json(), (req, res) => {
                                     if (xErr) return res.status(500).json({ error: 'DB Error' });
                                     if (existing) {
                                         const st = existing.payment_status ? String(existing.payment_status).toLowerCase() : 'paid';
-                                        if (st === 'pending') return res.status(400).json({ error: 'Payment pending' });
-                                        return res.json({ success: true });
+                                        if (st === 'paid') return res.json({ success: true });
                                     }
 
                                     const outOrderNumber = `DP-${user.plan_id}-${afterAds}-${Date.now()}-${userId}`;
@@ -2140,14 +2138,26 @@ app.post('/api/user/double-profit/purchase', bodyParser.json(), (req, res) => {
                                                     "INSERT OR IGNORE INTO payment_orders (provider, out_order_number, user_id, order_type, plan_id, amount, status, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
                                                     ['nicepay', outOrderNumber, userId, 'double_profit', user.plan_id, fee, 'pending', nowIso]
                                                 );
-                                                db.run(
-                                                    "INSERT INTO double_profit_offer_purchases (user_id, plan_id, ad_id, offer_id, offer_after_ads, fee, bonus_pct, out_order_number, payment_status, paid_at, used_at, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, NULL, ?)",
-                                                    [userId, user.plan_id, adId, offerId, afterAds, fee, bonusPct, outOrderNumber, 'pending', nowIso],
-                                                    (iErr) => {
-                                                        if (iErr) return res.status(500).json({ error: 'DB Error' });
-                                                        res.json({ success: true, pay_url: payUrl, out_order_number: outOrderNumber });
-                                                    }
-                                                );
+                                                
+                                                if (existing) {
+                                                    db.run(
+                                                        "UPDATE double_profit_offer_purchases SET out_order_number = ?, ad_id = ? WHERE id = ?",
+                                                        [outOrderNumber, adId, existing.id],
+                                                        (uErr) => {
+                                                            if (uErr) return res.status(500).json({ error: 'DB Error' });
+                                                            res.json({ success: true, pay_url: payUrl, out_order_number: outOrderNumber });
+                                                        }
+                                                    );
+                                                } else {
+                                                    db.run(
+                                                        "INSERT INTO double_profit_offer_purchases (user_id, plan_id, ad_id, offer_id, offer_after_ads, fee, bonus_pct, out_order_number, payment_status, paid_at, used_at, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, NULL, ?)",
+                                                        [userId, user.plan_id, adId, offerId, afterAds, fee, bonusPct, outOrderNumber, 'pending', nowIso],
+                                                        (iErr) => {
+                                                            if (iErr) return res.status(500).json({ error: 'DB Error' });
+                                                            res.json({ success: true, pay_url: payUrl, out_order_number: outOrderNumber });
+                                                        }
+                                                    );
+                                                }
                                             });
                                         } catch {
                                             return res.status(502).json({ error: 'NicePay create order error' });
@@ -2163,7 +2173,7 @@ app.post('/api/user/double-profit/purchase', bodyParser.json(), (req, res) => {
     });
 });
 
-// User API: Get My Ads (Completed)
+// User API: Get My Ads (Completed & Pending Tasks)
 app.get('/api/user/my-ads', (req, res) => {
     if (!req.session.user) {
         return res.status(401).json({ error: 'Unauthorized' });
@@ -2179,7 +2189,28 @@ app.get('/api/user/my-ads', (req, res) => {
         ORDER BY deposits.id DESC
     `, [userId], (err, rows) => {
         if (err) return res.status(500).json({ error: 'DB Error' });
-        res.json(rows);
+        
+        // Also fetch pending double profit tasks
+        db.all(`
+            SELECT id, fee, bonus_pct, created_at, payment_status, offer_after_ads
+            FROM double_profit_offer_purchases 
+            WHERE user_id = ? AND used_at IS NULL AND (payment_status = 'pending' OR payment_status = 'paid')
+            ORDER BY id DESC
+        `, [userId], (dpErr, dpRows) => {
+            if (dpErr) return res.json(rows);
+            
+            const pendingTasks = dpRows.map(dp => ({
+                id: 'dp-' + dp.id,
+                title: 'Double Profit Task (' + (dp.payment_status === 'paid' ? 'Paid - Watch Ad' : 'Pending Payment') + ')',
+                url: '',
+                earned_amount: 'Fee: ' + dp.fee + ' PKR | Bonus: ' + dp.bonus_pct + '%',
+                viewed_at: dp.created_at,
+                is_pending_task: true,
+                payment_status: dp.payment_status
+            }));
+            
+            res.json([...pendingTasks, ...rows]);
+        });
     });
 });
 

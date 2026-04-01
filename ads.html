@@ -1,4 +1,4 @@
-﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿<!DOCTYPE html>
+﻿﻿﻿﻿﻿﻿﻿﻿﻿<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -305,22 +305,41 @@
                     
                     grid.innerHTML = '';
                     ads.forEach(ad => {
-                        grid.innerHTML += `
-                            <div class="card" style="border: 1px solid #eee;">
-                                <div style="height: 150px; background: #000; position: relative; overflow: hidden; border-radius: 10px 10px 0 0;">
-                                    <img src="https://img.youtube.com/vi/${getYouTubeId(ad.url)}/hqdefault.jpg" style="width: 100%; height: 100%; object-fit: cover; opacity: 0.8;" onerror="this.src='https://via.placeholder.com/300x150?text=Video+Ad'">
-                                    <div style="position: absolute; top: 10px; right: 10px; background: #28a745; color: white; padding: 2px 8px; border-radius: 4px; font-size: 0.8rem; font-weight: bold;">COMPLETED</div>
-                                </div>
-                                <div class="card-body" style="padding: 15px;">
-                                    <h4 style="margin-bottom: 10px; font-size: 1rem;">${ad.title}</h4>
-                                    <div style="margin-bottom: 10px; color: #666; font-size: 0.85rem;">
-                                        <p>Earned: <span style="color: #28a745; font-weight: bold;">${ad.earned_amount} PKR</span></p>
-                                        <p>Viewed on: ${new Date(ad.viewed_at).toLocaleDateString()} ${new Date(ad.viewed_at).toLocaleTimeString()}</p>
+                        if (ad.is_pending_task) {
+                            grid.innerHTML += `
+                                <div class="card" style="border: 1px solid #ffc107;">
+                                    <div style="height: 150px; background: #333; position: relative; overflow: hidden; border-radius: 10px 10px 0 0; display: flex; align-items: center; justify-content: center; color: white; font-size: 2rem;">
+                                        <i class="fas fa-bolt" style="color: #ffc107;"></i>
+                                        <div style="position: absolute; top: 10px; right: 10px; background: #ffc107; color: #000; padding: 2px 8px; border-radius: 4px; font-size: 0.8rem; font-weight: bold;">PENDING</div>
                                     </div>
-                                    <button class="btn btn-secondary btn-block" disabled><i class="fas fa-check"></i> Viewed</button>
+                                    <div class="card-body" style="padding: 15px;">
+                                        <h4 style="margin-bottom: 10px; font-size: 1rem;">${ad.title}</h4>
+                                        <div style="margin-bottom: 10px; color: #666; font-size: 0.85rem;">
+                                            <p>${ad.earned_amount}</p>
+                                            <p>Created on: ${new Date(ad.viewed_at).toLocaleDateString()} ${new Date(ad.viewed_at).toLocaleTimeString()}</p>
+                                        </div>
+                                        <button class="btn btn-warning btn-block" disabled><i class="fas fa-clock"></i> Pending Task</button>
+                                    </div>
                                 </div>
-                            </div>
-                        `;
+                            `;
+                        } else {
+                            grid.innerHTML += `
+                                <div class="card" style="border: 1px solid #eee;">
+                                    <div style="height: 150px; background: #000; position: relative; overflow: hidden; border-radius: 10px 10px 0 0;">
+                                        <img src="https://img.youtube.com/vi/${getYouTubeId(ad.url)}/hqdefault.jpg" style="width: 100%; height: 100%; object-fit: cover; opacity: 0.8;" onerror="this.src='https://via.placeholder.com/300x150?text=Video+Ad'">
+                                        <div style="position: absolute; top: 10px; right: 10px; background: #28a745; color: white; padding: 2px 8px; border-radius: 4px; font-size: 0.8rem; font-weight: bold;">COMPLETED</div>
+                                    </div>
+                                    <div class="card-body" style="padding: 15px;">
+                                        <h4 style="margin-bottom: 10px; font-size: 1rem;">${ad.title}</h4>
+                                        <div style="margin-bottom: 10px; color: #666; font-size: 0.85rem;">
+                                            <p>Earned: <span style="color: #28a745; font-weight: bold;">${ad.earned_amount} PKR</span></p>
+                                            <p>Viewed on: ${new Date(ad.viewed_at).toLocaleDateString()} ${new Date(ad.viewed_at).toLocaleTimeString()}</p>
+                                        </div>
+                                        <button class="btn btn-secondary btn-block" disabled><i class="fas fa-check"></i> Viewed</button>
+                                    </div>
+                                </div>
+                            `;
+                        }
                     });
                 });
 
@@ -371,10 +390,6 @@
             fetch(`/api/user/double-profit/offer?ad_id=${encodeURIComponent(adId)}`)
                 .then(res => res.json().catch(() => ({})))
                 .then(data => {
-                    if (data && data.pending) {
-                        showToast('Payment pending. Please complete payment first.', 'warning');
-                        return;
-                    }
                     if (!data || !data.show) return next();
                     const fee = Number(data.fee) || 0;
                     const pct = Number(data.bonus_pct) || 0;
