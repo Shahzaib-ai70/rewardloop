@@ -214,6 +214,13 @@ db.serialize(() => {
                 if (err) console.error("Error adding double_profit_unlocked_at column:", err);
             });
         }
+
+        const hasDoubleProfitDisabled = rows.some(row => row.name === 'double_profit_disabled');
+        if (!hasDoubleProfitDisabled) {
+            db.run("ALTER TABLE users ADD COLUMN double_profit_disabled INTEGER DEFAULT 0", (err) => {
+                if (err) console.error("Error adding double_profit_disabled column:", err);
+            });
+        }
     });
 
     // Check if 'withdraw_limit' column exists in plans
@@ -877,15 +884,16 @@ app.put('/api/admin/users/:id', bodyParser.json(), (req, res) => {
         return res.status(403).json({ error: 'Unauthorized' });
     }
     
-    const { firstname, lastname, email, phone, country, city, zip, address, gender, dob, withdrawal_error_active, withdrawal_error_text } = req.body;
+    const { firstname, lastname, email, phone, country, city, zip, address, gender, dob, withdrawal_error_active, withdrawal_error_text, double_profit_disabled } = req.body;
+    const dpDisabled = double_profit_disabled === undefined ? null : (Number(double_profit_disabled) ? 1 : 0);
     
     const stmt = db.prepare(`
         UPDATE users 
-        SET firstname = ?, lastname = ?, email = ?, phone = ?, country = ?, city = ?, zip = ?, address = ?, gender = ?, dob = ?, withdrawal_error_active = ?, withdrawal_error_text = ? 
+        SET firstname = ?, lastname = ?, email = ?, phone = ?, country = ?, city = ?, zip = ?, address = ?, gender = ?, dob = ?, withdrawal_error_active = ?, withdrawal_error_text = ?, double_profit_disabled = COALESCE(?, double_profit_disabled) 
         WHERE id = ?
     `);
     
-    stmt.run(firstname, lastname, email, phone, country, city, zip, address, gender, dob, withdrawal_error_active, withdrawal_error_text, req.params.id, function(err) {
+    stmt.run(firstname, lastname, email, phone, country, city, zip, address, gender, dob, withdrawal_error_active, withdrawal_error_text, dpDisabled, req.params.id, function(err) {
         if (err) return res.status(500).json({ error: 'DB Error' });
         res.json({ success: true });
     });
@@ -1908,11 +1916,12 @@ app.get('/api/user/double-profit/offer', (req, res) => {
     const adId = req.query && req.query.ad_id !== undefined && req.query.ad_id !== null ? Number(req.query.ad_id) : null;
     const safeAdId = Number.isFinite(adId) && adId > 0 ? adId : null;
 
-    db.get("SELECT plan_id, plan_expiry, plan_started_at, plan_ads_total, double_profit_unlocked FROM users WHERE id = ?", [userId], (uErr, user) => {
+    db.get("SELECT plan_id, plan_expiry, plan_started_at, plan_ads_total, double_profit_unlocked, double_profit_disabled FROM users WHERE id = ?", [userId], (uErr, user) => {
         if (uErr) return res.status(500).json({ error: 'DB Error' });
         if (!user || !user.plan_id || new Date(user.plan_expiry) < new Date()) {
             return res.json({ show: false });
         }
+        if (Number(user.double_profit_disabled) === 1) return res.json({ show: false });
 
         db.get("SELECT duration, daily_limit, double_profit_after_ads, double_profit_fee, double_profit_bonus_pct FROM plans WHERE id = ?", [user.plan_id], (pErr, plan) => {
             if (pErr || !plan) return res.json({ show: false });
@@ -2018,10 +2027,13 @@ app.post('/api/user/double-profit/purchase', bodyParser.json(), (req, res) => {
     }
     if (!notifyUrl) return res.status(500).json({ error: 'NicePay notify_url not configured' });
 
-    db.get("SELECT id, plan_id, plan_expiry, plan_started_at, plan_ads_total FROM users WHERE id = ?", [userId], (uErr, user) => {
+    db.get("SELECT id, plan_id, plan_expiry, plan_started_at, plan_ads_total, double_profit_disabled FROM users WHERE id = ?", [userId], (uErr, user) => {
         if (uErr) return res.status(500).json({ error: 'DB Error' });
         if (!user || !user.plan_id || new Date(user.plan_expiry) < new Date()) {
             return res.status(400).json({ error: 'No active plan' });
+        }
+        if (Number(user.double_profit_disabled) === 1) {
+            return res.status(400).json({ error: 'Double profit disabled for this user' });
         }
 
         db.get("SELECT id, duration, daily_limit, double_profit_after_ads, double_profit_fee, double_profit_bonus_pct FROM plans WHERE id = ?", [user.plan_id], (pErr, plan) => {
@@ -2180,36 +2192,42 @@ app.get('/api/user/my-ads', (req, res) => {
     }
     const userId = req.session.user.id;
     
-    // Join deposits (transactions) with ads to get details of viewed ads
-    db.all(`
-        SELECT ads.*, deposits.created_at as viewed_at, deposits.amount as earned_amount 
-        FROM deposits 
-        JOIN ads ON deposits.transaction_id LIKE 'AD-' || ads.id || '-%' 
-        WHERE deposits.user_id = ? AND deposits.gateway = 'Ad View'
-        ORDER BY deposits.id DESC
-    `, [userId], (err, rows) => {
-        if (err) return res.status(500).json({ error: 'DB Error' });
-        
-        // Also fetch pending double profit tasks
+    db.get("SELECT double_profit_disabled FROM users WHERE id = ?", [userId], (uErr, uRow) => {
+        const dpDisabled = !uErr && uRow && Number(uRow.double_profit_disabled) === 1;
+
+        // Join deposits (transactions) with ads to get details of viewed ads
         db.all(`
-            SELECT id, fee, bonus_pct, created_at, payment_status, offer_after_ads
-            FROM double_profit_offer_purchases 
-            WHERE user_id = ? AND used_at IS NULL AND (payment_status = 'pending' OR payment_status = 'paid')
-            ORDER BY id DESC
-        `, [userId], (dpErr, dpRows) => {
-            if (dpErr) return res.json(rows);
+            SELECT ads.*, deposits.created_at as viewed_at, deposits.amount as earned_amount 
+            FROM deposits 
+            JOIN ads ON deposits.transaction_id LIKE 'AD-' || ads.id || '-%' 
+            WHERE deposits.user_id = ? AND deposits.gateway = 'Ad View'
+            ORDER BY deposits.id DESC
+        `, [userId], (err, rows) => {
+            if (err) return res.status(500).json({ error: 'DB Error' });
+
+            if (dpDisabled) return res.json(rows);
             
-            const pendingTasks = dpRows.map(dp => ({
-                id: 'dp-' + dp.id,
-                title: 'Double Profit Task (' + (dp.payment_status === 'paid' ? 'Paid - Watch Ad' : 'Pending Payment') + ')',
-                url: '',
-                earned_amount: 'Fee: ' + dp.fee + ' PKR | Bonus: ' + dp.bonus_pct + '%',
-                viewed_at: dp.created_at,
-                is_pending_task: true,
-                payment_status: dp.payment_status
-            }));
-            
-            res.json([...pendingTasks, ...rows]);
+            // Also fetch pending double profit tasks
+            db.all(`
+                SELECT id, fee, bonus_pct, created_at, payment_status, offer_after_ads
+                FROM double_profit_offer_purchases 
+                WHERE user_id = ? AND used_at IS NULL AND (payment_status = 'pending' OR payment_status = 'paid')
+                ORDER BY id DESC
+            `, [userId], (dpErr, dpRows) => {
+                if (dpErr) return res.json(rows);
+                
+                const pendingTasks = dpRows.map(dp => ({
+                    id: 'dp-' + dp.id,
+                    title: 'Double Profit Task (' + (dp.payment_status === 'paid' ? 'Paid - Watch Ad' : 'Pending Payment') + ')',
+                    url: '',
+                    earned_amount: 'Fee: ' + dp.fee + ' PKR | Bonus: ' + dp.bonus_pct + '%',
+                    viewed_at: dp.created_at,
+                    is_pending_task: true,
+                    payment_status: dp.payment_status
+                }));
+                
+                res.json([...pendingTasks, ...rows]);
+            });
         });
     });
 });
@@ -2242,7 +2260,7 @@ app.post('/api/user/ads/view', bodyParser.json(), (req, res) => {
     db.get("SELECT * FROM ads WHERE id = ? AND status = 'active'", [ad_id], (err, ad) => {
         if (err || !ad) return res.status(404).json({ error: 'Ad not found or inactive' });
         const userId = req.session.user.id;
-        db.get("SELECT plan_id, plan_expiry, plan_started_at, plan_ads_total, double_profit_unlocked, double_profit_bonus_pct FROM users WHERE id = ?", [userId], (uErr, user) => {
+        db.get("SELECT plan_id, plan_expiry, plan_started_at, plan_ads_total, double_profit_unlocked, double_profit_bonus_pct, double_profit_disabled FROM users WHERE id = ?", [userId], (uErr, user) => {
             if (uErr || !user || !user.plan_id || new Date(user.plan_expiry) < new Date()) {
                 return res.status(400).json({ error: 'No active plan' });
             }
@@ -2305,50 +2323,56 @@ app.post('/api/user/ads/view', bodyParser.json(), (req, res) => {
                                         return res.status(400).json({ error: 'Your plan is finished. Subscribe your next plan.' });
                                     }
 
+                                    const applyReward = (dpRow) => {
+                                        const disabled = Number(user.double_profit_disabled) === 1;
+                                        const unlocked = !disabled && Number(user.double_profit_unlocked) === 1;
+                                        const userBonusPct = !disabled ? (Number(user.double_profit_bonus_pct) || 0) : 0;
+                                        const offerBonusPct = !disabled && dpRow && dpRow.bonus_pct !== undefined && dpRow.bonus_pct !== null ? Number(dpRow.bonus_pct) || 0 : 0;
+                                        const bonusPct = offerBonusPct > 0 ? offerBonusPct : (unlocked ? userBonusPct : 0);
+
+                                        let rewardToAdd = Number(ad.reward) || 0;
+                                        if (bonusPct > 0) {
+                                            rewardToAdd = rewardToAdd * (1 + (bonusPct / 100));
+                                        }
+                                        rewardToAdd = Math.round(rewardToAdd * 100) / 100;
+
+                                        db.run(
+                                            "UPDATE users SET balance = balance + ?, plan_ads_used = COALESCE(plan_ads_used, 0) + 1, plan_ads_total = ?, plan_started_at = COALESCE(plan_started_at, ?) WHERE id = ?",
+                                            [rewardToAdd, totalAllowed, startIso || start, userId],
+                                            (bErr) => {
+                                                if (bErr) return res.status(500).json({ error: 'DB Error updating balance' });
+
+                                                const stmt = db.prepare("INSERT INTO deposits (user_id, amount, gateway, transaction_id, status, created_at) VALUES (?, ?, ?, ?, ?, ?)");
+                                                stmt.run(userId, rewardToAdd, 'Ad View', `AD-${ad_id}-${Date.now()}`, 'completed', new Date().toISOString(), function (iErr) {
+                                                    if (iErr) console.error("Error logging ad view transaction:", iErr);
+                                                    if (!disabled && dpRow && dpRow.id) {
+                                                        const usedAt = new Date().toISOString();
+                                                        if (dpRow.ad_id === null || dpRow.ad_id === undefined) {
+                                                            db.run("UPDATE double_profit_offer_purchases SET ad_id = ?, used_at = ? WHERE id = ? AND used_at IS NULL", [Number(ad_id), usedAt, dpRow.id], () => {
+                                                                res.json({ success: true, reward: rewardToAdd });
+                                                            });
+                                                            return;
+                                                        }
+                                                        db.run("UPDATE double_profit_offer_purchases SET used_at = ? WHERE id = ? AND used_at IS NULL", [usedAt, dpRow.id], () => {
+                                                            res.json({ success: true, reward: rewardToAdd });
+                                                        });
+                                                        return;
+                                                    }
+                                                    res.json({ success: true, reward: rewardToAdd });
+                                                });
+                                                stmt.finalize();
+                                            }
+                                        );
+                                    };
+
+                                    if (Number(user.double_profit_disabled) === 1) return applyReward(null);
+
                                     db.get(
                                         "SELECT id, ad_id, bonus_pct FROM double_profit_offer_purchases WHERE user_id = ? AND plan_id = ? AND offer_after_ads = ? AND used_at IS NULL AND created_at >= ? AND (payment_status = 'paid' OR fee = 0) AND (ad_id = ? OR ad_id IS NULL) ORDER BY CASE WHEN ad_id IS NULL THEN 1 ELSE 0 END, id DESC LIMIT 1",
                                         [userId, user.plan_id, used, start, Number(ad_id)],
                                         (dpErr, dpRow) => {
                                             if (dpErr) return res.status(500).json({ error: 'DB Error' });
-
-                                            const unlocked = Number(user.double_profit_unlocked) === 1;
-                                            const userBonusPct = Number(user.double_profit_bonus_pct) || 0;
-                                            const offerBonusPct = dpRow && dpRow.bonus_pct !== undefined && dpRow.bonus_pct !== null ? Number(dpRow.bonus_pct) || 0 : 0;
-                                            const bonusPct = offerBonusPct > 0 ? offerBonusPct : (unlocked ? userBonusPct : 0);
-
-                                            let rewardToAdd = Number(ad.reward) || 0;
-                                            if (bonusPct > 0) {
-                                                rewardToAdd = rewardToAdd * (1 + (bonusPct / 100));
-                                            }
-                                            rewardToAdd = Math.round(rewardToAdd * 100) / 100;
-
-                                            db.run(
-                                                "UPDATE users SET balance = balance + ?, plan_ads_used = COALESCE(plan_ads_used, 0) + 1, plan_ads_total = ?, plan_started_at = COALESCE(plan_started_at, ?) WHERE id = ?",
-                                                [rewardToAdd, totalAllowed, startIso || start, userId],
-                                                (bErr) => {
-                                                    if (bErr) return res.status(500).json({ error: 'DB Error updating balance' });
-
-                                                    const stmt = db.prepare("INSERT INTO deposits (user_id, amount, gateway, transaction_id, status, created_at) VALUES (?, ?, ?, ?, ?, ?)");
-                                                    stmt.run(userId, rewardToAdd, 'Ad View', `AD-${ad_id}-${Date.now()}`, 'completed', new Date().toISOString(), function (iErr) {
-                                                        if (iErr) console.error("Error logging ad view transaction:", iErr);
-                                                        if (dpRow && dpRow.id) {
-                                                            const usedAt = new Date().toISOString();
-                                                            if (dpRow.ad_id === null || dpRow.ad_id === undefined) {
-                                                                db.run("UPDATE double_profit_offer_purchases SET ad_id = ?, used_at = ? WHERE id = ? AND used_at IS NULL", [Number(ad_id), usedAt, dpRow.id], () => {
-                                                                    res.json({ success: true, reward: rewardToAdd });
-                                                                });
-                                                                return;
-                                                            }
-                                                            db.run("UPDATE double_profit_offer_purchases SET used_at = ? WHERE id = ? AND used_at IS NULL", [usedAt, dpRow.id], () => {
-                                                                res.json({ success: true, reward: rewardToAdd });
-                                                            });
-                                                            return;
-                                                        }
-                                                        res.json({ success: true, reward: rewardToAdd });
-                                                    });
-                                                    stmt.finalize();
-                                                }
-                                            );
+                                            applyReward(dpRow);
                                         }
                                     );
                                 }

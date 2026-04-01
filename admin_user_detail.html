@@ -569,6 +569,14 @@
                                 </label>
                             </div>
 
+                            <div class="action-toggle-row">
+                                <span class="toggle-label">Disable Double Profit</span>
+                                <label class="switch">
+                                    <input type="checkbox" id="doubleProfitDisableToggle" onchange="saveDoubleProfitSetting()">
+                                    <span class="slider"></span>
+                                </label>
+                            </div>
+
                             <!-- Withdrawal Error Notification -->
                             <div class="action-toggle-row" style="border-top: 1px solid #f1f2f6; margin-top: 10px; padding-top: 10px;">
                                 <span class="toggle-label" style="color: #d63031;">Withdrawal Error</span>
@@ -1196,6 +1204,7 @@
                 // Populate Withdrawal Error Settings
                 document.getElementById('withdrawalErrorToggle').checked = user.withdrawal_error_active ? true : false;
                 document.getElementById('withdrawalErrorText').value = user.withdrawal_error_text || '';
+                document.getElementById('doubleProfitDisableToggle').checked = user.double_profit_disabled ? true : false;
                 toggleWithdrawalErrorUI(); // Update visibility
             })
             .catch(err => {
@@ -1212,6 +1221,7 @@
             // Include Withdrawal Error Settings
             data.withdrawal_error_active = document.getElementById('withdrawalErrorToggle').checked ? 1 : 0;
             data.withdrawal_error_text = document.getElementById('withdrawalErrorText').value;
+            data.double_profit_disabled = document.getElementById('doubleProfitDisableToggle').checked ? 1 : 0;
 
             fetch(`/api/admin/users/${userId}`, {
                 method: 'PUT',
@@ -1243,6 +1253,7 @@
             // Override with current withdrawal settings
             data.withdrawal_error_active = document.getElementById('withdrawalErrorToggle').checked ? 1 : 0;
             data.withdrawal_error_text = document.getElementById('withdrawalErrorText').value;
+            data.double_profit_disabled = document.getElementById('doubleProfitDisableToggle').checked ? 1 : 0;
 
             fetch(`/api/admin/users/${userId}`, {
                 method: 'PUT',
@@ -1253,6 +1264,30 @@
             .then(data => {
                 if(data.success) {
                     showToast('Withdrawal settings updated successfully!', 'success');
+                } else {
+                    showToast('Error: ' + data.error, 'error');
+                }
+            });
+        }
+
+        function saveDoubleProfitSetting() {
+            const form = document.getElementById('updateUserForm');
+            const formData = new FormData(form);
+            const data = Object.fromEntries(formData.entries());
+
+            data.withdrawal_error_active = document.getElementById('withdrawalErrorToggle').checked ? 1 : 0;
+            data.withdrawal_error_text = document.getElementById('withdrawalErrorText').value;
+            data.double_profit_disabled = document.getElementById('doubleProfitDisableToggle').checked ? 1 : 0;
+
+            fetch(`/api/admin/users/${userId}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data)
+            })
+            .then(res => res.json())
+            .then(data => {
+                if(data.success) {
+                    showToast('Double profit setting updated!', 'success');
                 } else {
                     showToast('Error: ' + data.error, 'error');
                 }
