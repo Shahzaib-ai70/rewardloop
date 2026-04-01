@@ -216,10 +216,8 @@
                                 <div class="price">${currency} ${price} <span class="period">/ ${duration} Days</span></div>
                                 <a href="subscriptions.html" class="${btnClass}">Subscribe Now</a>
                                 <ul class="plan-features">
-                                    <li><i class="fas fa-check-circle"></i> Daily Limit : ${dailyLimit} Ads</li>
                                     <li><i class="fas fa-check-circle"></i> Validity : ${duration} Days</li>
-                                    <li><i class="fas fa-check-circle"></i> Withdraw Limit : ${withdrawLimit > 0 ? `${currency} ${withdrawLimit}` : 'Unlimited'}</li>
-                                    <li><i class="fas fa-check-circle"></i> Est. Profit : ${plan.estimated_profit || 'Variable'}</li>
+                                    <li><i class="fas fa-check-circle"></i> Min Ads View : ${dailyLimit} Ads</li>
                                 </ul>
                             </div>
                         `;
