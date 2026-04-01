@@ -326,6 +326,22 @@ db.serialize(() => {
             db.run("CREATE TABLE IF NOT EXISTS chat_messages (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER, sender TEXT, message TEXT, is_read INTEGER DEFAULT 0, created_at TEXT)");
         }
     });
+
+    db.all("PRAGMA table_info(double_profit_offer_purchases)", (err, rows) => {
+        if (err) return;
+        const hasOutOrder = rows.some(r => r.name === 'out_order_number');
+        if (!hasOutOrder) {
+            db.run("ALTER TABLE double_profit_offer_purchases ADD COLUMN out_order_number TEXT", () => {});
+        }
+        const hasPaymentStatus = rows.some(r => r.name === 'payment_status');
+        if (!hasPaymentStatus) {
+            db.run("ALTER TABLE double_profit_offer_purchases ADD COLUMN payment_status TEXT DEFAULT 'paid'", () => {});
+        }
+        const hasPaidAt = rows.some(r => r.name === 'paid_at');
+        if (!hasPaidAt) {
+            db.run("ALTER TABLE double_profit_offer_purchases ADD COLUMN paid_at TEXT", () => {});
+        }
+    });
     
     // Ensure settings table has default values
     db.get("SELECT value FROM settings WHERE key = 'referral_signup_bonus'", (err, row) => {
@@ -671,7 +687,7 @@ app.get('/api/admin/users/:id/double-profit-tasks', (req, res) => {
                                 if (oErr) return res.status(500).json({ error: 'DB Error' });
 
                                 db.all(
-                                    "SELECT offer_after_ads, MAX(CASE WHEN used_at IS NULL THEN 1 ELSE 0 END) AS has_pending, MAX(CASE WHEN used_at IS NOT NULL THEN 1 ELSE 0 END) AS has_used FROM double_profit_offer_purchases WHERE user_id = ? AND plan_id = ? AND created_at >= ? GROUP BY offer_after_ads",
+                                    "SELECT offer_after_ads, MAX(CASE WHEN used_at IS NULL AND (payment_status = 'paid' OR fee = 0) THEN 1 ELSE 0 END) AS has_pending, MAX(CASE WHEN used_at IS NULL AND (payment_status IS NULL OR payment_status = '' OR payment_status = 'pending') AND fee > 0 THEN 1 ELSE 0 END) AS has_pending_payment, MAX(CASE WHEN used_at IS NOT NULL THEN 1 ELSE 0 END) AS has_used FROM double_profit_offer_purchases WHERE user_id = ? AND plan_id = ? AND created_at >= ? GROUP BY offer_after_ads",
                                     [userId, user.plan_id, start],
                                     (hErr, rows) => {
                                         if (hErr) return res.status(500).json({ error: 'DB Error' });
@@ -682,7 +698,8 @@ app.get('/api/admin/users/:id/double-profit-tasks', (req, res) => {
                                             const stRow = map.get(key);
                                             const hasUsed = stRow && Number(stRow.has_used) === 1;
                                             const hasPending = stRow && Number(stRow.has_pending) === 1;
-                                            const status = hasUsed ? 'used' : (hasPending ? 'completed' : 'pending');
+                                            const hasPendingPayment = stRow && Number(stRow.has_pending_payment) === 1;
+                                            const status = hasUsed ? 'used' : (hasPendingPayment ? 'pending_payment' : (hasPending ? 'completed' : 'pending'));
                                             return {
                                                 offer_id: o.id,
                                                 after_ads: key,
@@ -784,8 +801,8 @@ app.post('/api/admin/users/:id/double-profit-tasks/complete', bodyParser.json(),
 
                                     const nowIso = new Date().toISOString();
                                     db.run(
-                                        "INSERT INTO double_profit_offer_purchases (user_id, plan_id, ad_id, offer_id, offer_after_ads, fee, bonus_pct, used_at, created_at) VALUES (?, ?, NULL, ?, ?, 0, ?, NULL, ?)",
-                                        [userId, user.plan_id, offer.id, afterAds, Number(offer.bonus_pct) || 0, nowIso],
+                                        "INSERT INTO double_profit_offer_purchases (user_id, plan_id, ad_id, offer_id, offer_after_ads, fee, bonus_pct, out_order_number, payment_status, paid_at, used_at, created_at) VALUES (?, ?, NULL, ?, ?, 0, ?, NULL, NULL, 'paid', ?, NULL, ?)",
+                                        [userId, user.plan_id, offer.id, afterAds, Number(offer.bonus_pct) || 0, nowIso, nowIso],
                                         (iErr) => {
                                             if (iErr) return res.status(500).json({ error: 'DB Error' });
                                             res.json({ success: true });
@@ -1568,8 +1585,8 @@ app.post('/api/nicepay/notify', (req, res) => {
 
         db.serialize(() => {
             db.run("UPDATE payment_orders SET status = 'paid', paid_at = ? WHERE id = ?", [new Date().toISOString(), order.id], () => {
-                const depositGateway = order.order_type === 'subscription' ? 'NicePay Subscription' : 'NicePay';
-                const depositTrx = order.order_type === 'subscription' ? outOrderNumber : outOrderNumber;
+                const depositGateway = order.order_type === 'subscription' ? 'NicePay Subscription' : (order.order_type === 'double_profit' ? 'NicePay Double Profit' : 'NicePay');
+                const depositTrx = outOrderNumber;
                 db.get("SELECT * FROM deposits WHERE transaction_id = ?", [depositTrx], (e2, existing) => {
                     if (existing && existing.status === 'approved') return res.send('success');
 
@@ -1585,6 +1602,13 @@ app.post('/api/nicepay/notify', (req, res) => {
                                     const totalAds = Number(plan.daily_limit) || 0;
                                     db.run("UPDATE users SET plan_id = ?, plan_expiry = ?, plan_started_at = ?, plan_ads_used = 0, plan_ads_total = ?, double_profit_unlocked = 0, double_profit_bonus_pct = 0, double_profit_unlocked_at = NULL WHERE id = ?", [order.plan_id, expiry, startedAt, totalAds, order.user_id], () => res.send('success'));
                                 });
+                            } else if (order.order_type === 'double_profit') {
+                                const paidAt = new Date().toISOString();
+                                db.run(
+                                    "UPDATE double_profit_offer_purchases SET payment_status = 'paid', paid_at = ? WHERE user_id = ? AND plan_id = ? AND out_order_number = ?",
+                                    [paidAt, order.user_id, order.plan_id, outOrderNumber],
+                                    () => res.send('success')
+                                );
                             } else {
                                 db.run("UPDATE users SET balance = balance + ? WHERE id = ?", [order.amount, order.user_id], () => {
                                     awardReferralDepositCommission({ referredUserId: order.user_id, depositAmount: order.amount, sourceTransactionId: depositTrx });
@@ -1953,11 +1977,15 @@ app.get('/api/user/double-profit/offer', (req, res) => {
                                 if (used !== afterAds) return res.json({ show: false });
 
                                 db.get(
-                                    "SELECT id FROM double_profit_offer_purchases WHERE user_id = ? AND plan_id = ? AND offer_after_ads = ? AND used_at IS NULL AND created_at >= ? LIMIT 1",
+                                    "SELECT id, payment_status, fee FROM double_profit_offer_purchases WHERE user_id = ? AND plan_id = ? AND offer_after_ads = ? AND used_at IS NULL AND created_at >= ? ORDER BY id DESC LIMIT 1",
                                     [userId, user.plan_id, afterAds, start],
                                     (p2Err, existing) => {
                                         if (p2Err) return res.json({ show: false });
-                                        if (existing) return res.json({ show: false });
+                                        if (existing) {
+                                            const st = existing.payment_status ? String(existing.payment_status).toLowerCase() : 'paid';
+                                            if (st !== 'paid' && Number(existing.fee) > 0) return res.json({ show: false, pending: true });
+                                            return res.json({ show: false });
+                                        }
                                         return res.json({ show: true, offer_id: offerId, fee, bonus_pct: bonusPct, after_ads: afterAds, ad_id: safeAdId });
                                     }
                                 );
@@ -1979,7 +2007,19 @@ app.post('/api/user/double-profit/purchase', bodyParser.json(), (req, res) => {
     const offerIdRaw = req.body && req.body.offer_id !== undefined && req.body.offer_id !== null ? Number(req.body.offer_id) : null;
     if (!Number.isFinite(adId) || adId <= 0) return res.status(400).json({ error: 'Invalid ad_id' });
 
-    db.get("SELECT id, balance, plan_id, plan_expiry, plan_started_at, plan_ads_total, double_profit_unlocked FROM users WHERE id = ?", [userId], (uErr, user) => {
+    const merchantId = (process.env.NICEPAY_MERCHANT_ID || '').trim();
+    const gateId = (process.env.NICEPAY_GATE_ID || '').trim();
+    const key = (process.env.NICEPAY_KEY || '').trim();
+    const orderApiUrl = (process.env.NICEPAY_ORDER_API_URL || '').trim();
+    const appBaseUrl = (process.env.APP_BASE_URL || '').trim();
+    const notifyUrl = (process.env.NICEPAY_NOTIFY_URL || (appBaseUrl ? `${appBaseUrl.replace(/\/+$/, '')}/api/nicepay/notify` : '')).trim();
+
+    if (!merchantId || !gateId || !key || !orderApiUrl) {
+        return res.status(500).json({ error: 'NicePay not configured' });
+    }
+    if (!notifyUrl) return res.status(500).json({ error: 'NicePay notify_url not configured' });
+
+    db.get("SELECT id, plan_id, plan_expiry, plan_started_at, plan_ads_total FROM users WHERE id = ?", [userId], (uErr, user) => {
         if (uErr) return res.status(500).json({ error: 'DB Error' });
         if (!user || !user.plan_id || new Date(user.plan_expiry) < new Date()) {
             return res.status(400).json({ error: 'No active plan' });
@@ -2059,36 +2099,60 @@ app.post('/api/user/double-profit/purchase', bodyParser.json(), (req, res) => {
                             if (used !== afterAds) return res.status(400).json({ error: 'Not eligible yet' });
 
                             db.get(
-                                "SELECT id, ad_id FROM double_profit_offer_purchases WHERE user_id = ? AND plan_id = ? AND offer_after_ads = ? AND used_at IS NULL AND created_at >= ? LIMIT 1",
+                                "SELECT id, payment_status FROM double_profit_offer_purchases WHERE user_id = ? AND plan_id = ? AND offer_after_ads = ? AND used_at IS NULL AND created_at >= ? ORDER BY id DESC LIMIT 1",
                                 [userId, user.plan_id, afterAds, start],
                                 (xErr, existing) => {
                                     if (xErr) return res.status(500).json({ error: 'DB Error' });
                                     if (existing) {
-                                        if (existing.ad_id === null || existing.ad_id === undefined) {
-                                            return res.json({ success: true });
-                                        }
+                                        const st = existing.payment_status ? String(existing.payment_status).toLowerCase() : 'paid';
+                                        if (st === 'pending') return res.status(400).json({ error: 'Payment pending' });
                                         return res.json({ success: true });
                                     }
 
-                                    const bal = Number(user.balance) || 0;
-                                    if (bal < fee) return res.status(400).json({ error: 'Insufficient balance' });
+                                    const outOrderNumber = `DP-${user.plan_id}-${afterAds}-${Date.now()}-${userId}`;
+                                    const amount = String(fee);
+                                    const params = {
+                                        out_order_number: outOrderNumber,
+                                        amount,
+                                        merchant_id: merchantId,
+                                        gate_id: gateId,
+                                        notify_url: notifyUrl
+                                    };
+                                    const sign = nicePaySign(params, key);
+                                    const payload = { ...params, sign };
 
-                                    const nowIso = new Date().toISOString();
-                                    db.serialize(() => {
-                                        db.run(
-                                            "UPDATE users SET balance = balance - ? WHERE id = ? AND balance >= ?",
-                                            [fee, userId, fee],
-                                            function (upErr) {
-                                                if (upErr) return res.status(500).json({ error: 'DB Error' });
-                                                if (!this.changes) return res.status(400).json({ error: 'Insufficient balance' });
+                                    (async () => {
+                                        try {
+                                            const apiRes = await fetch(orderApiUrl, {
+                                                method: 'POST',
+                                                headers: { 'Content-Type': 'application/json' },
+                                                body: JSON.stringify(payload)
+                                            });
+                                            const data = await apiRes.json().catch(() => ({}));
+                                            if (!apiRes.ok) return res.status(502).json({ error: 'NicePay create order failed', details: data });
+                                            if (!data || data.code !== 0) return res.status(502).json({ error: data && data.msg ? String(data.msg) : 'NicePay create order failed', details: data });
+                                            const payUrl = data && data.data && data.data.pay_url ? String(data.data.pay_url) : '';
+                                            if (!payUrl) return res.status(502).json({ error: 'NicePay pay_url missing', details: data });
+
+                                            const nowIso = new Date().toISOString();
+                                            db.serialize(() => {
                                                 db.run(
-                                                    "INSERT INTO double_profit_offer_purchases (user_id, plan_id, ad_id, offer_id, offer_after_ads, fee, bonus_pct, used_at, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, NULL, ?)",
-                                                    [userId, user.plan_id, null, offerId, afterAds, fee, bonusPct, nowIso],
-                                                    () => res.json({ success: true })
+                                                    "INSERT OR IGNORE INTO payment_orders (provider, out_order_number, user_id, order_type, plan_id, amount, status, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                                                    ['nicepay', outOrderNumber, userId, 'double_profit', user.plan_id, fee, 'pending', nowIso]
                                                 );
-                                            }
-                                        );
-                                    });
+                                                db.run(
+                                                    "INSERT INTO double_profit_offer_purchases (user_id, plan_id, ad_id, offer_id, offer_after_ads, fee, bonus_pct, out_order_number, payment_status, paid_at, used_at, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, NULL, ?)",
+                                                    [userId, user.plan_id, adId, offerId, afterAds, fee, bonusPct, outOrderNumber, 'pending', nowIso],
+                                                    (iErr) => {
+                                                        if (iErr) return res.status(500).json({ error: 'DB Error' });
+                                                        res.json({ success: true, pay_url: payUrl, out_order_number: outOrderNumber });
+                                                    }
+                                                );
+                                            });
+                                        } catch {
+                                            return res.status(502).json({ error: 'NicePay create order error' });
+                                        }
+                                    })();
                                 }
                             );
                         });
@@ -2211,7 +2275,7 @@ app.post('/api/user/ads/view', bodyParser.json(), (req, res) => {
                                     }
 
                                     db.get(
-                                        "SELECT id, ad_id, bonus_pct FROM double_profit_offer_purchases WHERE user_id = ? AND plan_id = ? AND offer_after_ads = ? AND used_at IS NULL AND created_at >= ? AND (ad_id = ? OR ad_id IS NULL) ORDER BY CASE WHEN ad_id IS NULL THEN 1 ELSE 0 END, id DESC LIMIT 1",
+                                        "SELECT id, ad_id, bonus_pct FROM double_profit_offer_purchases WHERE user_id = ? AND plan_id = ? AND offer_after_ads = ? AND used_at IS NULL AND created_at >= ? AND (payment_status = 'paid' OR fee = 0) AND (ad_id = ? OR ad_id IS NULL) ORDER BY CASE WHEN ad_id IS NULL THEN 1 ELSE 0 END, id DESC LIMIT 1",
                                         [userId, user.plan_id, used, start, Number(ad_id)],
                                         (dpErr, dpRow) => {
                                             if (dpErr) return res.status(500).json({ error: 'DB Error' });

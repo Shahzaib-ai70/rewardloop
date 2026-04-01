@@ -1,4 +1,4 @@
-﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿<!DOCTYPE html>
+﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -371,6 +371,10 @@
             fetch(`/api/user/double-profit/offer?ad_id=${encodeURIComponent(adId)}`)
                 .then(res => res.json().catch(() => ({})))
                 .then(data => {
+                    if (data && data.pending) {
+                        showToast('Payment pending. Please complete payment first.', 'warning');
+                        return;
+                    }
                     if (!data || !data.show) return next();
                     const fee = Number(data.fee) || 0;
                     const pct = Number(data.bonus_pct) || 0;
@@ -391,7 +395,13 @@
                                     if (!res.ok) return res.json().then(e => { throw e; });
                                     return res.json();
                                 })
-                                .then(() => next())
+                                .then((r) => {
+                                    if (r && r.pay_url) {
+                                        window.location.href = r.pay_url;
+                                        return;
+                                    }
+                                    next();
+                                })
                                 .catch(err => {
                                     showToast((err && err.error) ? err.error : 'Failed to activate double profit', 'error');
                                 });
