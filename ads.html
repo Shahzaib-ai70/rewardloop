@@ -1,4 +1,4 @@
-﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿<!DOCTYPE html>
+﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -376,9 +376,11 @@
                     const pct = Number(data.bonus_pct) || 0;
                     const afterAds = Number(data.after_ads) || 0;
                     const offerId = data.offer_id !== undefined && data.offer_id !== null ? Number(data.offer_id) : null;
+                    const profit = fee * (pct / 100);
+                    const profitText = Number.isFinite(profit) ? (Number.isInteger(profit) ? profit.toFixed(0) : profit.toFixed(2)) : '0';
                     showConfirm(
                         'Double Profit Task',
-                        `You watched ${afterAds} ads. Unlock +${pct}% profit for this ad.<br>Pay fee: PKR ${fee}`,
+                        `You watched ${afterAds} ads. Unlock +${pct}% profit for this ad.<br>Task amount: PKR ${fee}<br>Profit: PKR ${profitText}`,
                         () => {
                             fetch('/api/user/double-profit/purchase', {
                                 method: 'POST',
