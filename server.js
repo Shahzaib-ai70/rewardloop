@@ -1161,68 +1161,105 @@ app.post('/register', (req, res) => {
     const { firstname, lastname, username, email, country, phone, referral, gender, password } = req.body;
     
     // Simple validation
-    if (!username || !email || !password) {
+    if (!username || !email || !phone || !password) {
         return res.status(400).json({ error: 'Please fill in all required fields' });
     }
 
-    const stmt = db.prepare("INSERT INTO users (firstname, lastname, username, email, country, phone, referral, gender, password, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
-    const created_at = new Date().toISOString();
-    stmt.run(firstname, lastname, username, email, country, phone, referral, gender, password, created_at, function(err) {
-        if (err) {
-            console.error(err);
-            if (err.message.includes('UNIQUE')) {
-                return res.status(400).json({ error: 'Username or email already exists' });
+    const cleanUsername = String(username || '').trim();
+    const cleanEmail = String(email || '').trim();
+    const cleanPhoneDigits = String(phone || '').replace(/\D/g, '');
+
+    if (!cleanUsername || !cleanEmail || !cleanPhoneDigits || !password) {
+        return res.status(400).json({ error: 'Please fill in all required fields' });
+    }
+
+    db.get(
+        "SELECT id, username, email, phone FROM users WHERE LOWER(email) = LOWER(?) OR LOWER(username) = LOWER(?) OR phone = ? LIMIT 1",
+        [cleanEmail, cleanUsername, cleanPhoneDigits],
+        (cErr, existing) => {
+            if (cErr) return res.status(500).json({ error: 'Database error' });
+            if (existing) {
+                const existingEmail = existing.email ? String(existing.email).trim() : '';
+                const existingUsername = existing.username ? String(existing.username).trim() : '';
+                const existingPhone = existing.phone ? String(existing.phone).replace(/\D/g, '') : '';
+                const emailMatch = existingEmail && existingEmail.toLowerCase() === cleanEmail.toLowerCase();
+                const usernameMatch = existingUsername && existingUsername.toLowerCase() === cleanUsername.toLowerCase();
+                const phoneMatch = existingPhone && existingPhone === cleanPhoneDigits;
+                if (emailMatch) return res.status(400).json({ error: 'Email already exists' });
+                if (usernameMatch) return res.status(400).json({ error: 'Username already exists' });
+                if (phoneMatch) return res.status(400).json({ error: 'Phone number already exists' });
+                return res.status(400).json({ error: 'Email/username/phone already exists' });
             }
-            return res.status(500).json({ error: 'Database error' });
-        }
-        
-        const newUserId = this.lastID;
 
-        db.get("SELECT value FROM settings WHERE key = 'joining_bonus'", (err, row) => {
-            const joiningBonus = !err && row && row.value !== undefined && row.value !== null ? Number(row.value) || 0 : 0;
+            const stmt = db.prepare("INSERT INTO users (firstname, lastname, username, email, country, phone, referral, gender, password, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+            const created_at = new Date().toISOString();
+            stmt.run(
+                firstname,
+                lastname,
+                cleanUsername,
+                cleanEmail,
+                country,
+                cleanPhoneDigits,
+                referral,
+                gender,
+                password,
+                created_at,
+                function(err) {
+                    if (err) {
+                        console.error(err);
+                        return res.status(500).json({ error: 'Database error' });
+                    }
+                    
+                    const newUserId = this.lastID;
 
-            const finish = (finalBalance) => {
-                // --- REFERRAL SIGNUP BONUS LOGIC ---
-                // Only if referral code was provided
-                if (referral && referral.trim() !== '') {
-                    db.get("SELECT value FROM settings WHERE key = 'referral_signup_bonus'", (err, row) => {
-                        if (!err && row) {
-                            const bonus = parseFloat(row.value);
-                            if (bonus > 0) {
-                                const referralCode = referral.trim();
-                                db.get("SELECT id, username FROM users WHERE LOWER(username) = LOWER(?)", [referralCode], (e3, refUser) => {
-                                    if (e3 || !refUser) return;
-                                    if (Number(refUser.id) === Number(newUserId)) return;
+                    db.get("SELECT value FROM settings WHERE key = 'joining_bonus'", (err, row) => {
+                        const joiningBonus = !err && row && row.value !== undefined && row.value !== null ? Number(row.value) || 0 : 0;
 
-                                    db.run("UPDATE users SET reward_balance = reward_balance + ? WHERE id = ?", [bonus, refUser.id], (e4) => {
-                                        if (e4) return;
-                                        const trxId = `REFERRAL-BONUS-${refUser.id}-${newUserId}-${Date.now()}`;
-                                        const stmt = db.prepare("INSERT INTO deposits (user_id, amount, gateway, transaction_id, status, created_at) VALUES (?, ?, ?, ?, ?, ?)");
-                                        stmt.run(refUser.id, bonus, 'Referral Bonus', trxId, 'completed', new Date().toISOString());
-                                        stmt.finalize();
-                                        console.log(`Referral Bonus of ${bonus} awarded to referrer ${refUser.username} for new user ${username}`);
-                                    });
+                        const finish = (finalBalance) => {
+                            // --- REFERRAL SIGNUP BONUS LOGIC ---
+                            // Only if referral code was provided
+                            if (referral && referral.trim() !== '') {
+                                db.get("SELECT value FROM settings WHERE key = 'referral_signup_bonus'", (err, row) => {
+                                    if (!err && row) {
+                                        const bonus = parseFloat(row.value);
+                                        if (bonus > 0) {
+                                            const referralCode = referral.trim();
+                                            db.get("SELECT id, username FROM users WHERE LOWER(username) = LOWER(?)", [referralCode], (e3, refUser) => {
+                                                if (e3 || !refUser) return;
+                                                if (Number(refUser.id) === Number(newUserId)) return;
+
+                                                db.run("UPDATE users SET reward_balance = reward_balance + ? WHERE id = ?", [bonus, refUser.id], (e4) => {
+                                                    if (e4) return;
+                                                    const trxId = `REFERRAL-BONUS-${refUser.id}-${newUserId}-${Date.now()}`;
+                                                    const stmt = db.prepare("INSERT INTO deposits (user_id, amount, gateway, transaction_id, status, created_at) VALUES (?, ?, ?, ?, ?, ?)");
+                                                    stmt.run(refUser.id, bonus, 'Referral Bonus', trxId, 'completed', new Date().toISOString());
+                                                    stmt.finalize();
+                                                    console.log(`Referral Bonus of ${bonus} awarded to referrer ${refUser.username} for new user ${cleanUsername}`);
+                                                });
+                                            });
+                                        }
+                                    }
                                 });
                             }
+                            // -----------------------------------
+
+                            req.session.user = { id: newUserId, username: cleanUsername, email: cleanEmail, firstname, lastname, country, phone: cleanPhoneDigits, referral, gender, created_at, role: 'user', balance: finalBalance };
+                            res.json({ success: true, redirect: '/dashboard.html' });
+                        };
+
+                        if (joiningBonus > 0) {
+                            db.run("UPDATE users SET balance = balance + ? WHERE id = ?", [joiningBonus, newUserId], () => {
+                                finish(joiningBonus);
+                            });
+                        } else {
+                            finish(0.0);
                         }
                     });
                 }
-                // -----------------------------------
-
-                req.session.user = { id: newUserId, username, email, firstname, lastname, country, phone, referral, gender, created_at, role: 'user', balance: finalBalance };
-                res.json({ success: true, redirect: '/dashboard.html' });
-            };
-
-            if (joiningBonus > 0) {
-                db.run("UPDATE users SET balance = balance + ? WHERE id = ?", [joiningBonus, newUserId], () => {
-                    finish(joiningBonus);
-                });
-            } else {
-                finish(0.0);
-            }
-        });
-    });
-    stmt.finalize();
+            );
+            stmt.finalize();
+        }
+    );
 });
 
 
@@ -3740,7 +3777,8 @@ app.post('/admin/login', (req, res) => {
 app.post('/login', (req, res) => {
     const { email, password } = req.body;
 
-    db.get("SELECT * FROM users WHERE email = ? AND password = ?", [email, password], (err, row) => {
+    const cleanEmail = String(email || '').trim();
+    db.get("SELECT * FROM users WHERE LOWER(email) = LOWER(?) AND password = ?", [cleanEmail, password], (err, row) => {
         if (err) {
             return res.status(500).json({ error: 'Database error' });
         }
