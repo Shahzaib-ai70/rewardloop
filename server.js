@@ -1530,7 +1530,7 @@ app.get('/api/user/ads', (req, res) => {
                         }
 
                         const planId = user.plan_id;
-                        const fetchLimit = Math.max(1, Math.min(remaining, totalAllowed));
+                        const fetchLimit = Math.max(1, Math.min(Math.max(totalAllowed, remaining), 200));
 
                         db.all(
                             "SELECT * FROM ads WHERE status = 'active' AND (plan_id = ? OR plan_id IS NULL OR plan_id = 0) ORDER BY id DESC LIMIT ?",
@@ -1554,7 +1554,12 @@ app.get('/api/user/ads', (req, res) => {
                                             completed: viewedAdIds.includes(ad.id)
                                         }));
 
-                                        res.json(adsWithStatus);
+                                        const displayCount = Math.max(1, Number(totalAllowed) || 0);
+                                        const sorted = adsWithStatus.slice().sort((a, b) => {
+                                            if (!!a.completed === !!b.completed) return 0;
+                                            return a.completed ? 1 : -1;
+                                        });
+                                        res.json(sorted.slice(0, displayCount));
                                     }
                                 );
                             }
