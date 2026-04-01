@@ -403,6 +403,7 @@ db.serialize(() => {
     db.run("CREATE TABLE IF NOT EXISTS plans (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT, description TEXT, price REAL, duration INTEGER, daily_limit INTEGER, withdraw_limit REAL DEFAULT 0, estimated_profit TEXT, double_profit_after_ads INTEGER DEFAULT 0, double_profit_fee REAL DEFAULT 0, double_profit_bonus_pct REAL DEFAULT 0, status TEXT DEFAULT 'active', created_at TEXT)", (err) => {
         if (err) return;
 
+        const autoSeedPlans = String(process.env.AUTO_SEED_DEFAULT_PLANS || '').trim() === '1';
         const desiredPlans = [
             { name: 'Standard', description: 'Standard', price: 2000, duration: 30, daily_limit: 5, withdraw_limit: 500, estimated_profit: '2800', status: 'active' },
             { name: 'Silver', description: 'Most Valuable Plan', price: 5000, duration: 30, daily_limit: 10, withdraw_limit: 1200, estimated_profit: '7000', status: 'active' },
@@ -414,30 +415,21 @@ db.serialize(() => {
             { name: 'VIP 3', description: 'Elite Vip Plan', price: 100000, duration: 30, daily_limit: 15, withdraw_limit: 10000, estimated_profit: '160000', status: 'active' }
         ];
 
-        db.all("SELECT id, name, price FROM plans", (err, rows) => {
+        db.all("SELECT id, name FROM plans", (err, rows) => {
             if (err) return;
 
-            const maxPrice = Math.max(0, ...rows.map(r => Number(r.price) || 0));
-            const seedLike = rows.length > 0 && rows.length <= 4 && maxPrice <= 1000;
             const byName = new Map((rows || []).map(r => [String(r.name || ''), r]));
             const now = new Date().toISOString();
 
+            const shouldSeed = autoSeedPlans || rows.length === 0;
+            if (!shouldSeed) return;
+
             const insertStmt = db.prepare("INSERT INTO plans (name, description, price, duration, daily_limit, withdraw_limit, estimated_profit, double_profit_after_ads, double_profit_fee, double_profit_bonus_pct, status, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
-            const updateStmt = db.prepare("UPDATE plans SET description = ?, price = ?, duration = ?, daily_limit = ?, withdraw_limit = ?, estimated_profit = ?, double_profit_after_ads = ?, double_profit_fee = ?, double_profit_bonus_pct = ?, status = ? WHERE id = ?");
-
             desiredPlans.forEach(p => {
-                const existing = byName.get(p.name);
-                if (existing) {
-                    if (seedLike) {
-                        updateStmt.run(p.description, p.price, p.duration, p.daily_limit, p.withdraw_limit, p.estimated_profit, 0, 0, 0, p.status, existing.id);
-                    }
-                } else {
-                    insertStmt.run(p.name, p.description, p.price, p.duration, p.daily_limit, p.withdraw_limit, p.estimated_profit, 0, 0, 0, p.status, now);
-                }
+                if (byName.has(p.name)) return;
+                insertStmt.run(p.name, p.description, p.price, p.duration, p.daily_limit, p.withdraw_limit, p.estimated_profit, 0, 0, 0, p.status, now);
             });
-
             insertStmt.finalize();
-            updateStmt.finalize();
         });
     });
 
@@ -468,6 +460,8 @@ db.serialize(() => {
 
     // Seed Ads if less than 100 active
     db.get("SELECT COUNT(*) as count FROM ads WHERE status = 'active'", (err, row) => {
+        const keepMinimumActiveAds = String(process.env.KEEP_MINIMUM_ACTIVE_ADS || '').trim() === '1';
+        if (!keepMinimumActiveAds) return;
         if (!err && row && row.count < 100) {
             const needed = 100 - row.count;
             console.log(`Seeding ${needed} random ads to reach minimum 100...`);
@@ -533,7 +527,9 @@ db.serialize(() => {
     });
 
     setTimeout(() => {
-        auditAdsToDisableUnavailable();
+        if (String(process.env.AUDIT_ADS_ON_STARTUP || '1').trim() === '1') {
+            auditAdsToDisableUnavailable();
+        }
     }, 4000);
 
     // Check if 'account_number' column exists in payment_methods
@@ -1391,6 +1387,9 @@ function auditAdsToDisableUnavailable() {
                 db.run("UPDATE ads SET status = 'inactive' WHERE id = ?", [t.id]);
             }
         }
+
+        const keepMinimumActiveAds = String(process.env.KEEP_MINIMUM_ACTIVE_ADS || '').trim() === '1';
+        if (!keepMinimumActiveAds) return;
 
         db.get("SELECT COUNT(*) as count FROM ads WHERE status = 'active'", (cErr, cRow) => {
             if (cErr || !cRow) return;
