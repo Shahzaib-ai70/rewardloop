@@ -416,11 +416,11 @@ db.serialize(() => {
         }
     });
 
-    // Seed Ads if less than 50
-    db.get("SELECT COUNT(*) as count FROM ads", (err, row) => {
-        if (!err && row && row.count < 50) {
-            const needed = 50 - row.count;
-            console.log(`Seeding ${needed} random ads to reach minimum 50...`);
+    // Seed Ads if less than 100 active
+    db.get("SELECT COUNT(*) as count FROM ads WHERE status = 'active'", (err, row) => {
+        if (!err && row && row.count < 100) {
+            const needed = 100 - row.count;
+            console.log(`Seeding ${needed} random ads to reach minimum 100...`);
             const stmt = db.prepare("INSERT INTO ads (title, url, duration, reward, status, created_at) VALUES (?, ?, ?, ?, ?, ?)");
             const now = new Date().toISOString();
 
@@ -429,29 +429,39 @@ db.serialize(() => {
             const randReward = () => (Math.random() * 4.5 + 0.5).toFixed(2); // 0.50 to 5.00
 
             const videoTitles = [
-                "Top Hit Song 2024 - Pop Mix", "Best English Drama Episode 1", "Relaxing Nature 4K", "Funny Cats Compilation", "Action Movie Trailer 2025",
-                "How to Cook Pasta", "Tech Review: New iPhone", "Travel Vlog: Paris", "Gaming Highlights: Minecraft", "Yoga for Beginners",
-                "Motivational Speech", "Learn JavaScript in 10 Minutes", "Cute Puppies Playing", "Science Documentary: Space", "History of Rome",
-                "DIY Home Decor", "Street Food Tour", "Makeup Tutorial", "Fitness Workout Routine", "Meditation Music",
-                "Ed Sheeran - Shape of You", "Luis Fonsi - Despacito", "Wiz Khalifa - See You Again", "Mark Ronson - Uptown Funk", "Psy - Gangnam Style",
-                "Maroon 5 - Sugar", "Justin Bieber - Sorry", "Katy Perry - Roar", "OneRepublic - Counting Stars", "Ed Sheeran - Thinking Out Loud",
-                "Taylor Swift - Dark Horse", "Adele - Shake It Off", "Enrique Iglesias - Bailando", "Major Lazer - Lean On", "Shakira - Waka Waka",
-                "English Drama: The Crown Trailer", "Downton Abbey Best Moments", "Sherlock Holmes Funny Scenes", "Friends Best Jokes", "The Office US Highlights",
-                "Breaking Bad Funny Clips", "Game of Thrones Best Scenes", "Stranger Things Battle", "The Witcher Trailer", "Money Heist Recap",
-                "Peaky Blinders Best Quotes", "Black Mirror Trailer", "Vikings Best Fights", "The Mandalorian Teaser", "Westworld Scene"
+                "Relaxing Nature 4K",
+                "Funny Cats Compilation",
+                "Cute Puppies Playing",
+                "Yoga for Beginners",
+                "Meditation Music",
+                "Science Documentary: Space",
+                "History Documentary",
+                "Learn JavaScript Basics",
+                "Tech Review",
+                "Travel Vlog",
+                "Street Food Tour",
+                "DIY Home Decor",
+                "Fitness Workout Routine",
+                "Cooking Recipe",
+                "Motivational Speech"
             ];
 
             const youtubeIds = [
-                "JGwWNGJdvx8", "9bZkp7q19f0", "kJQP7kiw5Fk", "hY7m5jjJ9mM", "OPf0YbXqDm0",
-                "ScMzIvxBSi4", "U9BwWKXjVaI", "7WTpNHjFNZM", "34Na4j8AVgA", "v7AYKMP6rOE",
-                "lTRiuFIWV54", "WpTdAogP70M", "j5-yKhDd64s", "UnZWTuDDpKs", "rYEDA3JcQqw",
-                "tgbNymZ7vqY", "09R8_2nJtjg", "RgKAFK5djSk", "nfWlot6h_JM", "lp-EO5I60KA",
-                "2Vv-BfVoq4g", "fRh_vgS2dFE", "YQHsXMglC9A", "PT2_F-1esPk", "0KSOMA3QBU0",
-                "OPf0YbXqDm0", "34Na4j8AVgA", "v7AYKMP6rOE", "lTRiuFIWV54", "WpTdAogP70M",
-                "j5-yKhDd64s", "UnZWTuDDpKs", "rYEDA3JcQqw", "tgbNymZ7vqY", "09R8_2nJtjg",
-                "RgKAFK5djSk", "nfWlot6h_JM", "lp-EO5I60KA", "2Vv-BfVoq4g", "fRh_vgS2dFE",
-                "YQHsXMglC9A", "PT2_F-1esPk", "0KSOMA3QBU0", "OPf0YbXqDm0", "34Na4j8AVgA",
-                "v7AYKMP6rOE", "lTRiuFIWV54", "WpTdAogP70M", "j5-yKhDd64s", "UnZWTuDDpKs"
+                "hY7m5jjJ9mM",
+                "v7AYKMP6rOE",
+                "U9BwWKXjVaI",
+                "ScMzIvxBSi4",
+                "WpTdAogP70M",
+                "j5-yKhDd64s",
+                "UnZWTuDDpKs",
+                "34Na4j8AVgA",
+                "7WTpNHjFNZM",
+                "lTRiuFIWV54",
+                "tgbNymZ7vqY",
+                "PT2_F-1esPk",
+                "0KSOMA3QBU0",
+                "kJQP7kiw5Fk",
+                "OPf0YbXqDm0"
             ];
 
             for (let i = 0; i < needed; i++) {
@@ -471,6 +481,10 @@ db.serialize(() => {
             console.log(`Successfully seeded ${needed} ads.`);
         }
     });
+
+    setTimeout(() => {
+        auditAdsToDisableUnavailable();
+    }, 4000);
 
     // Check if 'account_number' column exists in payment_methods
     db.all("PRAGMA table_info(payment_methods)", (err, rows) => {
@@ -1250,6 +1264,100 @@ function nicePaySign(params, key) {
     return crypto.createHash('md5').update(`${base}&key=${key}`).digest('hex').toUpperCase();
 }
 
+function extractYouTubeIdFromUrl(url) {
+    if (!url) return null;
+    const s = String(url);
+    const m = s.match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|embed\/|v\/))([A-Za-z0-9_-]{11})/);
+    return m && m[1] ? m[1] : null;
+}
+
+async function isYouTubeOEmbedOk(videoId) {
+    try {
+        const u = `https://www.youtube.com/oembed?url=${encodeURIComponent(`https://www.youtube.com/watch?v=${videoId}`)}&format=json`;
+        const r = await fetch(u, { method: 'GET' });
+        return !!(r && r.ok);
+    } catch {
+        return false;
+    }
+}
+
+function auditAdsToDisableUnavailable() {
+    if (typeof fetch !== 'function') return;
+    db.all("SELECT id, url FROM ads WHERE status = 'active'", async (err, rows) => {
+        if (err || !Array.isArray(rows) || rows.length === 0) return;
+        const tasks = [];
+        rows.forEach(r => {
+            const vid = extractYouTubeIdFromUrl(r.url);
+            if (!vid) return;
+            tasks.push({ id: r.id, vid });
+        });
+        if (!tasks.length) return;
+
+        for (let i = 0; i < tasks.length; i++) {
+            const t = tasks[i];
+            const ok = await isYouTubeOEmbedOk(t.vid);
+            if (!ok) {
+                db.run("UPDATE ads SET status = 'inactive' WHERE id = ?", [t.id]);
+            }
+        }
+
+        db.get("SELECT COUNT(*) as count FROM ads WHERE status = 'active'", (cErr, cRow) => {
+            if (cErr || !cRow) return;
+            const current = Number(cRow.count) || 0;
+            if (current >= 100) return;
+            const needed = 100 - current;
+
+            const videoTitles = [
+                "Relaxing Nature 4K",
+                "Funny Cats Compilation",
+                "Cute Puppies Playing",
+                "Yoga for Beginners",
+                "Meditation Music",
+                "Science Documentary: Space",
+                "History Documentary",
+                "Learn JavaScript Basics",
+                "Tech Review",
+                "Travel Vlog",
+                "Street Food Tour",
+                "DIY Home Decor",
+                "Fitness Workout Routine",
+                "Cooking Recipe",
+                "Motivational Speech"
+            ];
+
+            const youtubeIds = [
+                "hY7m5jjJ9mM",
+                "v7AYKMP6rOE",
+                "U9BwWKXjVaI",
+                "ScMzIvxBSi4",
+                "WpTdAogP70M",
+                "j5-yKhDd64s",
+                "UnZWTuDDpKs",
+                "34Na4j8AVgA",
+                "7WTpNHjFNZM",
+                "lTRiuFIWV54",
+                "tgbNymZ7vqY",
+                "PT2_F-1esPk",
+                "0KSOMA3QBU0",
+                "kJQP7kiw5Fk",
+                "OPf0YbXqDm0"
+            ];
+
+            const rand = (min, max) => Math.floor(Math.random() * (max - min + 1)) + min;
+            const randReward = () => (Math.random() * 4.5 + 0.5).toFixed(2);
+
+            const stmt = db.prepare("INSERT INTO ads (title, url, duration, reward, status, created_at) VALUES (?, ?, ?, ?, ?, ?)");
+            const now = new Date().toISOString();
+            for (let i = 0; i < needed; i++) {
+                const title = videoTitles[i % videoTitles.length];
+                const vidId = youtubeIds[i % youtubeIds.length];
+                stmt.run(title, `https://www.youtube.com/watch?v=${vidId}`, rand(10, 60), randReward(), 'active', now);
+            }
+            stmt.finalize();
+        });
+    });
+}
+
 function logNicePaySyncHistory(opts) {
     const outOrderNumber = (opts && opts.outOrderNumber ? String(opts.outOrderNumber) : '').trim();
     if (!outOrderNumber) return;
@@ -1730,7 +1838,7 @@ app.get('/api/user/ads', (req, res) => {
                         const fetchLimit = Math.max(1, Math.min(Math.max(totalAllowed, remaining), 200));
 
                         db.all(
-                            "SELECT * FROM ads WHERE status = 'active' AND (plan_id = ? OR plan_id IS NULL OR plan_id = 0) ORDER BY id DESC LIMIT ?",
+                            "SELECT * FROM ads WHERE status = 'active' AND (plan_id = ? OR plan_id IS NULL OR plan_id = 0) ORDER BY RANDOM() LIMIT ?",
                             [planId, fetchLimit],
                             (aErr, ads) => {
                                 if (aErr) return res.status(500).json({ error: 'DB Error' });
