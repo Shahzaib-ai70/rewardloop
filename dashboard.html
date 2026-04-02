@@ -1,4 +1,4 @@
-﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿<!DOCTYPE html>
+﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -22,6 +22,24 @@
         .cs-btn-tg { background: #38bdf8; color: #fff; }
         .cs-hint { margin-top: 12px; font-size: 0.85rem; color: #94a3b8; }
         @media (min-width: 520px) { .cs-actions { grid-template-columns: 1fr 1fr; } .cs-actions .cs-btn-chat { grid-column: 1 / -1; } }
+
+        .quick-menu-card { margin-top: 18px; }
+        .quick-menu-header { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+        .quick-menu-title { font-size: 1.05rem; font-weight: 700; color: #2d3436; display: flex; align-items: center; gap: 10px; margin: 0; }
+        .quick-menu-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-top: 14px; }
+        .quick-link { display: flex; align-items: center; gap: 12px; padding: 12px; border-radius: 12px; background: #f5f7fb; border: 1px solid #eef2f7; text-decoration: none; transition: transform 0.15s ease, box-shadow 0.15s ease; }
+        .quick-link:active { transform: scale(0.99); }
+        .quick-icon { width: 40px; height: 40px; border-radius: 12px; display: flex; align-items: center; justify-content: center; color: #fff; flex: 0 0 auto; }
+        .quick-text { display: flex; flex-direction: column; min-width: 0; }
+        .quick-name { font-weight: 700; color: #2d3436; line-height: 1.1; }
+        .quick-desc { font-size: 0.8rem; color: #64748b; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .qi-purple { background: linear-gradient(135deg, #6c5ce7, #5c6ac4); }
+        .qi-blue { background: linear-gradient(135deg, #0984e3, #74b9ff); }
+        .qi-teal { background: linear-gradient(135deg, #00b894, #55efc4); }
+        .qi-orange { background: linear-gradient(135deg, #e67e22, #f9ca24); }
+        .qi-red { background: linear-gradient(135deg, #d63031, #ff7675); }
+        .qi-gray { background: linear-gradient(135deg, #2d3436, #636e72); }
+        @media (min-width: 900px) { .quick-menu-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
     </style>
 </head>
 <body class="dashboard-body">
@@ -163,6 +181,84 @@
                     <h3>Support Tickets</h3>
                     <div class="value">0</div>
                     <div class="desc">Number of tickets you've submitted</div>
+                </div>
+            </div>
+
+            <div class="card quick-menu-card">
+                <div class="card-top-header quick-menu-header">
+                    <h3 class="quick-menu-title"><i class="fas fa-th"></i> Quick Menu</h3>
+                </div>
+                <div class="quick-menu-grid">
+                    <a class="quick-link" href="subscriptions.html">
+                        <div class="quick-icon qi-purple"><i class="fas fa-crown"></i></div>
+                        <div class="quick-text">
+                            <div class="quick-name">Subscriptions</div>
+                            <div class="quick-desc">Buy or upgrade plan</div>
+                        </div>
+                    </a>
+                    <a class="quick-link" href="ads.html">
+                        <div class="quick-icon qi-blue"><i class="fas fa-ad"></i></div>
+                        <div class="quick-text">
+                            <div class="quick-name">All Ads</div>
+                            <div class="quick-desc">Watch ads & earn</div>
+                        </div>
+                    </a>
+                    <a class="quick-link" href="ads.html?tab=my-ads">
+                        <div class="quick-icon qi-teal"><i class="fas fa-check-circle"></i></div>
+                        <div class="quick-text">
+                            <div class="quick-name">My Ads</div>
+                            <div class="quick-desc">Completed & pending</div>
+                        </div>
+                    </a>
+                    <a class="quick-link" href="ads.html?tab=my-earnings">
+                        <div class="quick-icon qi-orange"><i class="fas fa-coins"></i></div>
+                        <div class="quick-text">
+                            <div class="quick-name">My Earnings</div>
+                            <div class="quick-desc">Earnings history</div>
+                        </div>
+                    </a>
+                    <a class="quick-link" href="withdraw.html">
+                        <div class="quick-icon qi-red"><i class="fas fa-money-check-alt"></i></div>
+                        <div class="quick-text">
+                            <div class="quick-name">Withdraw</div>
+                            <div class="quick-desc">Request withdrawal</div>
+                        </div>
+                    </a>
+                    <a class="quick-link" href="transactions.html">
+                        <div class="quick-icon qi-gray"><i class="fas fa-history"></i></div>
+                        <div class="quick-text">
+                            <div class="quick-name">Transactions</div>
+                            <div class="quick-desc">All activity</div>
+                        </div>
+                    </a>
+                    <a class="quick-link" href="referral.html">
+                        <div class="quick-icon qi-teal"><i class="fas fa-users"></i></div>
+                        <div class="quick-text">
+                            <div class="quick-name">Referral</div>
+                            <div class="quick-desc">Invite friends</div>
+                        </div>
+                    </a>
+                    <a class="quick-link" href="support.html">
+                        <div class="quick-icon qi-purple"><i class="fas fa-headset"></i></div>
+                        <div class="quick-text">
+                            <div class="quick-name">Support</div>
+                            <div class="quick-desc">Get help</div>
+                        </div>
+                    </a>
+                    <a class="quick-link" href="fund_transfer.html">
+                        <div class="quick-icon qi-blue"><i class="fas fa-exchange-alt"></i></div>
+                        <div class="quick-text">
+                            <div class="quick-name">Fund Transfer</div>
+                            <div class="quick-desc">Send to users</div>
+                        </div>
+                    </a>
+                    <a class="quick-link" href="settings.html">
+                        <div class="quick-icon qi-gray"><i class="fas fa-cog"></i></div>
+                        <div class="quick-text">
+                            <div class="quick-name">Settings</div>
+                            <div class="quick-desc">Profile & security</div>
+                        </div>
+                    </a>
                 </div>
             </div>
 
