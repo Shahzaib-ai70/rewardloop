@@ -91,6 +91,7 @@
                     <div class="nav-tabs">
                         <button class="nav-link active" onclick="switchTab('requests')">Deposit Requests</button>
                         <button class="nav-link" onclick="switchTab('ads')">Ad View Earnings</button>
+                        <button class="nav-link" onclick="switchTab('referral-bonus')">Referral Bonus History</button>
                         <button class="nav-link" onclick="switchTab('methods')">Payment Methods</button>
                     </div>
 
@@ -119,6 +120,27 @@
                         <h3 class="section-title">Ad View Earnings</h3>
                         <div class="table-responsive">
                             <table class="table" id="adsTable">
+                                <thead>
+                                    <tr>
+                                        <th>ID</th>
+                                        <th>User</th>
+                                        <th>Amount</th>
+                                        <th>Gateway</th>
+                                        <th>Trx ID</th>
+                                        <th>Proof</th>
+                                        <th>Status</th>
+                                        <th>Action</th>
+                                    </tr>
+                                </thead>
+                                <tbody></tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <div id="referral-bonus" class="tab-content">
+                        <h3 class="section-title">Referral Bonus History</h3>
+                        <div class="table-responsive">
+                            <table class="table" id="referralBonusTable">
                                 <thead>
                                     <tr>
                                         <th>ID</th>
@@ -252,25 +274,37 @@
                 .then(deposits => {
                     const depositsBody = document.querySelector('#depositsTable tbody');
                     const adsBody = document.querySelector('#adsTable tbody');
+                    const referralBody = document.querySelector('#referralBonusTable tbody');
                     if (!depositsBody || !adsBody) return;
 
                     depositsBody.innerHTML = '';
                     adsBody.innerHTML = '';
+                    if (referralBody) referralBody.innerHTML = '';
 
                     if (!Array.isArray(deposits) || deposits.length === 0) {
                         depositsBody.innerHTML = '<tr><td colspan="8" class="text-center">No deposits found</td></tr>';
                         adsBody.innerHTML = '<tr><td colspan="8" class="text-center">No ad earnings found</td></tr>';
+                        if (referralBody) referralBody.innerHTML = '<tr><td colspan="8" class="text-center">No referral bonuses found</td></tr>';
                         return;
                     }
 
                     const adViews = deposits.filter(d => String(d.gateway || '').toLowerCase() === 'ad view');
-                    const realDeposits = deposits.filter(d => String(d.gateway || '').toLowerCase() !== 'ad view');
+                    const referralBonuses = deposits.filter(d => String(d.gateway || '').toLowerCase() === 'referral bonus');
+                    const realDeposits = deposits.filter(d => {
+                        const g = String(d.gateway || '').toLowerCase();
+                        return g !== 'ad view' && g !== 'referral bonus';
+                    });
 
                     if (realDeposits.length === 0) depositsBody.innerHTML = '<tr><td colspan="8" class="text-center">No deposits found</td></tr>';
                     else realDeposits.forEach(dep => { depositsBody.innerHTML += depositRowHtml(dep); });
 
                     if (adViews.length === 0) adsBody.innerHTML = '<tr><td colspan="8" class="text-center">No ad earnings found</td></tr>';
                     else adViews.forEach(dep => { adsBody.innerHTML += depositRowHtml(dep); });
+
+                    if (referralBody) {
+                        if (referralBonuses.length === 0) referralBody.innerHTML = '<tr><td colspan="8" class="text-center">No referral bonuses found</td></tr>';
+                        else referralBonuses.forEach(dep => { referralBody.innerHTML += depositRowHtml(dep); });
+                    }
                 });
         }
 
