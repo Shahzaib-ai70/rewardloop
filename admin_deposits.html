@@ -89,14 +89,15 @@
             <div class="card">
                 <div class="card-body">
                     <div class="nav-tabs">
-                        <button class="nav-link active" onclick="switchTab('requests')">Deposit Requests</button>
+                        <button class="nav-link active" onclick="switchTab('requests')">Deposit History</button>
                         <button class="nav-link" onclick="switchTab('ads')">Ad View Earnings</button>
                         <button class="nav-link" onclick="switchTab('referral-bonus')">Referral Bonus History</button>
+                        <button class="nav-link" onclick="switchTab('reward-redemption')">Reward Redemption History</button>
                         <button class="nav-link" onclick="switchTab('methods')">Payment Methods</button>
                     </div>
 
                     <div id="requests" class="tab-content active">
-                        <h3 class="section-title">Pending & Recent Deposits</h3>
+                        <h3 class="section-title">Deposit History</h3>
                         <div class="table-responsive">
                             <table class="table" id="depositsTable">
                                 <thead>
@@ -141,6 +142,27 @@
                         <h3 class="section-title">Referral Bonus History</h3>
                         <div class="table-responsive">
                             <table class="table" id="referralBonusTable">
+                                <thead>
+                                    <tr>
+                                        <th>ID</th>
+                                        <th>User</th>
+                                        <th>Amount</th>
+                                        <th>Gateway</th>
+                                        <th>Trx ID</th>
+                                        <th>Proof</th>
+                                        <th>Status</th>
+                                        <th>Action</th>
+                                    </tr>
+                                </thead>
+                                <tbody></tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <div id="reward-redemption" class="tab-content">
+                        <h3 class="section-title">Reward Redemption History</h3>
+                        <div class="table-responsive">
+                            <table class="table" id="rewardRedemptionTable">
                                 <thead>
                                     <tr>
                                         <th>ID</th>
@@ -275,24 +297,28 @@
                     const depositsBody = document.querySelector('#depositsTable tbody');
                     const adsBody = document.querySelector('#adsTable tbody');
                     const referralBody = document.querySelector('#referralBonusTable tbody');
+                    const redeemBody = document.querySelector('#rewardRedemptionTable tbody');
                     if (!depositsBody || !adsBody) return;
 
                     depositsBody.innerHTML = '';
                     adsBody.innerHTML = '';
                     if (referralBody) referralBody.innerHTML = '';
+                    if (redeemBody) redeemBody.innerHTML = '';
 
                     if (!Array.isArray(deposits) || deposits.length === 0) {
                         depositsBody.innerHTML = '<tr><td colspan="8" class="text-center">No deposits found</td></tr>';
                         adsBody.innerHTML = '<tr><td colspan="8" class="text-center">No ad earnings found</td></tr>';
                         if (referralBody) referralBody.innerHTML = '<tr><td colspan="8" class="text-center">No referral bonuses found</td></tr>';
+                        if (redeemBody) redeemBody.innerHTML = '<tr><td colspan="8" class="text-center">No redemptions found</td></tr>';
                         return;
                     }
 
                     const adViews = deposits.filter(d => String(d.gateway || '').toLowerCase() === 'ad view');
                     const referralBonuses = deposits.filter(d => String(d.gateway || '').toLowerCase() === 'referral bonus');
+                    const rewardRedemptions = deposits.filter(d => String(d.gateway || '').toLowerCase() === 'reward redemption');
                     const realDeposits = deposits.filter(d => {
                         const g = String(d.gateway || '').toLowerCase();
-                        return g !== 'ad view' && g !== 'referral bonus';
+                        return g !== 'ad view' && g !== 'referral bonus' && g !== 'reward redemption';
                     });
 
                     if (realDeposits.length === 0) depositsBody.innerHTML = '<tr><td colspan="8" class="text-center">No deposits found</td></tr>';
@@ -304,6 +330,11 @@
                     if (referralBody) {
                         if (referralBonuses.length === 0) referralBody.innerHTML = '<tr><td colspan="8" class="text-center">No referral bonuses found</td></tr>';
                         else referralBonuses.forEach(dep => { referralBody.innerHTML += depositRowHtml(dep); });
+                    }
+
+                    if (redeemBody) {
+                        if (rewardRedemptions.length === 0) redeemBody.innerHTML = '<tr><td colspan="8" class="text-center">No redemptions found</td></tr>';
+                        else rewardRedemptions.forEach(dep => { redeemBody.innerHTML += depositRowHtml(dep); });
                     }
                 });
         }
