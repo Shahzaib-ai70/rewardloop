@@ -1,4 +1,4 @@
-﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿<!DOCTYPE html>
+﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -97,8 +97,31 @@
                         <input type="text" id="planPrice" class="form-control" readonly>
                     </div>
 
-                    <button type="button" class="btn btn-primary btn-block" onclick="startNicePaySubscriptionPayment()">Pay Now (NicePay)</button>
-                    <div style="text-align:center; margin-top:10px; opacity:0.8; font-size:0.9rem;">After successful payment, your plan activates automatically.</div>
+                    <div style="display:flex; gap:10px; flex-wrap:wrap; margin-bottom:12px;">
+                        <button type="button" id="payTabNicepay" class="btn btn-purple" style="flex:1; min-width:160px;" onclick="showPaymentTab('nicepay')"><i class="fas fa-bolt"></i> NicePay</button>
+                        <button type="button" id="payTabManual" class="btn btn-purple-outline" style="flex:1; min-width:160px;" onclick="showPaymentTab('manual')"><i class="fas fa-receipt"></i> Manual Deposit</button>
+                    </div>
+
+                    <div id="paymentTabNicepay">
+                        <button type="button" class="btn btn-primary btn-block" onclick="startNicePaySubscriptionPayment()">Pay Now (NicePay)</button>
+                        <div style="text-align:center; margin-top:10px; opacity:0.8; font-size:0.9rem;">After successful payment, your plan activates automatically.</div>
+                    </div>
+
+                    <div id="paymentTabManual" style="display:none;">
+                        <div class="form-group">
+                            <label>Choose Deposit Account</label>
+                            <select id="manualMethodSelect" class="form-control" onchange="renderManualMethodDetails()">
+                                <option value="">Loading...</option>
+                            </select>
+                        </div>
+                        <div id="manualMethodDetails" style="background:#f8f9fa; border:1px solid #eee; border-radius:12px; padding:12px; margin-bottom:12px; display:none;"></div>
+                        <div class="form-group">
+                            <label>Upload Payment Proof</label>
+                            <input type="file" id="manualProof" class="form-control" accept="image/*" />
+                        </div>
+                        <button type="button" class="btn btn-primary btn-block" onclick="submitManualSubscription()">Submit Manual Deposit</button>
+                        <div style="text-align:center; margin-top:10px; opacity:0.8; font-size:0.9rem;">After you submit proof, admin will review and activate your plan.</div>
+                    </div>
                 </form>
             </div>
         </div>
@@ -361,6 +384,8 @@
             const currency = (window.getCurrencySymbol && window.getCurrencySymbol()) || 'PKR';
             document.getElementById('planPrice').value = `${currency} ${price}`;
             document.getElementById('subscriptionModal').style.display = 'flex';
+            showPaymentTab('nicepay');
+            loadManualDepositMethods();
         }
 
         function closeSubscriptionModal() {
@@ -406,6 +431,115 @@
                 window.location.href = payUrl;
             } catch (e) {
                 showToast('Payment start error', 'error');
+            }
+        }
+
+        let manualMethodsCache = null;
+
+        function showPaymentTab(tab) {
+            const niceBtn = document.getElementById('payTabNicepay');
+            const manualBtn = document.getElementById('payTabManual');
+            const niceTab = document.getElementById('paymentTabNicepay');
+            const manualTab = document.getElementById('paymentTabManual');
+
+            if (tab === 'manual') {
+                if (niceBtn) { niceBtn.classList.remove('btn-purple'); niceBtn.classList.add('btn-purple-outline'); }
+                if (manualBtn) { manualBtn.classList.remove('btn-purple-outline'); manualBtn.classList.add('btn-purple'); }
+                if (niceTab) niceTab.style.display = 'none';
+                if (manualTab) manualTab.style.display = 'block';
+                return;
+            }
+
+            if (manualBtn) { manualBtn.classList.remove('btn-purple'); manualBtn.classList.add('btn-purple-outline'); }
+            if (niceBtn) { niceBtn.classList.remove('btn-purple-outline'); niceBtn.classList.add('btn-purple'); }
+            if (manualTab) manualTab.style.display = 'none';
+            if (niceTab) niceTab.style.display = 'block';
+        }
+
+        function loadManualDepositMethods() {
+            if (manualMethodsCache) {
+                fillManualMethodSelect(manualMethodsCache);
+                return;
+            }
+            fetch('/api/payment-methods')
+                .then(res => res.json())
+                .then(rows => {
+                    const list = Array.isArray(rows) ? rows : [];
+                    manualMethodsCache = list.filter(m => {
+                        const n = (m && m.name) ? String(m.name).toLowerCase() : '';
+                        return !n.includes('nicepay');
+                    });
+                    fillManualMethodSelect(manualMethodsCache);
+                })
+                .catch(() => {
+                    fillManualMethodSelect([]);
+                });
+        }
+
+        function fillManualMethodSelect(methods) {
+            const sel = document.getElementById('manualMethodSelect');
+            if (!sel) return;
+            const list = Array.isArray(methods) ? methods : [];
+            if (list.length === 0) {
+                sel.innerHTML = '<option value="">No manual deposit accounts available</option>';
+                renderManualMethodDetails();
+                return;
+            }
+            sel.innerHTML = '<option value="">Select an account</option>' + list.map(m => `<option value="${m.id}">${m.name}</option>`).join('');
+            renderManualMethodDetails();
+        }
+
+        function renderManualMethodDetails() {
+            const sel = document.getElementById('manualMethodSelect');
+            const box = document.getElementById('manualMethodDetails');
+            if (!sel || !box) return;
+            const id = Number(sel.value);
+            const list = Array.isArray(manualMethodsCache) ? manualMethodsCache : [];
+            const method = list.find(m => Number(m.id) === id);
+            if (!method) {
+                box.style.display = 'none';
+                box.innerHTML = '';
+                return;
+            }
+            const bank = method.bank_name ? String(method.bank_name) : '';
+            const acc = method.account_number ? String(method.account_number) : '';
+            const cur = method.currency ? String(method.currency) : '';
+            const ins = method.instructions ? String(method.instructions) : '';
+            box.style.display = 'block';
+            box.innerHTML = `
+                <div style="font-weight:700; margin-bottom:6px;">${method.name}</div>
+                ${bank ? `<div style="margin-bottom:6px;"><strong>Bank:</strong> ${bank}</div>` : ''}
+                ${acc ? `<div style="margin-bottom:6px;"><strong>Account:</strong> <span style="font-family:monospace;">${acc}</span></div>` : ''}
+                ${cur ? `<div style="margin-bottom:6px;"><strong>Currency:</strong> ${cur}</div>` : ''}
+                ${ins ? `<div style="white-space:pre-wrap; color:#444;"><strong>Instructions:</strong><br>${ins}</div>` : ''}
+            `;
+        }
+
+        async function submitManualSubscription() {
+            const planId = document.getElementById('planId') ? document.getElementById('planId').value : '';
+            const sel = document.getElementById('manualMethodSelect');
+            const proof = document.getElementById('manualProof');
+            if (!planId) return showToast('Please select a plan first', 'error');
+            if (!sel || !sel.value) return showToast('Please select a deposit account', 'error');
+            if (!proof || !proof.files || !proof.files[0]) return showToast('Please upload payment proof', 'error');
+
+            const fd = new FormData();
+            fd.append('plan_id', planId);
+            fd.append('method_id', sel.value);
+            fd.append('proof', proof.files[0]);
+
+            try {
+                const res = await fetch('/api/user/subscribe', { method: 'POST', body: fd });
+                const json = await res.json().catch(() => ({}));
+                if (!res.ok || !json.success) {
+                    showToast(json.error || 'Failed to submit manual deposit', 'error');
+                    return;
+                }
+                showToast('Submitted. Waiting for admin approval.', 'success');
+                closeSubscriptionModal();
+                setTimeout(() => window.location.href = 'transactions.html', 600);
+            } catch {
+                showToast('Failed to submit manual deposit', 'error');
             }
         }
         

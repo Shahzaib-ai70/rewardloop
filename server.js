@@ -3261,6 +3261,50 @@ app.get('/api/payment-methods', (req, res) => {
     });
 });
 
+// User API: Manual Subscription (Upload Proof)
+app.post('/api/user/subscribe', upload.single('proof'), (req, res) => {
+    if (!req.session.user) {
+        return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    const userId = req.session.user.id;
+    const planId = req.body && req.body.plan_id !== undefined && req.body.plan_id !== null ? Number(req.body.plan_id) : null;
+    const methodId = req.body && req.body.method_id !== undefined && req.body.method_id !== null ? Number(req.body.method_id) : null;
+    const proofImage = req.file ? '/uploads/' + req.file.filename : null;
+
+    if (!Number.isFinite(planId) || planId <= 0) return res.status(400).json({ error: 'Invalid plan' });
+    if (!Number.isFinite(methodId) || methodId <= 0) return res.status(400).json({ error: 'Invalid payment method' });
+    if (!proofImage) return res.status(400).json({ error: 'Payment proof is required' });
+
+    db.get("SELECT id, name, price FROM plans WHERE id = ? AND status = 'active' LIMIT 1", [planId], (pErr, plan) => {
+        if (pErr || !plan) return res.status(400).json({ error: 'Plan not found' });
+
+        db.get("SELECT id, name, min_amount, max_amount, status FROM payment_methods WHERE id = ? AND status = 'active' LIMIT 1", [methodId], (mErr, method) => {
+            if (mErr || !method) return res.status(400).json({ error: 'Invalid payment method' });
+
+            const amount = Number(plan.price) || 0;
+            const minAmount = Number(method.min_amount) || 0;
+            const maxAmount = Number(method.max_amount) || 0;
+            if (amount <= 0) return res.status(400).json({ error: 'Plan price invalid' });
+            if (minAmount > 0 && amount < minAmount) return res.status(400).json({ error: `Amount must be at least ${minAmount}` });
+            if (maxAmount > 0 && amount > maxAmount) return res.status(400).json({ error: `Amount must be at most ${maxAmount}` });
+
+            const transactionId = `SUB-${planId}-${Date.now()}-${userId}`;
+            const gateway = `Manual Subscription (${method.name})`;
+
+            const stmt = db.prepare("INSERT INTO deposits (user_id, amount, gateway, transaction_id, status, created_at, proof_image) VALUES (?, ?, ?, ?, ?, ?, ?)");
+            stmt.run(userId, amount, gateway, transactionId, 'pending', new Date().toISOString(), proofImage, function (iErr) {
+                if (iErr) {
+                    console.error(iErr);
+                    return res.status(500).json({ error: 'DB Error' });
+                }
+                res.json({ success: true, transaction_id: transactionId });
+            });
+            stmt.finalize();
+        });
+    });
+});
+
 // User API: Submit Deposit (Disabled)
 /* app.post('/api/user/deposit', upload.single('proof'), (req, res) => {
     if (!req.session.user) {
