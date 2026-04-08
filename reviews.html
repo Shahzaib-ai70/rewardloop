@@ -1,0 +1,434 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Reviews - RewardLoop</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        .reviews-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .reviews-header {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+        .reviews-header h1 {
+            font-size: 2.5rem;
+            color: var(--text-color);
+            margin-bottom: 10px;
+        }
+        .reviews-header p {
+            color: var(--text-muted);
+            font-size: 1.1rem;
+        }
+        .reviews-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 20px;
+            perspective: 1000px;
+        }
+        .review-card {
+            background: var(--card-bg, #fff);
+            border-radius: 15px;
+            padding: 25px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.05);
+            transition: all 0.5s ease;
+            opacity: 0;
+            transform: translateY(20px) rotateX(10deg);
+            animation: fadeInUp 0.6s forwards;
+            position: relative;
+            overflow: hidden;
+            border: 1px solid var(--border-color, #eee);
+        }
+        .review-card::before {
+            content: '\f10d';
+            font-family: 'Font Awesome 5 Free', 'Font Awesome 6 Free';
+            font-weight: 900;
+            position: absolute;
+            top: -10px;
+            right: -10px;
+            font-size: 5rem;
+            color: rgba(108, 92, 231, 0.05);
+            z-index: 0;
+        }
+        .review-card.active {
+            opacity: 1;
+            transform: translateY(0) rotateX(0);
+        }
+        .review-card.fade-out {
+            opacity: 0;
+            transform: translateY(-20px) rotateX(-10deg);
+        }
+        @keyframes fadeInUp {
+            to {
+                opacity: 1;
+                transform: translateY(0) rotateX(0);
+            }
+        }
+        .review-header {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            margin-bottom: 15px;
+            position: relative;
+            z-index: 1;
+        }
+        .review-avatar {
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #6c5ce7, #a29bfe);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+            font-size: 1.2rem;
+            box-shadow: 0 5px 15px rgba(108, 92, 231, 0.3);
+        }
+        .review-user-info h3 {
+            margin: 0;
+            font-size: 1.1rem;
+            color: var(--text-color);
+        }
+        .review-user-info p {
+            margin: 0;
+            font-size: 0.85rem;
+            color: var(--text-muted);
+        }
+        .review-stars {
+            color: #fdcb6e;
+            font-size: 0.9rem;
+            margin-top: 5px;
+        }
+        .review-content {
+            font-size: 1rem;
+            color: var(--text-color);
+            line-height: 1.6;
+            position: relative;
+            z-index: 1;
+            font-style: italic;
+        }
+        .lang-badge {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: var(--bg-color, #f8f9fa);
+            padding: 4px 8px;
+            border-radius: 20px;
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            font-weight: 600;
+        }
+        
+        .add-review-btn {
+            display: inline-block;
+            margin-top: 20px;
+            padding: 12px 30px;
+            background: linear-gradient(135deg, #6c5ce7, #a29bfe);
+            color: white;
+            border: none;
+            border-radius: 30px;
+            font-size: 1.1rem;
+            font-weight: 600;
+            cursor: pointer;
+            box-shadow: 0 10px 20px rgba(108, 92, 231, 0.3);
+            transition: transform 0.3s, box-shadow 0.3s;
+            text-decoration: none;
+        }
+        .add-review-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 15px 25px rgba(108, 92, 231, 0.4);
+            color: white;
+        }
+        
+        /* Modal Styles */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.5);
+            align-items: center;
+            justify-content: center;
+        }
+        .modal-content {
+            background-color: var(--card-bg, #fff);
+            padding: 30px;
+            border-radius: 15px;
+            width: 90%;
+            max-width: 500px;
+            position: relative;
+            box-shadow: 0 20px 50px rgba(0,0,0,0.2);
+        }
+        .close-btn {
+            position: absolute;
+            top: 15px;
+            right: 20px;
+            font-size: 24px;
+            cursor: pointer;
+            color: var(--text-muted);
+        }
+        .form-group {
+            margin-bottom: 20px;
+        }
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            color: var(--text-color);
+            font-weight: 500;
+        }
+        .form-group input, .form-group select, .form-group textarea {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid var(--border-color, #ddd);
+            border-radius: 8px;
+            background: var(--bg-color, #f9f9f9);
+            color: var(--text-color);
+            font-family: inherit;
+        }
+        .submit-btn {
+            width: 100%;
+            padding: 12px;
+            background: #6c5ce7;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 1.1rem;
+            font-weight: 600;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body class="dashboard-body">
+
+    <!-- Sidebar -->
+    <aside class="sidebar">
+        <div class="sidebar-header">
+            <div class="logo">
+                <i class="fas fa-coins"></i> RewardLoop
+            </div>
+            <div class="close-sidebar">
+                <i class="fas fa-times"></i>
+            </div>
+        </div>
+        <ul class="sidebar-menu">
+            <li><a href="dashboard.html"><i class="fas fa-th-large"></i> Dashboard</a></li>
+            <li><a href="reviews.html" class="active"><i class="fas fa-star"></i> Reviews</a></li>
+            <li><a href="subscriptions.html"><i class="fas fa-crown"></i> Subscriptions</a></li>
+            <li><a href="fund_transfer.html"><i class="fas fa-exchange-alt"></i> Fund Transfer</a></li>
+            <li><a href="ads.html?tab=my-earnings"><i class="fas fa-dollar-sign"></i> My Earnings</a></li>
+            <li><a href="ads.html"><i class="fas fa-ad"></i> All Ads</a></li>
+            <li><a href="transactions.html"><i class="fas fa-history"></i> Transactions</a></li>
+            <li><a href="withdraw.html"><i class="fas fa-money-check-alt"></i> Withdraw</a></li>
+            <li><a href="referral.html"><i class="fas fa-users"></i> Referral</a></li>
+            <li><a href="portfolios.html"><i class="fas fa-briefcase"></i> Portfolios</a></li>
+            <li><a href="support.html"><i class="fas fa-headset"></i> Support</a></li>
+            <li><a href="rewards.html"><i class="fas fa-gift"></i> Rewards</a></li>
+            <li><a href="settings.html"><i class="fas fa-cog"></i> Settings</a></li>
+        </ul>
+        <div class="sidebar-footer">
+            <a href="/logout" class="logout-btn"><i class="fas fa-sign-out-alt"></i> Log Out</a>
+        </div>
+    </aside>
+
+    <main class="main-content">
+        <header class="dashboard-header">
+            <div class="menu-toggle">
+                <i class="fas fa-bars"></i>
+            </div>
+            <div class="header-right">
+                <div id="google_translate_element"></div>
+                <div class="theme-toggle">
+                    <i class="fas fa-moon"></i>
+                </div>
+            </div>
+        </header>
+
+        <div class="content-wrapper">
+            <div class="reviews-container">
+                <div class="reviews-header">
+                    <h1>Real-Time Customer Reviews</h1>
+                    <p>See what our amazing users are saying about RewardLoop</p>
+                    <button class="add-review-btn" onclick="openModal()">Write a Review</button>
+                </div>
+                
+                <div class="reviews-grid" id="reviewsGrid">
+                    <!-- Reviews will be injected here by JS -->
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Add Review Modal -->
+    <div id="reviewModal" class="modal">
+        <div class="modal-content">
+            <span class="close-btn" onclick="closeModal()">&times;</span>
+            <h2>Write a Review</h2>
+            <form id="reviewForm">
+                <div class="form-group">
+                    <label>Your Name</label>
+                    <input type="text" id="reviewerName" required placeholder="John Doe">
+                </div>
+                <div class="form-group">
+                    <label>Language</label>
+                    <select id="reviewLang">
+                        <option value="en">English</option>
+                        <option value="ur">Urdu (اردو)</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Your Experience</label>
+                    <textarea id="reviewContent" rows="4" required placeholder="Share your experience with us..."></textarea>
+                </div>
+                <button type="submit" class="submit-btn">Submit Review</button>
+            </form>
+        </div>
+    </div>
+
+    <script src="js/theme.js"></script>
+    <script>
+        // Menu Toggle
+        document.querySelector('.menu-toggle').addEventListener('click', () => {
+            document.querySelector('.sidebar').classList.add('active');
+        });
+        document.querySelector('.close-sidebar').addEventListener('click', () => {
+            document.querySelector('.sidebar').classList.remove('active');
+        });
+
+        // Modal functions
+        function openModal() {
+            document.getElementById('reviewModal').style.display = 'flex';
+        }
+        function closeModal() {
+            document.getElementById('reviewModal').style.display = 'none';
+        }
+
+        // Handle Review Submission
+        document.getElementById('reviewForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const name = document.getElementById('reviewerName').value;
+            const lang = document.getElementById('reviewLang').value;
+            const content = document.getElementById('reviewContent').value;
+            
+            try {
+                const response = await fetch('/api/reviews', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username: name, language: lang, content: content })
+                });
+                if(response.ok) {
+                    alert('Review submitted successfully! It will appear after approval.');
+                    closeModal();
+                    document.getElementById('reviewForm').reset();
+                } else {
+                    alert('Failed to submit review.');
+                }
+            } catch (err) {
+                console.error(err);
+                alert('Error submitting review.');
+            }
+        });
+
+        // Review Rotation Logic
+        let allReviews = [];
+        let currentIndex = 0;
+        const displayCount = 6; // Show 6 reviews at a time
+
+        async function fetchReviews() {
+            try {
+                const response = await fetch('/api/reviews');
+                const data = await response.json();
+                if (data && data.length > 0) {
+                    allReviews = data;
+                    renderReviews();
+                    // Start rotation every 5 seconds
+                    setInterval(rotateReviews, 5000);
+                }
+            } catch (err) {
+                console.error('Error fetching reviews:', err);
+            }
+        }
+
+        function createReviewCard(review) {
+            const initial = review.username.charAt(0).toUpperCase();
+            const timeAgo = getTimeAgo(new Date(review.created_at));
+            const langLabel = review.language === 'ur' ? 'UR' : 'EN';
+            
+            return `
+                <div class="review-card">
+                    <span class="lang-badge">${langLabel}</span>
+                    <div class="review-header">
+                        <div class="review-avatar">${initial}</div>
+                        <div class="review-user-info">
+                            <h3>${review.username}</h3>
+                            <div class="review-stars">
+                                <i class="fas fa-star"></i><i class="fas fa-star"></i><i class="fas fa-star"></i><i class="fas fa-star"></i><i class="fas fa-star"></i>
+                            </div>
+                            <p>${timeAgo}</p>
+                        </div>
+                    </div>
+                    <div class="review-content">
+                        "${review.content}"
+                    </div>
+                </div>
+            `;
+        }
+
+        function renderReviews() {
+            const grid = document.getElementById('reviewsGrid');
+            grid.innerHTML = '';
+            
+            // Get current batch of reviews
+            for (let i = 0; i < displayCount; i++) {
+                const reviewIndex = (currentIndex + i) % allReviews.length;
+                if (allReviews[reviewIndex]) {
+                    grid.innerHTML += createReviewCard(allReviews[reviewIndex]);
+                }
+            }
+        }
+
+        function rotateReviews() {
+            const grid = document.getElementById('reviewsGrid');
+            const cards = grid.querySelectorAll('.review-card');
+            
+            // Fade out current cards
+            cards.forEach(card => card.classList.add('fade-out'));
+            
+            setTimeout(() => {
+                // Advance index by 1 to create a rolling effect, or by displayCount to swap all
+                currentIndex = (currentIndex + 2) % allReviews.length; // Swap 2 reviews at a time
+                renderReviews();
+            }, 500); // Wait for fade out animation
+        }
+
+        function getTimeAgo(date) {
+            const seconds = Math.floor((new Date() - date) / 1000);
+            let interval = seconds / 31536000;
+            if (interval > 1) return Math.floor(interval) + " years ago";
+            interval = seconds / 2592000;
+            if (interval > 1) return Math.floor(interval) + " months ago";
+            interval = seconds / 86400;
+            if (interval > 1) return Math.floor(interval) + " days ago";
+            interval = seconds / 3600;
+            if (interval > 1) return Math.floor(interval) + " hours ago";
+            interval = seconds / 60;
+            if (interval > 1) return Math.floor(interval) + " minutes ago";
+            return "Just now";
+        }
+
+        // Init
+        document.addEventListener('DOMContentLoaded', () => {
+            fetchReviews();
+        });
+    </script>
+</body>
+</html>

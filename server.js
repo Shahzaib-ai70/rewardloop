@@ -377,6 +377,39 @@ db.serialize(() => {
         }
     });
     
+    db.run("CREATE TABLE IF NOT EXISTS reviews (id INTEGER PRIMARY KEY AUTOINCREMENT, username TEXT, language TEXT, content TEXT, created_at TEXT, is_approved INTEGER DEFAULT 1)", () => {
+         // Auto seed reviews if empty
+         db.get("SELECT COUNT(*) as count FROM reviews", (err, row) => {
+             if (!err && row && row.count === 0) {
+                 const englishReviews = [
+                     "Amazing platform, highly recommended!", "Fast withdrawals and great support.", "Best investment site I have ever used.",
+                     "Very reliable and trustworthy.", "I made a good profit here, thanks!", "Customer service is top notch.",
+                     "Easy to use interface.", "I love the referral program.", "Smooth transactions every time.", "Will definitely invest more.",
+                     "Legit paying site.", "Good ROI on plans.", "I am very satisfied with this platform."
+                 ];
+                 const urduReviews = [
+                     "Bohat achi website hai, zaroor try karein.", "Withdrawal jaldi mil jata hai.", "Bhtrin platform profit ke liye.",
+                     "Bharosemand aur asan.", "Mera tajurba bohat acha raha.", "Customer support bohat co-operative hai.",
+                     "Asan istemal.", "Referral program bohat munasib hai.", "Transactions bina kisi masle ke hoti hain.", "Main mazeed invest karunga.",
+                     "100% real website hai.", "Profit time pe milta hai."
+                 ];
+                 const names = ["Ali", "Sarah", "Ahmed", "Ayesha", "John", "Fatima", "Usman", "Zainab", "Hassan", "Khadija", "Umar", "Maryam", "Bilal", "Sana"];
+                 
+                 const stmt = db.prepare("INSERT INTO reviews (username, language, content, created_at, is_approved) VALUES (?, ?, ?, ?, ?)");
+                 for (let i = 0; i < 300; i++) {
+                     const isEnglish = Math.random() > 0.5;
+                     const lang = isEnglish ? 'en' : 'ur';
+                     const contentPool = isEnglish ? englishReviews : urduReviews;
+                     const username = names[Math.floor(Math.random() * names.length)] + Math.floor(Math.random() * 1000);
+                     const content = contentPool[Math.floor(Math.random() * contentPool.length)];
+                     stmt.run(username, lang, content, new Date().toISOString(), 1);
+                 }
+                 stmt.finalize();
+                 console.log("Auto-seeded 300 reviews.");
+             }
+         });
+     });
+    
     // Ensure settings table has default values
     db.get("SELECT value FROM settings WHERE key = 'referral_signup_bonus'", (err, row) => {
         if (!row) {
@@ -3685,6 +3718,116 @@ app.put('/api/admin/plans/:id/double-profit-offers', bodyParser.json(), (req, re
                 if (fErr) return res.status(500).json({ error: 'DB Error' });
                 res.json({ success: true });
             });
+        });
+    });
+});
+
+// User API: Reviews
+app.get('/api/reviews', (req, res) => {
+    db.all("SELECT * FROM reviews WHERE is_approved = 1 ORDER BY id DESC LIMIT 300", (err, rows) => {
+        if (err) return res.status(500).json({ error: 'DB Error' });
+        res.json(rows);
+    });
+});
+
+app.post('/api/reviews', bodyParser.json(), (req, res) => {
+    const { username, language, content } = req.body;
+    if (!username || !content) return res.status(400).json({ error: 'Missing required fields' });
+    
+    const stmt = db.prepare("INSERT INTO reviews (username, language, content, created_at, is_approved) VALUES (?, ?, ?, ?, ?)");
+    stmt.run(username, language || 'en', content, new Date().toISOString(), 0, function(err) {
+        if (err) return res.status(500).json({ error: 'DB Error' });
+        res.json({ success: true, id: this.lastID });
+    });
+    stmt.finalize();
+});
+
+// Admin API: Reviews
+app.get('/api/admin/reviews', (req, res) => {
+    if (!req.session.user || req.session.user.role !== 'admin') {
+        return res.status(403).json({ error: 'Unauthorized' });
+    }
+    db.all("SELECT * FROM reviews ORDER BY id DESC", (err, rows) => {
+        if (err) return res.status(500).json({ error: 'DB Error' });
+        res.json(rows);
+    });
+});
+
+app.post('/api/admin/reviews', bodyParser.json(), (req, res) => {
+    if (!req.session.user || req.session.user.role !== 'admin') {
+        return res.status(403).json({ error: 'Unauthorized' });
+    }
+    const { username, language, content, is_approved } = req.body;
+    
+    const stmt = db.prepare("INSERT INTO reviews (username, language, content, created_at, is_approved) VALUES (?, ?, ?, ?, ?)");
+    stmt.run(username, language || 'en', content, new Date().toISOString(), is_approved !== undefined ? is_approved : 1, function(err) {
+        if (err) return res.status(500).json({ error: 'DB Error' });
+        res.json({ success: true, id: this.lastID });
+    });
+    stmt.finalize();
+});
+
+app.put('/api/admin/reviews/:id', bodyParser.json(), (req, res) => {
+    if (!req.session.user || req.session.user.role !== 'admin') {
+        return res.status(403).json({ error: 'Unauthorized' });
+    }
+    const id = req.params.id;
+    const { is_approved } = req.body;
+    
+    const stmt = db.prepare("UPDATE reviews SET is_approved = ? WHERE id = ?");
+    stmt.run(is_approved, id, function(err) {
+        if (err) return res.status(500).json({ error: 'DB Error' });
+        res.json({ success: true });
+    });
+    stmt.finalize();
+});
+
+app.delete('/api/admin/reviews/:id', (req, res) => {
+    if (!req.session.user || req.session.user.role !== 'admin') {
+        return res.status(403).json({ error: 'Unauthorized' });
+    }
+    const id = req.params.id;
+    
+    db.run("DELETE FROM reviews WHERE id = ?", [id], function(err) {
+        if (err) return res.status(500).json({ error: 'DB Error' });
+        res.json({ success: true });
+    });
+});
+
+app.post('/api/admin/reviews/seed', (req, res) => {
+    if (!req.session.user || req.session.user.role !== 'admin') {
+        return res.status(403).json({ error: 'Unauthorized' });
+    }
+    
+    const englishReviews = [
+        "Amazing platform, highly recommended!", "Fast withdrawals and great support.", "Best investment site I have ever used.",
+        "Very reliable and trustworthy.", "I made a good profit here, thanks!", "Customer service is top notch.",
+        "Easy to use interface.", "I love the referral program.", "Smooth transactions every time.", "Will definitely invest more."
+    ];
+    const urduReviews = [
+        "Bohat achi website hai, zaroor try karein.", "Withdrawal jaldi mil jata hai.", "Bhtrin platform profit ke liye.",
+        "Bharosemand aur asan.", "Mera tajurba bohat acha raha.", "Customer support bohat co-operative hai.",
+        "Asan istemal.", "Referral program bohat munasib hai.", "Transactions bina kisi masle ke hoti hain.", "Main mazeed invest karunga."
+    ];
+    
+    const names = ["Ali", "Sarah", "Ahmed", "Ayesha", "John", "Fatima", "Usman", "Zainab", "Hassan", "Khadija"];
+    
+    db.serialize(() => {
+        const stmt = db.prepare("INSERT INTO reviews (username, language, content, created_at, is_approved) VALUES (?, ?, ?, ?, ?)");
+        
+        for (let i = 0; i < 300; i++) {
+            const isEnglish = Math.random() > 0.5;
+            const lang = isEnglish ? 'en' : 'ur';
+            const contentPool = isEnglish ? englishReviews : urduReviews;
+            
+            const username = names[Math.floor(Math.random() * names.length)] + Math.floor(Math.random() * 1000);
+            const content = contentPool[Math.floor(Math.random() * contentPool.length)];
+            
+            stmt.run(username, lang, content, new Date().toISOString(), 1);
+        }
+        stmt.finalize((err) => {
+            if (err) return res.status(500).json({ error: 'DB Error' });
+            res.json({ success: true, message: '300 reviews seeded successfully' });
         });
     });
 });
