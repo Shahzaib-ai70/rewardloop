@@ -1,0 +1,403 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Community - RewardLoop</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script src="js/notifications.js"></script>
+    <style>
+        .community-grid { display: grid; grid-template-columns: 1fr; gap: 16px; }
+        .community-card { background: #fff; border-radius: 14px; border: 1px solid #eef2f7; overflow: hidden; }
+        .community-card-header { padding: 14px 16px; border-bottom: 1px solid #eef2f7; display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+        .community-title { margin: 0; font-size: 1.05rem; font-weight: 800; color: #2d3436; display: flex; align-items: center; gap: 10px; }
+        .community-badge { font-size: 0.8rem; padding: 6px 10px; border-radius: 999px; background: #f5f7fb; border: 1px solid #eef2f7; color: #64748b; font-weight: 700; }
+        .community-body { padding: 12px; }
+        .community-layout { display: grid; grid-template-columns: 320px 1fr; gap: 12px; }
+        .community-panel { background: #f8fafc; border: 1px solid #eef2f7; border-radius: 12px; overflow: hidden; }
+        .panel-header { padding: 12px; border-bottom: 1px solid #eef2f7; display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+        .panel-title { margin: 0; font-size: 0.95rem; font-weight: 800; color: #2d3436; display: flex; align-items: center; gap: 8px; }
+        .panel-body { padding: 10px; }
+        .user-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; max-height: 430px; overflow: auto; }
+        .user-item { display: flex; align-items: center; gap: 10px; padding: 10px; background: #fff; border: 1px solid #eef2f7; border-radius: 12px; }
+        .avatar { width: 34px; height: 34px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-weight: 800; color: #fff; background: linear-gradient(135deg, #6c5ce7, #0984e3); }
+        .user-name { font-weight: 800; color: #2d3436; font-size: 0.9rem; }
+        .user-status { margin-left: auto; font-size: 0.75rem; color: #22c55e; font-weight: 800; }
+        .chat-box { background: #fff; border: 1px solid #eef2f7; border-radius: 12px; overflow: hidden; display: flex; flex-direction: column; }
+        .chat-messages { padding: 12px; flex: 1; overflow: auto; background: #fbfdff; }
+        .chat-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+        .msg { display: grid; grid-template-columns: 40px 1fr; gap: 10px; align-items: start; }
+        .msg-body { background: #fff; border: 1px solid #eef2f7; border-radius: 14px; padding: 10px 12px; }
+        .msg-top { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+        .msg-name { font-weight: 800; color: #2d3436; font-size: 0.9rem; }
+        .msg-time { font-size: 0.75rem; color: #94a3b8; font-weight: 700; }
+        .msg-text { margin-top: 6px; color: #475569; font-size: 0.9rem; line-height: 1.35; }
+        .cs-modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.55); display: none; align-items: center; justify-content: center; z-index: 9999; padding: 16px; }
+        .cs-modal { width: 100%; max-width: 520px; background: #fff; border-radius: 14px; box-shadow: 0 15px 45px rgba(0,0,0,0.25); overflow: hidden; }
+        .cs-modal-header { display: flex; align-items: center; justify-content: space-between; padding: 14px 16px; border-bottom: 1px solid #f1f3f5; }
+        .cs-modal-title { font-size: 1.05rem; font-weight: 800; color: #222; display: flex; align-items: center; gap: 10px; }
+        .cs-close { border: 0; background: transparent; font-size: 1.2rem; color: #555; cursor: pointer; padding: 6px 8px; border-radius: 8px; }
+        .cs-modal-body { padding: 16px; }
+        .cs-desc { color: #666; margin-bottom: 14px; font-size: 0.95rem; line-height: 1.4; }
+        .cs-actions { display: grid; grid-template-columns: 1fr; gap: 10px; }
+        .cs-btn { display: flex; align-items: center; justify-content: center; gap: 10px; padding: 12px 14px; border-radius: 10px; text-decoration: none; font-weight: 800; border: 1px solid transparent; cursor: pointer; }
+        .cs-btn-primary { background: #6c5ce7; color: #fff; }
+        .cs-btn-ghost { background: #fff; color: #2d3436; border-color: #e5e7eb; }
+        .cs-hint { margin-top: 12px; font-size: 0.85rem; color: #94a3b8; }
+        .muted-box { background: #fff; border: 1px dashed #e5e7eb; border-radius: 12px; padding: 18px; color: #64748b; }
+        @media (max-width: 980px) { .community-layout { grid-template-columns: 1fr; } }
+    </style>
+</head>
+<body class="dashboard-body">
+    <aside class="sidebar">
+        <div class="sidebar-header">
+            <div class="logo">
+                <i class="fas fa-coins"></i> RewardLoop
+            </div>
+            <div class="close-sidebar">
+                <i class="fas fa-times"></i>
+            </div>
+        </div>
+        <ul class="sidebar-menu">
+            <li><a href="dashboard.html"><i class="fas fa-th-large"></i> Dashboard</a></li>
+            <li><a href="reviews.html"><i class="fas fa-star"></i> Reviews</a></li>
+            <li><a href="subscriptions.html"><i class="fas fa-crown"></i> Subscriptions</a></li>
+            <li><a href="community.html" class="active"><i class="fas fa-comments"></i> Community</a></li>
+            <li><a href="fund_transfer.html"><i class="fas fa-exchange-alt"></i> Fund Transfer</a></li>
+            <li><a href="ads.html?tab=my-earnings"><i class="fas fa-dollar-sign"></i> My Earnings</a></li>
+            <li><a href="ads.html"><i class="fas fa-ad"></i> All Ads</a></li>
+            <li><a href="transactions.html"><i class="fas fa-history"></i> Transactions</a></li>
+            <li><a href="withdraw.html"><i class="fas fa-money-check-alt"></i> Withdraw</a></li>
+            <li><a href="referral.html"><i class="fas fa-users"></i> Referral</a></li>
+            <li><a href="portfolios.html"><i class="fas fa-briefcase"></i> Portfolios</a></li>
+            <li><a href="support.html"><i class="fas fa-headset"></i> Support</a></li>
+            <li><a href="rewards.html"><i class="fas fa-gift"></i> Rewards</a></li>
+            <li><a href="settings.html"><i class="fas fa-cog"></i> Settings</a></li>
+        </ul>
+        <div class="sidebar-footer">
+            <a href="/logout" class="logout-btn"><i class="fas fa-sign-out-alt"></i> Log Out</a>
+        </div>
+    </aside>
+
+    <main class="main-content">
+        <header class="dashboard-header">
+            <div class="menu-toggle">
+                <i class="fas fa-bars"></i>
+            </div>
+            <div class="header-right">
+                <div id="google_translate_element"></div>
+                <div class="theme-toggle">
+                    <i class="fas fa-moon"></i>
+                </div>
+                <div class="user-profile">
+                    <div class="user-avatar">
+                        <i class="fas fa-user"></i>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <div class="content-wrapper">
+            <div class="page-header">
+                <h2>Community</h2>
+                <div id="communityStatusBadge" class="community-badge">Loading...</div>
+            </div>
+
+            <div class="community-grid">
+                <div class="community-card">
+                    <div class="community-card-header">
+                        <h3 class="community-title"><i class="fas fa-comments"></i> Live Chat</h3>
+                        <span id="onlineCount" class="community-badge">Online: 0</span>
+                    </div>
+                    <div class="community-body">
+                        <div id="disabledBox" class="muted-box" style="display:none;"></div>
+                        <div id="communityLayout" class="community-layout" style="display:none;">
+                            <div class="community-panel">
+                                <div class="panel-header">
+                                    <h4 class="panel-title"><i class="fas fa-users"></i> Active Members</h4>
+                                    <span id="activeCount" class="community-badge">0</span>
+                                </div>
+                                <div class="panel-body">
+                                    <ul id="userList" class="user-list"></ul>
+                                </div>
+                            </div>
+                            <div class="chat-box">
+                                <div class="panel-header">
+                                    <h4 class="panel-title"><i class="fas fa-bolt"></i> Community Feed</h4>
+                                    <span id="feedState" class="community-badge">Connecting...</span>
+                                </div>
+                                <div class="chat-messages">
+                                    <ul id="chatList" class="chat-list"></ul>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <div class="cs-modal-overlay" id="joinOverlay">
+        <div class="cs-modal">
+            <div class="cs-modal-header">
+                <div class="cs-modal-title"><i class="fas fa-user-plus"></i> Join Community</div>
+                <button class="cs-close" id="joinClose" aria-label="Close">&times;</button>
+            </div>
+            <div class="cs-modal-body">
+                <div class="cs-desc">Join our official group to unlock the Community page.</div>
+                <div class="cs-actions">
+                    <button class="cs-btn cs-btn-primary" id="joinBtn"><i class="fas fa-link"></i> Join Group</button>
+                    <button class="cs-btn cs-btn-ghost" id="laterBtn">Later</button>
+                </div>
+                <div class="cs-hint">After joining, come back and the chat will unlock automatically.</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.querySelector('.menu-toggle').addEventListener('click', function() {
+            document.querySelector('.sidebar').classList.toggle('active');
+        });
+
+        const state = {
+            config: null,
+            joined: false,
+            users: [],
+            loopTimer: null
+        };
+
+        function isTruthy(v) {
+            const s = String(v || '').trim().toLowerCase();
+            return s === '1' || s === 'true' || s === 'yes' || s === 'on';
+        }
+
+        function clamp(n, min, max) {
+            const x = Number(n);
+            if (!Number.isFinite(x)) return min;
+            return Math.min(max, Math.max(min, x));
+        }
+
+        function pick(arr) {
+            return arr[Math.floor(Math.random() * arr.length)];
+        }
+
+        function fmtTime(d) {
+            const hh = String(d.getHours()).padStart(2, '0');
+            const mm = String(d.getMinutes()).padStart(2, '0');
+            return `${hh}:${mm}`;
+        }
+
+        function showJoinModal() {
+            const overlay = document.getElementById('joinOverlay');
+            overlay.style.display = 'flex';
+        }
+
+        function hideJoinModal() {
+            const overlay = document.getElementById('joinOverlay');
+            overlay.style.display = 'none';
+        }
+
+        function setStatusBadge(text) {
+            const el = document.getElementById('communityStatusBadge');
+            el.textContent = text;
+        }
+
+        function setDisabledBox(text) {
+            const box = document.getElementById('disabledBox');
+            box.textContent = text;
+            box.style.display = 'block';
+            document.getElementById('communityLayout').style.display = 'none';
+        }
+
+        function setLayoutVisible(visible) {
+            document.getElementById('disabledBox').style.display = 'none';
+            document.getElementById('communityLayout').style.display = visible ? 'grid' : 'none';
+        }
+
+        function setFeedState(text) {
+            document.getElementById('feedState').textContent = text;
+        }
+
+        function genUsers(count) {
+            const first = ['Ali','Ahmed','Ayesha','Fatima','Zain','Hassan','Hamza','Sara','Umar','Bilal','Maryam','Noor','Hina','Asad','Usman','Musa','Kiran','Iqra','Saad','Daniyal','Rida','Sana','Haris','Farhan','Amna','Anaya','Zoya','Areeba','Aqsa','Huzaifa'];
+            const last = ['Khan','Malik','Sheikh','Butt','Raza','Iqbal','Hussain','Chaudhry','Siddiqui','Qureshi','Javed','Nawaz','Rashid','Mirza','Yousaf','Saleem','Haq','Shah','Ansari','Bhatti','Rehman','Akhtar','Abbasi','Kashif','Rafiq','Aziz','Junaid','Noman','Haider','Mehmood'];
+            const out = [];
+            const used = new Set();
+            while (out.length < count) {
+                const name = `${pick(first)} ${pick(last)}`;
+                const key = name.toLowerCase();
+                if (used.has(key)) continue;
+                used.add(key);
+                out.push({ name });
+            }
+            return out;
+        }
+
+        function renderActiveUsers(users) {
+            const list = document.getElementById('userList');
+            list.innerHTML = '';
+            const showCount = Math.min(40, users.length);
+            const sample = users.slice().sort(() => Math.random() - 0.5).slice(0, showCount);
+            const frag = document.createDocumentFragment();
+            sample.forEach(u => {
+                const li = document.createElement('li');
+                li.className = 'user-item';
+                const initials = u.name.split(' ').map(x => x[0]).join('').slice(0, 2).toUpperCase();
+                li.innerHTML = `<div class="avatar">${initials}</div><div class="user-name">${u.name}</div><div class="user-status">online</div>`;
+                frag.appendChild(li);
+            });
+            list.appendChild(frag);
+            document.getElementById('activeCount').textContent = String(users.length);
+            document.getElementById('onlineCount').textContent = `Online: ${users.length}`;
+        }
+
+        function addMessage(user, text) {
+            const list = document.getElementById('chatList');
+            const li = document.createElement('li');
+            li.className = 'msg';
+            const initials = user.name.split(' ').map(x => x[0]).join('').slice(0, 2).toUpperCase();
+            const time = fmtTime(new Date());
+            li.innerHTML = `<div class="avatar">${initials}</div><div class="msg-body"><div class="msg-top"><div class="msg-name">${user.name}</div><div class="msg-time">${time}</div></div><div class="msg-text">${text}</div></div>`;
+            list.appendChild(li);
+            const max = 220;
+            while (list.children.length > max) list.removeChild(list.firstChild);
+            const box = document.querySelector('.chat-messages');
+            box.scrollTop = box.scrollHeight;
+        }
+
+        function startFakeChat() {
+            const cfg = state.config || {};
+            const enabled = isTruthy(cfg.community_fake_chat_enabled);
+            if (!enabled) {
+                setFeedState('Disabled');
+                setLayoutVisible(true);
+                setDisabledBox('Chat is disabled by admin.');
+                return;
+            }
+
+            const userCount = clamp(cfg.community_fake_user_count || 400, 300, 500);
+            state.users = genUsers(userCount);
+            renderActiveUsers(state.users);
+            setLayoutVisible(true);
+            setFeedState('Live');
+
+            const templates = [
+                'Anyone got today’s ads completed?',
+                'Just withdrew successfully, thanks!',
+                'What plan are you using right now?',
+                'Good morning everyone!',
+                'I upgraded my plan and earnings improved.',
+                'Support replied fast today.',
+                'Don’t forget to check rewards tab.',
+                'My ads page is loading slow for me, anyone else?',
+                'Referral bonus just received.',
+                'Keep going, consistency matters.',
+                'What’s your target for this week?',
+                'Congrats on your withdrawal!',
+                'Remember to submit proof correctly.',
+                'Which wallet do you use for PKR?',
+                'I just joined, nice to meet you all.',
+                'Any tips for new users?',
+                'Stay active and complete daily tasks.',
+                'Let’s help each other.',
+                'How many ads per day on VIP?',
+                'Best time to do ads?',
+                'I like the new updates.',
+                'Please be careful with scammers.',
+                'Always use official links.',
+                'Anyone from Karachi here?',
+                'Pakistan community is strong!',
+                'Let’s share progress.',
+                'Today’s earnings: decent.',
+                'Keep the chat clean.',
+                'I’m waiting for my plan activation.',
+                'Admin will approve soon, be patient.'
+            ];
+
+            const prefill = 26;
+            for (let i = 0; i < prefill; i++) {
+                addMessage(pick(state.users), pick(templates));
+            }
+
+            const base = clamp(cfg.community_message_interval_ms || 1100, 300, 5000);
+            const loop = () => {
+                const bursts = Math.random() < 0.25 ? 2 : 1;
+                for (let i = 0; i < bursts; i++) {
+                    addMessage(pick(state.users), pick(templates));
+                }
+                if (Math.random() < 0.12) renderActiveUsers(state.users);
+                const next = Math.round(base * (0.55 + Math.random() * 0.9));
+                state.loopTimer = setTimeout(loop, next);
+            };
+            state.loopTimer = setTimeout(loop, 500);
+        }
+
+        async function loadCommunity() {
+            try {
+                const [cfgRes, stRes] = await Promise.all([
+                    fetch('/api/settings/community'),
+                    fetch('/api/community/status')
+                ]);
+
+                if (!cfgRes.ok) throw new Error('Config load failed');
+                if (!stRes.ok) throw new Error('Status load failed');
+
+                state.config = await cfgRes.json();
+                const status = await stRes.json();
+                state.joined = !!(status && status.joined);
+
+                if (!isTruthy(state.config.community_enabled)) {
+                    setStatusBadge('Disabled');
+                    setDisabledBox('Community page is disabled by admin.');
+                    return;
+                }
+
+                if (!state.joined) {
+                    setStatusBadge('Join required');
+                    showJoinModal();
+                    setLayoutVisible(false);
+                    return;
+                }
+
+                setStatusBadge('Joined');
+                startFakeChat();
+            } catch (e) {
+                setStatusBadge('Error');
+                setDisabledBox('Unable to load community right now.');
+            }
+        }
+
+        document.getElementById('joinClose').addEventListener('click', hideJoinModal);
+        document.getElementById('laterBtn').addEventListener('click', hideJoinModal);
+        document.getElementById('joinOverlay').addEventListener('click', (e) => {
+            if (e.target && e.target.id === 'joinOverlay') hideJoinModal();
+        });
+
+        document.getElementById('joinBtn').addEventListener('click', async () => {
+            const url = state.config && state.config.community_group_url ? String(state.config.community_group_url).trim() : '';
+            if (!url) {
+                showToast('Group join URL is not configured by admin.', 'warning');
+                return;
+            }
+            window.open(url, '_blank');
+            try {
+                const res = await fetch('/api/community/join', { method: 'POST' });
+                if (!res.ok) throw new Error('Join failed');
+                state.joined = true;
+                hideJoinModal();
+                setStatusBadge('Joined');
+                startFakeChat();
+            } catch (e) {
+                showToast('Could not unlock community. Please try again.', 'error');
+            }
+        });
+
+        loadCommunity();
+    </script>
+    <script src="js/theme.js"></script>
+    <script src="js/translation.js"></script>
+</body>
+</html>
+

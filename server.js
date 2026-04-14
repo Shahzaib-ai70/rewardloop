@@ -51,7 +51,7 @@ app.use((req, res, next) => {
         return res.status(403).send('Forbidden');
     }
 
-    const userPages = ['/dashboard.html', '/ads.html', '/deposit.html', '/withdraw.html', '/settings.html', '/support.html'];
+    const userPages = ['/dashboard.html', '/ads.html', '/deposit.html', '/withdraw.html', '/settings.html', '/support.html', '/community.html'];
 
     // Admin Page Protection
     if (url.startsWith('/admin_') && url.endsWith('.html') && url !== '/admin_login.html') {
@@ -246,6 +246,20 @@ db.serialize(() => {
         if (!hasIsBanned) {
             db.run("ALTER TABLE users ADD COLUMN is_banned INTEGER DEFAULT 0", (err) => {
                 if (err) console.error("Error adding is_banned column:", err);
+            });
+        }
+
+        const hasCommunityJoined = rows.some(row => row.name === 'community_joined');
+        if (!hasCommunityJoined) {
+            db.run("ALTER TABLE users ADD COLUMN community_joined INTEGER DEFAULT 0", (err) => {
+                if (err) console.error("Error adding community_joined column:", err);
+            });
+        }
+
+        const hasCommunityJoinedAt = rows.some(row => row.name === 'community_joined_at');
+        if (!hasCommunityJoinedAt) {
+            db.run("ALTER TABLE users ADD COLUMN community_joined_at TEXT", (err) => {
+                if (err) console.error("Error adding community_joined_at column:", err);
             });
         }
     });
@@ -1368,6 +1382,40 @@ app.get('/api/settings/general', (req, res) => {
     });
 });
 
+app.get('/api/settings/community', (req, res) => {
+    db.all("SELECT key, value FROM settings WHERE key IN ('community_enabled','community_group_url','community_fake_chat_enabled','community_fake_user_count','community_message_interval_ms')", (err, rows) => {
+        if (err) return res.status(500).json({ error: 'DB Error' });
+        const settings = {
+            community_enabled: '1',
+            community_group_url: '',
+            community_fake_chat_enabled: '1',
+            community_fake_user_count: '400',
+            community_message_interval_ms: '1100'
+        };
+        rows.forEach(row => {
+            settings[row.key] = row.value;
+        });
+        res.json(settings);
+    });
+});
+
+app.get('/api/community/status', (req, res) => {
+    if (!req.session.user) return res.status(401).json({ error: 'Unauthorized' });
+    db.get("SELECT community_joined, community_joined_at FROM users WHERE id = ? LIMIT 1", [req.session.user.id], (err, row) => {
+        if (err) return res.status(500).json({ error: 'DB Error' });
+        res.json({ joined: row && Number(row.community_joined) === 1, joined_at: row && row.community_joined_at ? String(row.community_joined_at) : null });
+    });
+});
+
+app.post('/api/community/join', (req, res) => {
+    if (!req.session.user) return res.status(401).json({ error: 'Unauthorized' });
+    const now = new Date().toISOString();
+    db.run("UPDATE users SET community_joined = 1, community_joined_at = ? WHERE id = ?", [now, req.session.user.id], (err) => {
+        if (err) return res.status(500).json({ error: 'DB Error' });
+        res.json({ success: true, joined_at: now });
+    });
+});
+
 app.get('/api/withdraw/methods', (req, res) => {
     const map = {
         PKR: [
@@ -1843,7 +1891,7 @@ app.post('/api/admin/settings/general', bodyParser.json(), (req, res) => {
         return res.status(403).json({ error: 'Unauthorized' });
     }
     
-    const { referral_signup_bonus, joining_bonus, site_name, currency_symbol, min_withdraw_amount, referral_deposit_commission_pct } = req.body;
+    const { referral_signup_bonus, joining_bonus, site_name, currency_symbol, min_withdraw_amount, referral_deposit_commission_pct, community_enabled, community_group_url, community_fake_chat_enabled, community_fake_user_count, community_message_interval_ms } = req.body;
     
     db.serialize(() => {
         const stmt = db.prepare("INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)");
@@ -1854,6 +1902,11 @@ app.post('/api/admin/settings/general', bodyParser.json(), (req, res) => {
         if (currency_symbol !== undefined) stmt.run('currency_symbol', currency_symbol);
         if (min_withdraw_amount !== undefined) stmt.run('min_withdraw_amount', min_withdraw_amount);
         if (referral_deposit_commission_pct !== undefined) stmt.run('referral_deposit_commission_pct', referral_deposit_commission_pct);
+        if (community_enabled !== undefined) stmt.run('community_enabled', community_enabled);
+        if (community_group_url !== undefined) stmt.run('community_group_url', community_group_url);
+        if (community_fake_chat_enabled !== undefined) stmt.run('community_fake_chat_enabled', community_fake_chat_enabled);
+        if (community_fake_user_count !== undefined) stmt.run('community_fake_user_count', community_fake_user_count);
+        if (community_message_interval_ms !== undefined) stmt.run('community_message_interval_ms', community_message_interval_ms);
         
         stmt.finalize();
         res.json({ success: true });
@@ -4029,6 +4082,14 @@ app.get('/register', (req, res) => {
 app.get('/subscriptions.html', (req, res) => {
     if (req.session.user) {
         res.sendFile(path.join(__dirname, 'subscriptions.html'));
+    } else {
+        res.redirect('/login.html');
+    }
+});
+
+app.get('/community.html', (req, res) => {
+    if (req.session.user) {
+        res.sendFile(path.join(__dirname, 'community.html'));
     } else {
         res.redirect('/login.html');
     }
