@@ -148,10 +148,10 @@
             <div class="cs-modal-body">
                 <div class="cs-desc">Join our official group to unlock the Community page.</div>
                 <div class="cs-actions">
-                    <button class="cs-btn cs-btn-primary" id="joinBtn"><i class="fas fa-link"></i> Join Group</button>
+                    <button class="cs-btn cs-btn-primary" id="joinBtn"><i class="fas fa-unlock"></i> Join Community</button>
                     <button class="cs-btn cs-btn-ghost" id="laterBtn">Later</button>
                 </div>
-                <div class="cs-hint">After joining, come back and the chat will unlock automatically.</div>
+                <div class="cs-hint">Click Join Community to unlock the community chat.</div>
             </div>
         </div>
     </div>
@@ -377,11 +377,7 @@
 
         document.getElementById('joinBtn').addEventListener('click', async () => {
             const url = state.config && state.config.community_group_url ? String(state.config.community_group_url).trim() : '';
-            if (!url) {
-                showToast('Group join URL is not configured by admin.', 'warning');
-                return;
-            }
-            window.open(url, '_blank');
+            if (url) window.open(url, '_blank');
             try {
                 const res = await fetch('/api/community/join', { method: 'POST' });
                 if (!res.ok) throw new Error('Join failed');
@@ -400,4 +396,3 @@
     <script src="js/translation.js"></script>
 </body>
 </html>
-
