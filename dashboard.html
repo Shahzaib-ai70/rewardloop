@@ -429,19 +429,8 @@
                 if (!okEnabled) return false;
                 if (st && st.joined) return false;
                 
-                openJoinGroup(cfg.community_group_url || '#');
-                const joinBtn = document.getElementById('joinGroupBtn');
-                if (joinBtn) {
-                    joinBtn.addEventListener('click', (e) => {
-                        if (!cfg.community_group_url) e.preventDefault();
-                        fetch('/api/community/join', { method: 'POST' }).then(() => {
-                            window.location.href = 'community.html';
-                        }).catch(() => {
-                            window.location.href = 'community.html';
-                        });
-                        closeJoinGroup();
-                    }, { once: true });
-                }
+                // Do not show the old blocking join popup anymore, 
+                // just rely on the Customer Service popup button.
                 return true;
             } catch (e) { return false; }
         }
@@ -459,7 +448,7 @@
                     window.location.href = 'login.html';
                 } else {
                     maybeShowJoinGroup().then((shown) => {
-                        if (!shown) openCustomerService();
+                        openCustomerService();
                     });
                     const balance = data.balance !== undefined ? data.balance : 0;
                     document.getElementById('balance-value').textContent = `PKR ${balance}`;
