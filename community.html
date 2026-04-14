@@ -171,6 +171,7 @@
             users: [],
             loopTimer: null,
             replyToName: '',
+            selfName: '',
             serverLastId: 0,
             pollTimer: null,
             onlineTimer: null
@@ -233,7 +234,8 @@
                 text.textContent = '';
                 return;
             }
-            text.textContent = `Responding to ${state.replyToName}`;
+            const label = (state.selfName && state.replyToName.toLowerCase() === state.selfName.toLowerCase()) ? 'You' : state.replyToName;
+            text.textContent = `Responding to ${label}`;
             bar.style.display = 'flex';
         }
 
@@ -326,7 +328,8 @@
             if (replyTo) {
                 const quote = document.createElement('div');
                 quote.className = 'msg-quote';
-                quote.textContent = `Responding to ${replyTo}`;
+                const label = (state.selfName && String(replyTo).toLowerCase() === state.selfName.toLowerCase()) ? 'You' : replyTo;
+                quote.textContent = `Responding to ${label}`;
                 card.appendChild(quote);
             }
             card.appendChild(body);
@@ -421,6 +424,7 @@
                 state.config = await cfgRes.json();
                 const status = await stRes.json();
                 state.joined = !!(status && status.joined);
+                state.selfName = status && status.username ? String(status.username) : '';
 
                 if (!isTruthy(state.config.community_enabled)) {
                     setStatusBadge('Disabled');
@@ -495,25 +499,6 @@
                 showToast('Message failed', 'error');
                 return;
             }
-            if (!state.users || !state.users.length) return;
-            const cfg = state.config || {};
-            const enabled = isTruthy(cfg.community_fake_chat_enabled);
-            if (!enabled) return;
-            const delay = 600 + Math.floor(Math.random() * 900);
-            setTimeout(() => {
-                const replyUser = pick(state.users);
-                const replies = [
-                    'Nice!',
-                    'Good job.',
-                    'Thanks for sharing.',
-                    'That’s awesome.',
-                    'Keep going.',
-                    'I agree.',
-                    'Same here.',
-                    'Try again later if it’s slow.'
-                ];
-                addMessage({ user: replyUser, text: pick(replies), replyTo: 'You' });
-            }, delay);
         }
 
         document.getElementById('sendBtn').addEventListener('click', sendMessage);

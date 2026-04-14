@@ -701,7 +701,7 @@ function startCommunityFakeFeed() {
             const senderName = `${pick(first)} ${pick(last)} ${String(Math.floor(Math.random() * 90) + 10)}`;
             const message = pickFresh();
             remember(message);
-            const replyTo = Math.random() < 0.22 ? `${pick(first)} ${pick(last)}` : null;
+            const replyTo = null;
             const now = new Date().toISOString();
             db.run(
                 "INSERT INTO community_messages (sender_type, sender_user_id, sender_name, message, reply_to, created_at) VALUES ('fake', NULL, ?, ?, ?, ?)",
@@ -1520,9 +1520,13 @@ app.get('/api/settings/community', (req, res) => {
 
 app.get('/api/community/status', (req, res) => {
     if (!req.session.user) return res.status(401).json({ error: 'Unauthorized' });
-    db.get("SELECT community_joined, community_joined_at FROM users WHERE id = ? LIMIT 1", [req.session.user.id], (err, row) => {
+    db.get("SELECT username, community_joined, community_joined_at FROM users WHERE id = ? LIMIT 1", [req.session.user.id], (err, row) => {
         if (err) return res.status(500).json({ error: 'DB Error' });
-        res.json({ joined: row && Number(row.community_joined) === 1, joined_at: row && row.community_joined_at ? String(row.community_joined_at) : null });
+        res.json({
+            username: row && row.username ? String(row.username) : '',
+            joined: row && Number(row.community_joined) === 1,
+            joined_at: row && row.community_joined_at ? String(row.community_joined_at) : null
+        });
     });
 });
 

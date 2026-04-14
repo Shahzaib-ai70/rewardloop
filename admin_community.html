@@ -193,7 +193,8 @@
             msgs.forEach(m => {
                 const tr = document.createElement('tr');
                 const sender = document.createElement('td');
-                sender.innerHTML = `<div style="font-weight:900; color:#2d3436;">${m.sender_name || ''}</div><div class="${tagClass(m.sender_type)}" style="margin-top:6px;">${String(m.sender_type || '').toUpperCase()}</div>`;
+                const tagged = m.sender_type === 'user' && m.reply_to ? `<div style="margin-top:8px; font-weight:900; color:#6c5ce7; font-size:0.78rem;">TAGGED: ${m.reply_to}</div>` : '';
+                sender.innerHTML = `<div style="font-weight:900; color:#2d3436;">${m.sender_name || ''}</div><div class="${tagClass(m.sender_type)}" style="margin-top:6px;">${String(m.sender_type || '').toUpperCase()}</div>${tagged}`;
                 const msg = document.createElement('td');
                 const reply = m.reply_to ? `<div style="margin-bottom:8px; background:#f5f7fb; border:1px solid #eef2f7; border-radius:12px; padding:10px; color:#64748b; font-weight:800; font-size:0.82rem;">Responding to ${m.reply_to}</div>` : '';
                 msg.innerHTML = `${reply}<div style="color:#475569; font-weight:700;">${m.message || ''}</div>`;
@@ -213,6 +214,20 @@
                     document.getElementById('postMessage').focus();
                 });
                 wrap.appendChild(btn);
+                if (m.sender_type === 'user' && m.reply_to) {
+                    const btn2 = document.createElement('button');
+                    btn2.className = 'action-btn';
+                    btn2.type = 'button';
+                    btn2.textContent = `Reply as ${m.reply_to}`;
+                    btn2.addEventListener('click', () => {
+                        document.getElementById('senderType').value = 'fake';
+                        document.getElementById('fakeNameBox').style.display = 'block';
+                        document.getElementById('fakeName').value = String(m.reply_to || '');
+                        setReplyTo(m.sender_name || '');
+                        document.getElementById('postMessage').focus();
+                    });
+                    wrap.appendChild(btn2);
+                }
                 action.appendChild(wrap);
                 action.style.textAlign = 'right';
                 tr.appendChild(sender);
