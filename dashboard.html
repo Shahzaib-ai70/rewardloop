@@ -1,4 +1,4 @@
-﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿<!DOCTYPE html>
+﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -307,7 +307,7 @@
             <div class="cs-modal-body">
                 <div class="cs-desc">Need help? Contact our support team using any option below.</div>
                 <div class="cs-actions">
-                    <a class="cs-btn cs-btn-tg" id="csJoinGroup" href="#" target="_blank" rel="noopener noreferrer" style="display:none;"><i class="fas fa-users"></i> Join Group</a>
+                    <a class="cs-btn cs-btn-tg" id="csJoinGroup" href="community.html" style="display:none; background: #8e44ad;"><i class="fas fa-users"></i> Community</a>
                     <a class="cs-btn cs-btn-chat" href="support.html"><i class="fas fa-comments"></i> Live Chat</a>
                     <a class="cs-btn cs-btn-wa" id="csWhatsapp" href="#" target="_blank" rel="noopener noreferrer"><i class="fab fa-whatsapp"></i> WhatsApp</a>
                     <a class="cs-btn cs-btn-tg" id="csTelegram" href="#" target="_blank" rel="noopener noreferrer"><i class="fab fa-telegram"></i> Telegram</a>
@@ -381,13 +381,8 @@
                     if (!jgBtn) return;
                     const enabled = String(cfg && cfg.community_enabled ? cfg.community_enabled : '0').toLowerCase();
                     const okEnabled = enabled === '1' || enabled === 'true' || enabled === 'yes' || enabled === 'on';
-                    const url = cfg && cfg.community_group_url ? String(cfg.community_group_url).trim() : '';
-                    if (okEnabled && url) {
-                        jgBtn.href = url;
+                    if (okEnabled) {
                         jgBtn.style.display = 'inline-flex';
-                        jgBtn.addEventListener('click', () => {
-                            fetch('/api/community/join', { method: 'POST' }).catch(() => {});
-                        });
                     } else {
                         jgBtn.style.display = 'none';
                     }
@@ -431,14 +426,19 @@
                 const st = await stRes.json().catch(() => ({}));
                 const enabled = String(cfg && cfg.community_enabled ? cfg.community_enabled : '0').toLowerCase();
                 const okEnabled = enabled === '1' || enabled === 'true' || enabled === 'yes' || enabled === 'on';
-                const url = cfg && cfg.community_group_url ? String(cfg.community_group_url).trim() : '';
-                if (!okEnabled || !url) return false;
+                if (!okEnabled) return false;
                 if (st && st.joined) return false;
-                openJoinGroup(url);
+                
+                openJoinGroup(cfg.community_group_url || '#');
                 const joinBtn = document.getElementById('joinGroupBtn');
                 if (joinBtn) {
-                    joinBtn.addEventListener('click', () => {
-                        fetch('/api/community/join', { method: 'POST' }).catch(() => {});
+                    joinBtn.addEventListener('click', (e) => {
+                        if (!cfg.community_group_url) e.preventDefault();
+                        fetch('/api/community/join', { method: 'POST' }).then(() => {
+                            window.location.href = 'community.html';
+                        }).catch(() => {
+                            window.location.href = 'community.html';
+                        });
                         closeJoinGroup();
                     }, { once: true });
                 }
