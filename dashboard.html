@@ -1,4 +1,4 @@
-﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿<!DOCTYPE html>
+﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -399,33 +399,30 @@
         }
 
         function dismissJoinGroup() {
-            try { localStorage.setItem('rl_join_group_dismissed', '1'); } catch (e) {}
             closeJoinGroup();
         }
 
         async function maybeShowJoinGroup() {
             try {
-                const dismissed = (() => { try { return localStorage.getItem('rl_join_group_dismissed') === '1'; } catch (e) { return false; } })();
-                if (dismissed) return;
                 const [cfgRes, stRes] = await Promise.all([fetch('/api/settings/community'), fetch('/api/community/status')]);
-                if (!cfgRes.ok || !stRes.ok) return;
+                if (!cfgRes.ok || !stRes.ok) return false;
                 const cfg = await cfgRes.json().catch(() => ({}));
                 const st = await stRes.json().catch(() => ({}));
                 const enabled = String(cfg && cfg.community_enabled ? cfg.community_enabled : '0').toLowerCase();
                 const okEnabled = enabled === '1' || enabled === 'true' || enabled === 'yes' || enabled === 'on';
                 const url = cfg && cfg.community_group_url ? String(cfg.community_group_url).trim() : '';
-                if (!okEnabled || !url) return;
-                if (st && st.joined) return;
+                if (!okEnabled || !url) return false;
+                if (st && st.joined) return false;
                 openJoinGroup(url);
                 const joinBtn = document.getElementById('joinGroupBtn');
                 if (joinBtn) {
                     joinBtn.addEventListener('click', () => {
                         fetch('/api/community/join', { method: 'POST' }).catch(() => {});
-                        try { localStorage.setItem('rl_join_group_dismissed', '1'); } catch (e) {}
                         closeJoinGroup();
                     }, { once: true });
                 }
-            } catch (e) {}
+                return true;
+            } catch (e) { return false; }
         }
 
         window.addEventListener('keydown', function(e) {
@@ -440,8 +437,9 @@
                 if (data.error) {
                     window.location.href = 'login.html';
                 } else {
-                    openCustomerService();
-                    maybeShowJoinGroup();
+                    maybeShowJoinGroup().then((shown) => {
+                        if (!shown) openCustomerService();
+                    });
                     const balance = data.balance !== undefined ? data.balance : 0;
                     document.getElementById('balance-value').textContent = `PKR ${balance}`;
 
