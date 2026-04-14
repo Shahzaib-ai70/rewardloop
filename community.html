@@ -11,29 +11,33 @@
     <style>
         .community-grid { display: grid; grid-template-columns: 1fr; gap: 16px; }
         .community-card { background: #fff; border-radius: 14px; border: 1px solid #eef2f7; overflow: hidden; }
-        .community-card-header { padding: 14px 16px; border-bottom: 1px solid #eef2f7; display: flex; align-items: center; justify-content: space-between; gap: 10px; }
-        .community-title { margin: 0; font-size: 1.05rem; font-weight: 800; color: #2d3436; display: flex; align-items: center; gap: 10px; }
+        .community-card-header { padding: 14px 16px; border-bottom: 1px solid #eef2f7; display: flex; align-items: center; justify-content: space-between; gap: 14px; }
+        .community-head { display: grid; gap: 4px; min-width: 0; }
+        .community-title { margin: 0; font-size: 1.05rem; font-weight: 900; color: #2d3436; display: flex; align-items: center; gap: 10px; }
+        .community-sub { font-size: 0.85rem; color: #94a3b8; font-weight: 700; }
         .community-badge { font-size: 0.8rem; padding: 6px 10px; border-radius: 999px; background: #f5f7fb; border: 1px solid #eef2f7; color: #64748b; font-weight: 700; }
         .community-body { padding: 12px; }
-        .community-layout { display: grid; grid-template-columns: 320px 1fr; gap: 12px; }
-        .community-panel { background: #f8fafc; border: 1px solid #eef2f7; border-radius: 12px; overflow: hidden; }
-        .panel-header { padding: 12px; border-bottom: 1px solid #eef2f7; display: flex; align-items: center; justify-content: space-between; gap: 10px; }
-        .panel-title { margin: 0; font-size: 0.95rem; font-weight: 800; color: #2d3436; display: flex; align-items: center; gap: 8px; }
-        .panel-body { padding: 10px; }
-        .user-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; max-height: 430px; overflow: auto; }
-        .user-item { display: flex; align-items: center; gap: 10px; padding: 10px; background: #fff; border: 1px solid #eef2f7; border-radius: 12px; }
-        .avatar { width: 34px; height: 34px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-weight: 800; color: #fff; background: linear-gradient(135deg, #6c5ce7, #0984e3); }
-        .user-name { font-weight: 800; color: #2d3436; font-size: 0.9rem; }
-        .user-status { margin-left: auto; font-size: 0.75rem; color: #22c55e; font-weight: 800; }
-        .chat-box { background: #fff; border: 1px solid #eef2f7; border-radius: 12px; overflow: hidden; display: flex; flex-direction: column; }
-        .chat-messages { padding: 12px; flex: 1; overflow: auto; background: #fbfdff; }
+        .live-pill { display: inline-flex; align-items: center; gap: 8px; padding: 7px 12px; border-radius: 999px; font-size: 0.8rem; font-weight: 900; border: 1px solid #e5e7eb; background: #fff; color: #2d3436; }
+        .live-dot { width: 8px; height: 8px; border-radius: 999px; background: #22c55e; box-shadow: 0 0 0 4px rgba(34,197,94,0.15); }
+        .chat-shell { border: 1px solid #eef2f7; border-radius: 12px; overflow: hidden; display: flex; flex-direction: column; background: #f8fafc; }
+        .chat-messages { flex: 1; overflow: auto; padding: 12px; }
         .chat-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
-        .msg { display: grid; grid-template-columns: 40px 1fr; gap: 10px; align-items: start; }
-        .msg-body { background: #fff; border: 1px solid #eef2f7; border-radius: 14px; padding: 10px 12px; }
-        .msg-top { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
-        .msg-name { font-weight: 800; color: #2d3436; font-size: 0.9rem; }
-        .msg-time { font-size: 0.75rem; color: #94a3b8; font-weight: 700; }
-        .msg-text { margin-top: 6px; color: #475569; font-size: 0.9rem; line-height: 1.35; }
+        .msg-row { display: grid; grid-template-columns: 44px 1fr; gap: 12px; align-items: start; }
+        .avatar { width: 40px; height: 40px; border-radius: 14px; display: flex; align-items: center; justify-content: center; font-weight: 900; color: #fff; background: linear-gradient(135deg, #6c5ce7, #0984e3); }
+        .avatar-you { background: linear-gradient(135deg, #f97316, #f59e0b); }
+        .msg-card { background: #fff; border: 1px solid #eef2f7; border-radius: 14px; padding: 10px 12px; }
+        .msg-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+        .msg-name { font-weight: 900; color: #2d3436; font-size: 0.92rem; }
+        .msg-meta { display: inline-flex; align-items: center; gap: 10px; }
+        .msg-time { font-size: 0.75rem; color: #94a3b8; font-weight: 800; }
+        .msg-reply { border: 0; background: transparent; color: #6c5ce7; font-weight: 900; font-size: 0.75rem; cursor: pointer; padding: 0; }
+        .msg-text { margin-top: 6px; color: #475569; font-size: 0.92rem; line-height: 1.35; }
+        .msg-quote { margin-top: 8px; background: #f5f7fb; border: 1px solid #eef2f7; border-radius: 12px; padding: 10px; color: #64748b; font-weight: 700; font-size: 0.82rem; }
+        .composer { border-top: 1px solid #eef2f7; background: #fff; padding: 10px; display: grid; grid-template-columns: 1fr auto auto; gap: 10px; align-items: center; }
+        .composer input { width: 100%; border: 1px solid #e5e7eb; border-radius: 12px; padding: 12px 12px; outline: none; font-family: inherit; }
+        .composer input:focus { border-color: #c7d2fe; box-shadow: 0 0 0 4px rgba(99,102,241,0.12); }
+        .btn-send { background: #f97316; color: #fff; border: 1px solid transparent; border-radius: 12px; padding: 10px 14px; font-weight: 900; cursor: pointer; display: inline-flex; align-items: center; gap: 8px; }
+        .btn-back { background: #f5f7fb; color: #2d3436; border: 1px solid #eef2f7; border-radius: 12px; padding: 10px 14px; font-weight: 900; cursor: pointer; display: inline-flex; align-items: center; gap: 8px; }
         .cs-modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.55); display: none; align-items: center; justify-content: center; z-index: 9999; padding: 16px; }
         .cs-modal { width: 100%; max-width: 520px; background: #fff; border-radius: 14px; box-shadow: 0 15px 45px rgba(0,0,0,0.25); overflow: hidden; }
         .cs-modal-header { display: flex; align-items: center; justify-content: space-between; padding: 14px 16px; border-bottom: 1px solid #f1f3f5; }
@@ -47,7 +51,7 @@
         .cs-btn-ghost { background: #fff; color: #2d3436; border-color: #e5e7eb; }
         .cs-hint { margin-top: 12px; font-size: 0.85rem; color: #94a3b8; }
         .muted-box { background: #fff; border: 1px dashed #e5e7eb; border-radius: 12px; padding: 18px; color: #64748b; }
-        @media (max-width: 980px) { .community-layout { grid-template-columns: 1fr; } }
+        @media (max-width: 820px) { .composer { grid-template-columns: 1fr; } }
     </style>
 </head>
 <body class="dashboard-body">
@@ -100,36 +104,29 @@
         </header>
 
         <div class="content-wrapper">
-            <div class="page-header">
-                <h2>Community</h2>
-                <div id="communityStatusBadge" class="community-badge">Loading...</div>
-            </div>
-
             <div class="community-grid">
                 <div class="community-card">
                     <div class="community-card-header">
-                        <h3 class="community-title"><i class="fas fa-comments"></i> Live Chat</h3>
-                        <span id="onlineCount" class="community-badge">Online: 0</span>
+                        <div class="community-head">
+                            <h3 class="community-title"><i class="fas fa-users"></i> Community Group</h3>
+                            <div id="onlineCount" class="community-sub">0 people are chatting online.</div>
+                        </div>
+                        <div style="display:flex; align-items:center; gap:10px;">
+                            <div id="communityStatusBadge" class="community-badge">Loading...</div>
+                            <div class="live-pill"><span class="live-dot"></span> Live</div>
+                        </div>
                     </div>
                     <div class="community-body">
                         <div id="disabledBox" class="muted-box" style="display:none;"></div>
-                        <div id="communityLayout" class="community-layout" style="display:none;">
-                            <div class="community-panel">
-                                <div class="panel-header">
-                                    <h4 class="panel-title"><i class="fas fa-users"></i> Active Members</h4>
-                                    <span id="activeCount" class="community-badge">0</span>
-                                </div>
-                                <div class="panel-body">
-                                    <ul id="userList" class="user-list"></ul>
-                                </div>
-                            </div>
-                            <div class="chat-box">
-                                <div class="panel-header">
-                                    <h4 class="panel-title"><i class="fas fa-bolt"></i> Community Feed</h4>
-                                    <span id="feedState" class="community-badge">Connecting...</span>
-                                </div>
-                                <div class="chat-messages">
+                        <div id="communityLayout" style="display:none;">
+                            <div class="chat-shell">
+                                <div class="chat-messages" id="chatScroll">
                                     <ul id="chatList" class="chat-list"></ul>
+                                </div>
+                                <div class="composer">
+                                    <input id="composerInput" type="text" placeholder="Type your message..." autocomplete="off">
+                                    <button class="btn-send" id="sendBtn" type="button"><i class="fas fa-paper-plane"></i> To send</button>
+                                    <button class="btn-back" id="backBtn" type="button"><i class="fas fa-arrow-left"></i> To go back</button>
                                 </div>
                             </div>
                         </div>
@@ -213,11 +210,7 @@
 
         function setLayoutVisible(visible) {
             document.getElementById('disabledBox').style.display = 'none';
-            document.getElementById('communityLayout').style.display = visible ? 'grid' : 'none';
-        }
-
-        function setFeedState(text) {
-            document.getElementById('feedState').textContent = text;
+            document.getElementById('communityLayout').style.display = visible ? 'block' : 'none';
         }
 
         function genUsers(count) {
@@ -235,35 +228,79 @@
             return out;
         }
 
-        function renderActiveUsers(users) {
-            const list = document.getElementById('userList');
-            list.innerHTML = '';
-            const showCount = Math.min(40, users.length);
-            const sample = users.slice().sort(() => Math.random() - 0.5).slice(0, showCount);
-            const frag = document.createDocumentFragment();
-            sample.forEach(u => {
-                const li = document.createElement('li');
-                li.className = 'user-item';
-                const initials = u.name.split(' ').map(x => x[0]).join('').slice(0, 2).toUpperCase();
-                li.innerHTML = `<div class="avatar">${initials}</div><div class="user-name">${u.name}</div><div class="user-status">online</div>`;
-                frag.appendChild(li);
-            });
-            list.appendChild(frag);
-            document.getElementById('activeCount').textContent = String(users.length);
-            document.getElementById('onlineCount').textContent = `Online: ${users.length}`;
+        function calcOnlineCount(base) {
+            const factor = 5 + Math.random() * 1.6;
+            const jitter = Math.floor(Math.random() * 90);
+            return Math.max(0, Math.round(base * factor) + jitter);
         }
 
-        function addMessage(user, text) {
+        function setOnlineCount(n) {
+            const el = document.getElementById('onlineCount');
+            el.textContent = `${Number(n || 0).toLocaleString()} people are chatting online.`;
+        }
+
+        function addMessage({ user, text, replyTo, isYou }) {
             const list = document.getElementById('chatList');
-            const li = document.createElement('li');
-            li.className = 'msg';
-            const initials = user.name.split(' ').map(x => x[0]).join('').slice(0, 2).toUpperCase();
-            const time = fmtTime(new Date());
-            li.innerHTML = `<div class="avatar">${initials}</div><div class="msg-body"><div class="msg-top"><div class="msg-name">${user.name}</div><div class="msg-time">${time}</div></div><div class="msg-text">${text}</div></div>`;
-            list.appendChild(li);
-            const max = 220;
+            const row = document.createElement('li');
+            row.className = 'msg-row';
+
+            const avatar = document.createElement('div');
+            avatar.className = isYou ? 'avatar avatar-you' : 'avatar';
+            const initials = String(user && user.name ? user.name : '').split(' ').filter(Boolean).map(x => x[0]).join('').slice(0, 2).toUpperCase() || 'U';
+            avatar.textContent = initials;
+
+            const card = document.createElement('div');
+            card.className = 'msg-card';
+
+            const head = document.createElement('div');
+            head.className = 'msg-head';
+
+            const name = document.createElement('div');
+            name.className = 'msg-name';
+            name.textContent = isYou ? 'You' : (user && user.name ? user.name : 'User');
+
+            const meta = document.createElement('div');
+            meta.className = 'msg-meta';
+
+            const time = document.createElement('div');
+            time.className = 'msg-time';
+            time.textContent = fmtTime(new Date());
+
+            const replyBtn = document.createElement('button');
+            replyBtn.type = 'button';
+            replyBtn.className = 'msg-reply';
+            replyBtn.textContent = 'To respond';
+            replyBtn.addEventListener('click', () => {
+                const input = document.getElementById('composerInput');
+                input.value = `@${name.textContent} `;
+                input.focus();
+            });
+
+            meta.appendChild(time);
+            if (!isYou) meta.appendChild(replyBtn);
+            head.appendChild(name);
+            head.appendChild(meta);
+
+            const body = document.createElement('div');
+            body.className = 'msg-text';
+            body.textContent = text;
+
+            card.appendChild(head);
+            if (replyTo) {
+                const quote = document.createElement('div');
+                quote.className = 'msg-quote';
+                quote.textContent = `Responding to ${replyTo}`;
+                card.appendChild(quote);
+            }
+            card.appendChild(body);
+
+            row.appendChild(avatar);
+            row.appendChild(card);
+            list.appendChild(row);
+
+            const max = 260;
             while (list.children.length > max) list.removeChild(list.firstChild);
-            const box = document.querySelector('.chat-messages');
+            const box = document.getElementById('chatScroll');
             box.scrollTop = box.scrollHeight;
         }
 
@@ -271,17 +308,15 @@
             const cfg = state.config || {};
             const enabled = isTruthy(cfg.community_fake_chat_enabled);
             if (!enabled) {
-                setFeedState('Disabled');
-                setLayoutVisible(true);
+                setStatusBadge('Joined');
                 setDisabledBox('Chat is disabled by admin.');
                 return;
             }
 
             const userCount = clamp(cfg.community_fake_user_count || 400, 300, 500);
             state.users = genUsers(userCount);
-            renderActiveUsers(state.users);
             setLayoutVisible(true);
-            setFeedState('Live');
+            setOnlineCount(calcOnlineCount(userCount));
 
             const templates = [
                 'Anyone got today’s ads completed?',
@@ -316,18 +351,21 @@
                 'Admin will approve soon, be patient.'
             ];
 
-            const prefill = 26;
+            const prefill = 18;
             for (let i = 0; i < prefill; i++) {
-                addMessage(pick(state.users), pick(templates));
+                addMessage({ user: pick(state.users), text: pick(templates) });
             }
 
             const base = clamp(cfg.community_message_interval_ms || 1100, 300, 5000);
             const loop = () => {
-                const bursts = Math.random() < 0.25 ? 2 : 1;
+                const bursts = Math.random() < 0.22 ? 2 : 1;
                 for (let i = 0; i < bursts; i++) {
-                    addMessage(pick(state.users), pick(templates));
+                    const u = pick(state.users);
+                    const msg = pick(templates);
+                    const withReply = Math.random() < 0.22;
+                    const replyTo = withReply ? pick(state.users).name : '';
+                    addMessage({ user: u, text: msg, replyTo });
                 }
-                if (Math.random() < 0.12) renderActiveUsers(state.users);
                 const next = Math.round(base * (0.55 + Math.random() * 0.9));
                 state.loopTimer = setTimeout(loop, next);
             };
@@ -388,6 +426,42 @@
             } catch (e) {
                 showToast('Could not unlock community. Please try again.', 'error');
             }
+        });
+
+        function sendMessage() {
+            const input = document.getElementById('composerInput');
+            const text = String(input.value || '').trim();
+            if (!text) return;
+            input.value = '';
+            addMessage({ user: { name: 'You' }, text, isYou: true });
+            if (!state.users || !state.users.length) return;
+            const cfg = state.config || {};
+            const enabled = isTruthy(cfg.community_fake_chat_enabled);
+            if (!enabled) return;
+            const delay = 600 + Math.floor(Math.random() * 900);
+            setTimeout(() => {
+                const replyUser = pick(state.users);
+                const replies = [
+                    'Nice!',
+                    'Good job.',
+                    'Thanks for sharing.',
+                    'That’s awesome.',
+                    'Keep going.',
+                    'I agree.',
+                    'Same here.',
+                    'Try again later if it’s slow.'
+                ];
+                addMessage({ user: replyUser, text: pick(replies), replyTo: 'You' });
+            }, delay);
+        }
+
+        document.getElementById('sendBtn').addEventListener('click', sendMessage);
+        document.getElementById('composerInput').addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') sendMessage();
+        });
+        document.getElementById('backBtn').addEventListener('click', () => {
+            if (history.length > 1) history.back();
+            else window.location.href = 'dashboard.html';
         });
 
         loadCommunity();
