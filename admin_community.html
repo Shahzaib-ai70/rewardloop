@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Community - Admin Panel</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script src="js/notifications.js"></script>
+    <style>
+        .admin-sidebar { background: #2d3436; color: #fff; }
+        .admin-sidebar .logo { color: #fff; }
+        .admin-sidebar .sidebar-menu li a { color: #b2bec3; }
+        .admin-sidebar .sidebar-menu li a:hover, .admin-sidebar .sidebar-menu li a.active { background: rgba(255,255,255,0.1); color: #fff; }
+        .admin-header { background: #fff; box-shadow: 0 2px 10px rgba(0,0,0,0.05); }
+
+        .community-admin-grid { display: grid; grid-template-columns: 360px 1fr; gap: 16px; }
+        .mini-btn-row { display: flex; gap: 10px; flex-wrap: wrap; }
+        .mini-btn { border: 1px solid #eef2f7; background: #fff; padding: 10px 12px; border-radius: 12px; font-weight: 800; cursor: pointer; display: inline-flex; align-items: center; gap: 8px; }
+        .mini-btn-primary { background: #f97316; border-color: transparent; color: #fff; }
+        .mini-btn-ghost { background: #f5f7fb; }
+        .field { display: grid; gap: 6px; margin-top: 10px; }
+        .field label { font-weight: 800; color: #2d3436; font-size: 0.9rem; }
+        .field input, .field select, .field textarea { width: 100%; border: 1px solid #e5e7eb; border-radius: 12px; padding: 10px 12px; font-family: inherit; }
+        .field textarea { min-height: 110px; resize: vertical; }
+        .reply-pill { margin-top: 10px; display: none; align-items: center; justify-content: space-between; gap: 10px; background: #f5f7fb; border: 1px solid #eef2f7; border-radius: 12px; padding: 10px 12px; font-weight: 800; color: #475569; }
+        .reply-pill button { border: 0; background: transparent; cursor: pointer; font-weight: 900; color: #64748b; }
+
+        .msg-table { width: 100%; border-collapse: collapse; }
+        .msg-table th, .msg-table td { padding: 12px; border-bottom: 1px solid #eef2f7; text-align: left; font-size: 0.92rem; vertical-align: top; }
+        .msg-table th { color: #64748b; font-weight: 900; font-size: 0.85rem; }
+        .tag { display: inline-flex; align-items: center; padding: 3px 8px; border-radius: 999px; font-size: 0.72rem; font-weight: 900; border: 1px solid #eef2f7; background: #fff; color: #64748b; }
+        .tag-user { color: #0ea5e9; border-color: rgba(14,165,233,0.25); background: rgba(14,165,233,0.08); }
+        .tag-fake { color: #22c55e; border-color: rgba(34,197,94,0.25); background: rgba(34,197,94,0.08); }
+        .tag-admin { color: #f97316; border-color: rgba(249,115,22,0.25); background: rgba(249,115,22,0.08); }
+        .msg-actions { display: flex; gap: 8px; justify-content: flex-end; }
+        .action-btn { border: 1px solid #eef2f7; background: #fff; color: #6c5ce7; border-radius: 10px; padding: 8px 10px; font-weight: 900; cursor: pointer; }
+
+        @media (max-width: 980px) { .community-admin-grid { grid-template-columns: 1fr; } }
+    </style>
+</head>
+<body class="dashboard-body">
+    <aside class="sidebar admin-sidebar">
+        <div class="sidebar-header"><div class="logo"><i class="fas fa-shield-alt"></i> Admin Panel</div></div>
+        <ul class="sidebar-menu">
+            <li><a href="admin_dashboard.html"><i class="fas fa-tachometer-alt"></i> Dashboard</a></li>
+            <li><a href="admin_plans.html"><i class="fas fa-crown"></i> Manage Plans</a></li>
+            <li><a href="admin_portfolios.html"><i class="fas fa-briefcase"></i> Manage Portfolios</a></li>
+            <li><a href="admin_ads.html"><i class="fas fa-ad"></i> Manage Ads</a></li>
+            <li><a href="admin_users.html"><i class="fas fa-users"></i> Manage Users</a></li>
+            <li><a href="admin_reviews.html"><i class="fas fa-star"></i> Manage Reviews</a></li>
+            <li><a href="admin_referrals.html"><i class="fas fa-users-cog"></i> Referrals & Bonuses</a></li>
+            <li><a href="admin_deposits.html"><i class="fas fa-money-bill-wave"></i> Deposits</a></li>
+            <li><a href="admin_subscription_orders.html"><i class="fas fa-receipt"></i> Subscription Orders</a></li>
+            <li><a href="admin_withdrawals.html"><i class="fas fa-hand-holding-usd"></i> Withdrawals</a></li>
+            <li><a href="admin_support.html"><i class="fas fa-ticket-alt"></i> Support Tickets</a></li>
+            <li><a href="admin_community.html" class="active"><i class="fas fa-comments"></i> Community</a></li>
+            <li><a href="admin_settings.html"><i class="fas fa-cogs"></i> System Settings</a></li>
+        </ul>
+        <div class="sidebar-footer"><a href="/admin/logout" class="logout-btn"><i class="fas fa-sign-out-alt"></i> Log Out</a></div>
+    </aside>
+
+    <main class="main-content">
+        <header class="dashboard-header admin-header">
+            <div class="menu-toggle"><i class="fas fa-bars"></i></div>
+            <div class="header-right">
+                <div id="google_translate_element"></div>
+                <div class="theme-toggle"><i class="fas fa-moon"></i></div>
+                <div class="user-profile"><span class="mr-2">Administrator</span><div class="user-avatar" style="background:#d63031;"><i class="fas fa-user-shield"></i></div></div>
+            </div>
+        </header>
+
+        <div class="content-wrapper">
+            <div class="community-admin-grid">
+                <div class="card">
+                    <div class="card-body">
+                        <h3 class="section-title">Community Controls</h3>
+                        <div class="mini-btn-row" style="margin-top: 10px;">
+                            <button class="mini-btn mini-btn-ghost" id="refreshBtn" type="button"><i class="fas fa-rotate"></i> Refresh</button>
+                        </div>
+
+                        <div class="reply-pill" id="replyPill">
+                            <div id="replyPillText"></div>
+                            <button type="button" id="replyPillCancel">&times;</button>
+                        </div>
+
+                        <div class="field">
+                            <label>Post Message</label>
+                            <textarea id="postMessage" placeholder="Type message..."></textarea>
+                        </div>
+
+                        <div class="field">
+                            <label>Send As</label>
+                            <select id="senderType">
+                                <option value="admin">Admin</option>
+                                <option value="fake">Fake Member</option>
+                            </select>
+                        </div>
+
+                        <div class="field" id="fakeNameBox" style="display:none;">
+                            <label>Fake Member Name</label>
+                            <input id="fakeName" type="text" placeholder="e.g., Wesley Moreira J.">
+                        </div>
+
+                        <div style="margin-top: 12px;">
+                            <button class="mini-btn mini-btn-primary" id="postBtn" type="button"><i class="fas fa-paper-plane"></i> Post</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-body">
+                        <div style="display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap;">
+                            <h3 class="section-title" style="margin:0;">Recent Messages</h3>
+                            <div id="countBox" style="color:#94a3b8; font-weight:800;"></div>
+                        </div>
+                        <div style="overflow:auto; margin-top: 10px;">
+                            <table class="msg-table">
+                                <thead>
+                                    <tr>
+                                        <th style="width:220px;">Sender</th>
+                                        <th>Message</th>
+                                        <th style="width:170px;">Time</th>
+                                        <th style="width:110px; text-align:right;">Action</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="msgTbody"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        document.querySelector('.menu-toggle').addEventListener('click', function() {
+            document.querySelector('.sidebar').classList.toggle('active');
+        });
+
+        const state = { replyTo: '' };
+
+        function fmtTime(iso) {
+            const d = iso ? new Date(iso) : new Date();
+            const hh = String(d.getHours()).padStart(2, '0');
+            const mm = String(d.getMinutes()).padStart(2, '0');
+            return `${hh}:${mm}`;
+        }
+
+        function tagClass(type) {
+            if (type === 'user') return 'tag tag-user';
+            if (type === 'fake') return 'tag tag-fake';
+            return 'tag tag-admin';
+        }
+
+        function setReplyTo(name) {
+            state.replyTo = String(name || '').trim();
+            const pill = document.getElementById('replyPill');
+            const text = document.getElementById('replyPillText');
+            if (!state.replyTo) {
+                pill.style.display = 'none';
+                text.textContent = '';
+                return;
+            }
+            text.textContent = `Responding to ${state.replyTo}`;
+            pill.style.display = 'flex';
+        }
+
+        document.getElementById('replyPillCancel').addEventListener('click', () => setReplyTo(''));
+
+        async function loadMessages() {
+            const res = await fetch('/api/admin/community/messages?limit=200');
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok) {
+                showToast((data && data.error) ? data.error : 'Failed to load', 'error');
+                return;
+            }
+            const msgs = data.messages || [];
+            document.getElementById('countBox').textContent = `${msgs.length} messages`;
+            const tbody = document.getElementById('msgTbody');
+            tbody.innerHTML = '';
+            const frag = document.createDocumentFragment();
+            msgs.forEach(m => {
+                const tr = document.createElement('tr');
+                const sender = document.createElement('td');
+                sender.innerHTML = `<div style="font-weight:900; color:#2d3436;">${m.sender_name || ''}</div><div class="${tagClass(m.sender_type)}" style="margin-top:6px;">${String(m.sender_type || '').toUpperCase()}</div>`;
+                const msg = document.createElement('td');
+                const reply = m.reply_to ? `<div style="margin-bottom:8px; background:#f5f7fb; border:1px solid #eef2f7; border-radius:12px; padding:10px; color:#64748b; font-weight:800; font-size:0.82rem;">Responding to ${m.reply_to}</div>` : '';
+                msg.innerHTML = `${reply}<div style="color:#475569; font-weight:700;">${m.message || ''}</div>`;
+                const time = document.createElement('td');
+                time.style.color = '#94a3b8';
+                time.style.fontWeight = '800';
+                time.textContent = fmtTime(m.created_at);
+                const action = document.createElement('td');
+                const wrap = document.createElement('div');
+                wrap.className = 'msg-actions';
+                const btn = document.createElement('button');
+                btn.className = 'action-btn';
+                btn.type = 'button';
+                btn.textContent = 'Reply';
+                btn.addEventListener('click', () => {
+                    setReplyTo(m.sender_name || '');
+                    document.getElementById('postMessage').focus();
+                });
+                wrap.appendChild(btn);
+                action.appendChild(wrap);
+                action.style.textAlign = 'right';
+                tr.appendChild(sender);
+                tr.appendChild(msg);
+                tr.appendChild(time);
+                tr.appendChild(action);
+                frag.appendChild(tr);
+            });
+            tbody.appendChild(frag);
+        }
+
+        async function postMessage() {
+            const message = String(document.getElementById('postMessage').value || '').trim();
+            if (!message) return showToast('Message is required', 'warning');
+            const senderType = document.getElementById('senderType').value;
+            const senderName = String(document.getElementById('fakeName').value || '').trim();
+            const payload = { message, sender_type: senderType, sender_name: senderName, reply_to: state.replyTo };
+            const res = await fetch('/api/admin/community/post', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok || !data.success) {
+                showToast((data && data.error) ? data.error : 'Post failed', 'error');
+                return;
+            }
+            document.getElementById('postMessage').value = '';
+            setReplyTo('');
+            showToast('Posted', 'success');
+            loadMessages();
+        }
+
+        document.getElementById('refreshBtn').addEventListener('click', loadMessages);
+        document.getElementById('postBtn').addEventListener('click', postMessage);
+
+        document.getElementById('senderType').addEventListener('change', () => {
+            const type = document.getElementById('senderType').value;
+            document.getElementById('fakeNameBox').style.display = type === 'fake' ? 'block' : 'none';
+        });
+
+        loadMessages();
+    </script>
+    <script src="js/theme.js"></script>
+    <script src="js/translation.js"></script>
+</body>
+</html>
+
