@@ -615,6 +615,124 @@ db.serialize(() => {
     });
 });
 
+let communityFakeTimer = null;
+function startCommunityFakeFeed() {
+    const isTruthy = (v) => {
+        const s = String(v || '').trim().toLowerCase();
+        return s === '1' || s === 'true' || s === 'yes' || s === 'on';
+    };
+    const clamp = (n, min, max) => {
+        const x = Number(n);
+        if (!Number.isFinite(x)) return min;
+        return Math.min(max, Math.max(min, x));
+    };
+    const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
+
+    const first = ['Ali','Ahmed','Ayesha','Fatima','Zain','Hassan','Hamza','Sara','Umar','Bilal','Maryam','Noor','Hina','Asad','Usman','Musa','Kiran','Iqra','Saad','Daniyal','Rida','Sana','Haris','Farhan','Amna','Anaya','Zoya','Areeba','Aqsa','Huzaifa'];
+    const last = ['Khan','Malik','Sheikh','Butt','Raza','Iqbal','Hussain','Chaudhry','Siddiqui','Qureshi','Javed','Nawaz','Rashid','Mirza','Yousaf','Saleem','Haq','Shah','Ansari','Bhatti','Rehman','Akhtar','Abbasi','Kashif','Rafiq','Aziz','Junaid','Noman','Haider','Mehmood'];
+    const templates = [
+        'Anyone got today’s ads completed?',
+        'Just withdrew successfully, thanks!',
+        'What plan are you using right now?',
+        'Good morning everyone!',
+        'I upgraded my plan and earnings improved.',
+        'Support replied fast today.',
+        'Don’t forget to check rewards tab.',
+        'My ads page is loading slow for me, anyone else?',
+        'Referral bonus just received.',
+        'Keep going, consistency matters.',
+        'What’s your target for this week?',
+        'Congrats on your withdrawal!',
+        'Remember to submit proof correctly.',
+        'Which wallet do you use for PKR?',
+        'I just joined, nice to meet you all.',
+        'Any tips for new users?',
+        'Stay active and complete daily tasks.',
+        'Let’s help each other.',
+        'How many ads per day on VIP?',
+        'Best time to do ads?',
+        'I like the new updates.',
+        'Please be careful with scammers.',
+        'Always use official links.',
+        'Anyone from Karachi here?',
+        'Pakistan community is strong!',
+        'Let’s share progress.',
+        'Today’s earnings: decent.',
+        'Keep the chat clean.',
+        'I’m waiting for my plan activation.',
+        'Admin will approve soon, be patient.'
+    ];
+
+    const recent = [];
+    const recentSet = new Set();
+    const remember = (t) => {
+        const key = String(t || '');
+        if (!key) return;
+        recent.push(key);
+        recentSet.add(key);
+        while (recent.length > 140) {
+            const r = recent.shift();
+            recentSet.delete(r);
+        }
+    };
+    const pickFresh = () => {
+        for (let i = 0; i < 12; i++) {
+            const t = pick(templates);
+            if (!recentSet.has(t)) return t;
+        }
+        return pick(templates);
+    };
+
+    const loop = () => {
+        if (communityFakeTimer) clearTimeout(communityFakeTimer);
+        db.all("SELECT key, value FROM settings WHERE key IN ('community_enabled','community_fake_chat_enabled','community_fake_user_count','community_message_interval_ms')", (err, rows) => {
+            const s = { community_enabled: '1', community_fake_chat_enabled: '1', community_fake_user_count: '400', community_message_interval_ms: '1100' };
+            if (!err && rows) rows.forEach(r => { s[r.key] = r.value; });
+            const enabled = isTruthy(s.community_enabled) && isTruthy(s.community_fake_chat_enabled);
+            const base = clamp(s.community_message_interval_ms || 1100, 500, 5000);
+            const nextDelay = enabled ? Math.round(base * (0.65 + Math.random() * 0.85)) : 10000;
+
+            if (!enabled) {
+                communityFakeTimer = setTimeout(loop, nextDelay);
+                return;
+            }
+
+            const userCount = clamp(s.community_fake_user_count || 400, 300, 500);
+            const senderName = `${pick(first)} ${pick(last)} ${String(Math.floor(Math.random() * 90) + 10)}`;
+            const message = pickFresh();
+            remember(message);
+            const replyTo = Math.random() < 0.22 ? `${pick(first)} ${pick(last)}` : null;
+            const now = new Date().toISOString();
+            db.run(
+                "INSERT INTO community_messages (sender_type, sender_user_id, sender_name, message, reply_to, created_at) VALUES ('fake', NULL, ?, ?, ?, ?)",
+                [senderName, message, replyTo, now],
+                () => {
+                    communityFakeTimer = setTimeout(loop, nextDelay);
+                }
+            );
+        });
+    };
+
+    db.get("SELECT COUNT(*) as c FROM community_messages", (err, row) => {
+        const c = row && row.c ? Number(row.c) : 0;
+        if (!err && c === 0) {
+            const now = new Date().toISOString();
+            const stmt = db.prepare("INSERT INTO community_messages (sender_type, sender_user_id, sender_name, message, reply_to, created_at) VALUES ('fake', NULL, ?, ?, NULL, ?)");
+            for (let i = 0; i < 30; i++) {
+                const senderName = `${pick(first)} ${pick(last)} ${String(Math.floor(Math.random() * 90) + 10)}`;
+                const message = pickFresh();
+                remember(message);
+                stmt.run(senderName, message, now);
+            }
+            stmt.finalize(() => loop());
+            return;
+        }
+        loop();
+    });
+}
+
+startCommunityFakeFeed();
+
 // Admin API: Get User Details
 app.get('/api/admin/users/:id', (req, res) => {
     if (!req.session.user || req.session.user.role !== 'admin') {

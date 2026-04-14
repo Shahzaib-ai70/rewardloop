@@ -139,7 +139,7 @@
             document.querySelector('.sidebar').classList.toggle('active');
         });
 
-        const state = { replyTo: '' };
+        const state = { replyTo: '', pollTimer: null };
 
         function fmtTime(iso) {
             const d = iso ? new Date(iso) : new Date();
@@ -171,6 +171,15 @@
 
         async function loadMessages() {
             const res = await fetch('/api/admin/community/messages?limit=200');
+            if (res.status === 401 || res.status === 403) {
+                window.location.href = '/admin_login.html';
+                return;
+            }
+            const ct = (res.headers.get('content-type') || '').toLowerCase();
+            if (!ct.includes('application/json')) {
+                window.location.href = '/admin_login.html';
+                return;
+            }
             const data = await res.json().catch(() => ({}));
             if (!res.ok) {
                 showToast((data && data.error) ? data.error : 'Failed to load', 'error');
@@ -226,6 +235,10 @@
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(payload)
             });
+            if (res.status === 401 || res.status === 403) {
+                window.location.href = '/admin_login.html';
+                return;
+            }
             const data = await res.json().catch(() => ({}));
             if (!res.ok || !data.success) {
                 showToast((data && data.error) ? data.error : 'Post failed', 'error');
@@ -245,10 +258,15 @@
             document.getElementById('fakeNameBox').style.display = type === 'fake' ? 'block' : 'none';
         });
 
+        function startPoll() {
+            if (state.pollTimer) clearInterval(state.pollTimer);
+            state.pollTimer = setInterval(loadMessages, 3000);
+        }
+
         loadMessages();
+        startPoll();
     </script>
     <script src="js/theme.js"></script>
     <script src="js/translation.js"></script>
 </body>
 </html>
-

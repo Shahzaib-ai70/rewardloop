@@ -172,7 +172,8 @@
             loopTimer: null,
             replyToName: '',
             serverLastId: 0,
-            pollTimer: null
+            pollTimer: null,
+            onlineTimer: null
         };
 
         function isTruthy(v) {
@@ -343,69 +344,18 @@
         function startFakeChat() {
             const cfg = state.config || {};
             const enabled = isTruthy(cfg.community_fake_chat_enabled);
-            if (!enabled) {
-                setStatusBadge('Joined');
-                setDisabledBox('Chat is disabled by admin.');
-                return;
-            }
-
             const userCount = clamp(cfg.community_fake_user_count || 400, 300, 500);
             state.users = genUsers(userCount);
             setLayoutVisible(true);
-            setOnlineCount(calcOnlineCount(userCount));
 
-            const templates = [
-                'Anyone got today’s ads completed?',
-                'Just withdrew successfully, thanks!',
-                'What plan are you using right now?',
-                'Good morning everyone!',
-                'I upgraded my plan and earnings improved.',
-                'Support replied fast today.',
-                'Don’t forget to check rewards tab.',
-                'My ads page is loading slow for me, anyone else?',
-                'Referral bonus just received.',
-                'Keep going, consistency matters.',
-                'What’s your target for this week?',
-                'Congrats on your withdrawal!',
-                'Remember to submit proof correctly.',
-                'Which wallet do you use for PKR?',
-                'I just joined, nice to meet you all.',
-                'Any tips for new users?',
-                'Stay active and complete daily tasks.',
-                'Let’s help each other.',
-                'How many ads per day on VIP?',
-                'Best time to do ads?',
-                'I like the new updates.',
-                'Please be careful with scammers.',
-                'Always use official links.',
-                'Anyone from Karachi here?',
-                'Pakistan community is strong!',
-                'Let’s share progress.',
-                'Today’s earnings: decent.',
-                'Keep the chat clean.',
-                'I’m waiting for my plan activation.',
-                'Admin will approve soon, be patient.'
-            ];
-
-            const prefill = 18;
-            for (let i = 0; i < prefill; i++) {
-                addMessage({ user: pick(state.users), text: pick(templates) });
-            }
-
-            const base = clamp(cfg.community_message_interval_ms || 1100, 300, 5000);
-            const loop = () => {
-                const bursts = Math.random() < 0.22 ? 2 : 1;
-                for (let i = 0; i < bursts; i++) {
-                    const u = pick(state.users);
-                    const msg = pick(templates);
-                    const withReply = Math.random() < 0.22;
-                    const replyTo = withReply ? pick(state.users).name : '';
-                    addMessage({ user: u, text: msg, replyTo });
-                }
-                const next = Math.round(base * (0.55 + Math.random() * 0.9));
-                state.loopTimer = setTimeout(loop, next);
+            const tick = () => {
+                const n = enabled ? calcOnlineCount(userCount) : 0;
+                if (enabled) setOnlineCount(n);
+                const next = 8000 + Math.floor(Math.random() * 9000);
+                state.onlineTimer = setTimeout(tick, next);
             };
-            state.loopTimer = setTimeout(loop, 500);
+            if (state.onlineTimer) clearTimeout(state.onlineTimer);
+            tick();
         }
 
         function adjustChatShell() {
