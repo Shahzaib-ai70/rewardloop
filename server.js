@@ -1665,6 +1665,10 @@ app.post('/api/nicepay/subscription/create', async (req, res) => {
     });
 });
 
+app.get('/api/nicepay/notify', (req, res) => {
+    res.status(405).send('Method Not Allowed');
+});
+
 app.post('/api/nicepay/notify', (req, res) => {
     const payload = { ...(req.body || {}) };
     const key = (process.env.NICEPAY_KEY || '').trim();
@@ -1906,9 +1910,13 @@ app.get('/api/admin/stats', (req, res) => {
 });
 
 // User API: Subscribe to Plan (Request)
-app.post('/api/user/subscribe', upload.single('proof'), (req, res) => {
-    if (!req.session.user) return res.status(401).json({ error: 'Unauthorized' });
-    return res.status(410).json({ error: 'Manual subscription is disabled. Please use NicePay payment.' });
+app.post('/api/user/subscribe', (req, res, next) => {
+    const disabled = String(process.env.MANUAL_SUBSCRIPTION_DISABLED || '').trim().toLowerCase();
+    if (disabled === '1' || disabled === 'true' || disabled === 'yes') {
+        if (!req.session.user) return res.status(401).json({ error: 'Unauthorized' });
+        return res.status(410).json({ error: 'Manual subscription is disabled. Please use NicePay payment.' });
+    }
+    return next();
 });
 
 // User API: Get Ads
