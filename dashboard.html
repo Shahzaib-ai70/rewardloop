@@ -1,4 +1,4 @@
-﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿<!DOCTYPE html>
+﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -315,6 +315,22 @@
         </div>
     </div>
 
+    <div class="cs-modal-overlay" id="joinGroupOverlay" aria-hidden="true">
+        <div class="cs-modal" role="dialog" aria-modal="true" aria-labelledby="jgTitle">
+            <div class="cs-modal-header">
+                <div class="cs-modal-title" id="jgTitle"><i class="fas fa-users"></i> Join Community Group</div>
+                <button class="cs-close" type="button" onclick="closeJoinGroup()"><i class="fas fa-times"></i></button>
+            </div>
+            <div class="cs-modal-body">
+                <div class="cs-desc">Join our community group to stay updated.</div>
+                <div class="cs-actions">
+                    <a class="cs-btn cs-btn-tg" id="joinGroupBtn" href="#" target="_blank" rel="noopener noreferrer"><i class="fas fa-link"></i> Join Group</a>
+                    <button class="cs-btn cs-btn-chat" type="button" onclick="dismissJoinGroup()"><i class="fas fa-clock"></i> Later</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <script>
         // Toggle Sidebar for mobile
         document.querySelector('.menu-toggle').addEventListener('click', function() {
@@ -365,6 +381,53 @@
             overlay.setAttribute('aria-hidden', 'true');
         }
 
+        function openJoinGroup(url) {
+            const overlay = document.getElementById('joinGroupOverlay');
+            const btn = document.getElementById('joinGroupBtn');
+            if (!overlay || !btn) return;
+            if (!url) return;
+            btn.href = url;
+            overlay.style.display = 'flex';
+            overlay.setAttribute('aria-hidden', 'false');
+        }
+
+        function closeJoinGroup() {
+            const overlay = document.getElementById('joinGroupOverlay');
+            if (!overlay) return;
+            overlay.style.display = 'none';
+            overlay.setAttribute('aria-hidden', 'true');
+        }
+
+        function dismissJoinGroup() {
+            try { localStorage.setItem('rl_join_group_dismissed', '1'); } catch (e) {}
+            closeJoinGroup();
+        }
+
+        async function maybeShowJoinGroup() {
+            try {
+                const dismissed = (() => { try { return localStorage.getItem('rl_join_group_dismissed') === '1'; } catch (e) { return false; } })();
+                if (dismissed) return;
+                const [cfgRes, stRes] = await Promise.all([fetch('/api/settings/community'), fetch('/api/community/status')]);
+                if (!cfgRes.ok || !stRes.ok) return;
+                const cfg = await cfgRes.json().catch(() => ({}));
+                const st = await stRes.json().catch(() => ({}));
+                const enabled = String(cfg && cfg.community_enabled ? cfg.community_enabled : '0').toLowerCase();
+                const okEnabled = enabled === '1' || enabled === 'true' || enabled === 'yes' || enabled === 'on';
+                const url = cfg && cfg.community_group_url ? String(cfg.community_group_url).trim() : '';
+                if (!okEnabled || !url) return;
+                if (st && st.joined) return;
+                openJoinGroup(url);
+                const joinBtn = document.getElementById('joinGroupBtn');
+                if (joinBtn) {
+                    joinBtn.addEventListener('click', () => {
+                        fetch('/api/community/join', { method: 'POST' }).catch(() => {});
+                        try { localStorage.setItem('rl_join_group_dismissed', '1'); } catch (e) {}
+                        closeJoinGroup();
+                    }, { once: true });
+                }
+            } catch (e) {}
+        }
+
         window.addEventListener('keydown', function(e) {
             if (e.key === 'Escape') closeCustomerService();
         });
@@ -378,6 +441,7 @@
                     window.location.href = 'login.html';
                 } else {
                     openCustomerService();
+                    maybeShowJoinGroup();
                     const balance = data.balance !== undefined ? data.balance : 0;
                     document.getElementById('balance-value').textContent = `PKR ${balance}`;
 

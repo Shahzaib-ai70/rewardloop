@@ -17,6 +17,15 @@ const storage = multer.diskStorage({
     }
 });
 const upload = multer({ storage: storage });
+const communityUpload = multer({
+    storage: storage,
+    limits: { fileSize: 10 * 1024 * 1024 },
+    fileFilter: function (req, file, cb) {
+        const t = (file && file.mimetype ? String(file.mimetype) : '').toLowerCase();
+        if (t.startsWith('image/') || t.startsWith('video/')) return cb(null, true);
+        return cb(new Error('Invalid file type'));
+    }
+});
 
 const app = express();
 const port = process.env.PORT || 3009;
@@ -367,6 +376,21 @@ db.serialize(() => {
     db.run("CREATE TABLE IF NOT EXISTS transfers (id INTEGER PRIMARY KEY AUTOINCREMENT, sender_id INTEGER, receiver_id INTEGER, amount REAL, created_at TEXT)");
     db.run("CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT)");
     db.run("CREATE TABLE IF NOT EXISTS community_messages (id INTEGER PRIMARY KEY AUTOINCREMENT, sender_type TEXT, sender_user_id INTEGER, sender_name TEXT, message TEXT, reply_to TEXT, created_at TEXT)");
+    db.all("PRAGMA table_info(community_messages)", (err, rows) => {
+        if (err) return;
+        const hasMediaUrl = rows.some(r => r.name === 'media_url');
+        if (!hasMediaUrl) {
+            db.run("ALTER TABLE community_messages ADD COLUMN media_url TEXT", () => {});
+        }
+        const hasMediaKind = rows.some(r => r.name === 'media_kind');
+        if (!hasMediaKind) {
+            db.run("ALTER TABLE community_messages ADD COLUMN media_kind TEXT", () => {});
+        }
+        const hasMediaName = rows.some(r => r.name === 'media_name');
+        if (!hasMediaName) {
+            db.run("ALTER TABLE community_messages ADD COLUMN media_name TEXT", () => {});
+        }
+    });
     
     // Check if chat_messages table exists, if not create it (Fix for live chat)
     db.get("SELECT name FROM sqlite_master WHERE type='table' AND name='chat_messages'", (err, row) => {
@@ -1547,8 +1571,8 @@ app.get('/api/community/messages', (req, res) => {
     const safeAfter = Number.isFinite(afterId) ? Math.max(0, Math.floor(afterId)) : 0;
     const params = safeAfter > 0 ? [safeAfter, safeLimit] : [safeLimit];
     const sql = safeAfter > 0
-        ? "SELECT id, sender_type, sender_name, message, reply_to, created_at FROM community_messages WHERE id > ? ORDER BY id ASC LIMIT ?"
-        : "SELECT id, sender_type, sender_name, message, reply_to, created_at FROM community_messages ORDER BY id DESC LIMIT ?";
+        ? "SELECT id, sender_type, sender_name, message, reply_to, media_url, media_kind, media_name, created_at FROM community_messages WHERE id > ? ORDER BY id ASC LIMIT ?"
+        : "SELECT id, sender_type, sender_name, message, reply_to, media_url, media_kind, media_name, created_at FROM community_messages ORDER BY id DESC LIMIT ?";
     db.all(sql, params, (err, rows) => {
         if (err) return res.status(500).json({ error: 'DB Error' });
         const out = safeAfter > 0 ? (rows || []) : (rows || []).slice().reverse();
@@ -1566,11 +1590,36 @@ app.post('/api/community/messages', bodyParser.json(), (req, res) => {
     db.get("SELECT username FROM users WHERE id = ? LIMIT 1", [req.session.user.id], (e1, u) => {
         const senderName = u && u.username ? String(u.username) : 'User';
         db.run(
-            "INSERT INTO community_messages (sender_type, sender_user_id, sender_name, message, reply_to, created_at) VALUES (?, ?, ?, ?, ?, ?)",
+            "INSERT INTO community_messages (sender_type, sender_user_id, sender_name, message, reply_to, media_url, media_kind, media_name, created_at) VALUES (?, ?, ?, ?, ?, NULL, NULL, NULL, ?)",
             ['user', req.session.user.id, senderName, message, replyTo || null, now],
             function (e2) {
                 if (e2) return res.status(500).json({ error: 'DB Error' });
-                res.json({ success: true, message: { id: this.lastID, sender_type: 'user', sender_name: senderName, message, reply_to: replyTo || null, created_at: now } });
+                res.json({ success: true, message: { id: this.lastID, sender_type: 'user', sender_name: senderName, message, reply_to: replyTo || null, media_url: null, media_kind: null, media_name: null, created_at: now } });
+            }
+        );
+    });
+});
+
+app.post('/api/community/messages/media', communityUpload.single('media'), (req, res) => {
+    if (!req.session.user) return res.status(401).json({ error: 'Unauthorized' });
+    const message = req.body && req.body.message !== undefined && req.body.message !== null ? String(req.body.message).trim() : '';
+    const replyTo = req.body && req.body.reply_to !== undefined && req.body.reply_to !== null ? String(req.body.reply_to).trim() : '';
+    const file = req.file;
+    if (!file) return res.status(400).json({ error: 'Media is required' });
+    if (message.length > 600) return res.status(400).json({ error: 'Message too long' });
+    const t = (file.mimetype ? String(file.mimetype) : '').toLowerCase();
+    const kind = t.startsWith('video/') ? 'video' : 'image';
+    const mediaUrl = '/uploads/' + file.filename;
+    const mediaName = file.originalname ? String(file.originalname) : '';
+    const now = new Date().toISOString();
+    db.get("SELECT username FROM users WHERE id = ? LIMIT 1", [req.session.user.id], (e1, u) => {
+        const senderName = u && u.username ? String(u.username) : 'User';
+        db.run(
+            "INSERT INTO community_messages (sender_type, sender_user_id, sender_name, message, reply_to, media_url, media_kind, media_name, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            ['user', req.session.user.id, senderName, message, replyTo || null, mediaUrl, kind, mediaName || null, now],
+            function (e2) {
+                if (e2) return res.status(500).json({ error: 'DB Error' });
+                res.json({ success: true, message: { id: this.lastID, sender_type: 'user', sender_name: senderName, message, reply_to: replyTo || null, media_url: mediaUrl, media_kind: kind, media_name: mediaName || null, created_at: now } });
             }
         );
     });
@@ -1580,7 +1629,7 @@ app.get('/api/admin/community/messages', (req, res) => {
     if (!req.session.user || req.session.user.role !== 'admin') return res.status(403).json({ error: 'Unauthorized' });
     const limit = req.query && req.query.limit !== undefined && req.query.limit !== null ? Number(req.query.limit) : 200;
     const safeLimit = Number.isFinite(limit) ? Math.max(1, Math.min(500, Math.floor(limit))) : 200;
-    db.all("SELECT id, sender_type, sender_name, message, reply_to, created_at FROM community_messages ORDER BY id DESC LIMIT ?", [safeLimit], (err, rows) => {
+    db.all("SELECT id, sender_type, sender_name, message, reply_to, media_url, media_kind, media_name, created_at FROM community_messages ORDER BY id DESC LIMIT ?", [safeLimit], (err, rows) => {
         if (err) return res.status(500).json({ error: 'DB Error' });
         res.json({ messages: (rows || []).slice().reverse() });
     });
@@ -1600,11 +1649,39 @@ app.post('/api/admin/community/post', bodyParser.json(), (req, res) => {
     if (senderName.length > 40) senderName = senderName.slice(0, 40);
     const now = new Date().toISOString();
     db.run(
-        "INSERT INTO community_messages (sender_type, sender_user_id, sender_name, message, reply_to, created_at) VALUES (?, NULL, ?, ?, ?, ?)",
+        "INSERT INTO community_messages (sender_type, sender_user_id, sender_name, message, reply_to, media_url, media_kind, media_name, created_at) VALUES (?, NULL, ?, ?, ?, NULL, NULL, NULL, ?)",
         [senderType, senderName, message, replyTo || null, now],
         function (e2) {
             if (e2) return res.status(500).json({ error: 'DB Error' });
-            res.json({ success: true, message: { id: this.lastID, sender_type: senderType, sender_name: senderName, message, reply_to: replyTo || null, created_at: now } });
+            res.json({ success: true, message: { id: this.lastID, sender_type: senderType, sender_name: senderName, message, reply_to: replyTo || null, media_url: null, media_kind: null, media_name: null, created_at: now } });
+        }
+    );
+});
+
+app.post('/api/admin/community/post-media', communityUpload.single('media'), (req, res) => {
+    if (!req.session.user || req.session.user.role !== 'admin') return res.status(403).json({ error: 'Unauthorized' });
+    const message = req.body && req.body.message !== undefined && req.body.message !== null ? String(req.body.message).trim() : '';
+    const senderTypeRaw = req.body && req.body.sender_type !== undefined && req.body.sender_type !== null ? String(req.body.sender_type).trim().toLowerCase() : 'admin';
+    const senderType = senderTypeRaw === 'fake' ? 'fake' : 'admin';
+    const senderNameRaw = req.body && req.body.sender_name !== undefined && req.body.sender_name !== null ? String(req.body.sender_name).trim() : '';
+    const replyTo = req.body && req.body.reply_to !== undefined && req.body.reply_to !== null ? String(req.body.reply_to).trim() : '';
+    const file = req.file;
+    if (!file) return res.status(400).json({ error: 'Media is required' });
+    if (message.length > 600) return res.status(400).json({ error: 'Message too long' });
+    let senderName = senderType === 'admin' ? 'Admin' : senderNameRaw;
+    if (senderType === 'fake' && !senderName) return res.status(400).json({ error: 'Fake sender name is required' });
+    if (senderName.length > 40) senderName = senderName.slice(0, 40);
+    const t = (file.mimetype ? String(file.mimetype) : '').toLowerCase();
+    const kind = t.startsWith('video/') ? 'video' : 'image';
+    const mediaUrl = '/uploads/' + file.filename;
+    const mediaName = file.originalname ? String(file.originalname) : '';
+    const now = new Date().toISOString();
+    db.run(
+        "INSERT INTO community_messages (sender_type, sender_user_id, sender_name, message, reply_to, media_url, media_kind, media_name, created_at) VALUES (?, NULL, ?, ?, ?, ?, ?, ?, ?)",
+        [senderType, senderName, message, replyTo || null, mediaUrl, kind, mediaName || null, now],
+        function (e2) {
+            if (e2) return res.status(500).json({ error: 'DB Error' });
+            res.json({ success: true, message: { id: this.lastID, sender_type: senderType, sender_name: senderName, message, reply_to: replyTo || null, media_url: mediaUrl, media_kind: kind, media_name: mediaName || null, created_at: now } });
         }
     );
 });

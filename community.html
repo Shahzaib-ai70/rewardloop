@@ -33,12 +33,19 @@
         .msg-reply { border: 0; background: transparent; color: #6c5ce7; font-weight: 900; font-size: 0.75rem; cursor: pointer; padding: 0; }
         .msg-text { margin-top: 6px; color: #475569; font-size: 0.92rem; line-height: 1.35; }
         .msg-quote { margin-top: 8px; background: #f5f7fb; border: 1px solid #eef2f7; border-radius: 12px; padding: 10px; color: #64748b; font-weight: 700; font-size: 0.82rem; }
-        .composer { border-top: 1px solid #eef2f7; background: #fff; padding: 10px; padding-bottom: calc(10px + env(safe-area-inset-bottom)); display: grid; grid-template-columns: 1fr auto auto; gap: 10px; align-items: center; }
+        .msg-media { margin-top: 10px; border-radius: 12px; overflow: hidden; border: 1px solid #eef2f7; background: #000; }
+        .msg-media img { width: 100%; max-height: 260px; object-fit: contain; display: block; background: #fff; }
+        .msg-media video { width: 100%; max-height: 300px; display: block; background: #000; }
+        .composer { border-top: 1px solid #eef2f7; background: #fff; padding: 10px; padding-bottom: calc(10px + env(safe-area-inset-bottom)); display: grid; grid-template-columns: 1fr auto auto auto; gap: 10px; align-items: center; }
         .reply-bar { grid-column: 1 / -1; display: none; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 12px; border-radius: 12px; background: #f5f7fb; border: 1px solid #eef2f7; }
         .reply-text { font-size: 0.82rem; font-weight: 900; color: #475569; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
         .reply-cancel { border: 0; background: transparent; color: #64748b; font-weight: 900; cursor: pointer; padding: 0 6px; font-size: 1.1rem; line-height: 1; }
+        .media-bar { grid-column: 1 / -1; display: none; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 12px; border-radius: 12px; background: #f5f7fb; border: 1px solid #eef2f7; }
+        .media-text { font-size: 0.82rem; font-weight: 900; color: #475569; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .media-cancel { border: 0; background: transparent; color: #64748b; font-weight: 900; cursor: pointer; padding: 0 6px; font-size: 1.1rem; line-height: 1; }
         .composer input { width: 100%; border: 1px solid #e5e7eb; border-radius: 12px; padding: 12px 12px; outline: none; font-family: inherit; min-width: 0; }
         .composer input:focus { border-color: #c7d2fe; box-shadow: 0 0 0 4px rgba(99,102,241,0.12); }
+        .btn-attach { background: #f5f7fb; color: #2d3436; border: 1px solid #eef2f7; border-radius: 12px; padding: 10px 12px; font-weight: 900; cursor: pointer; display: inline-flex; align-items: center; gap: 8px; }
         .btn-send { background: #f97316; color: #fff; border: 1px solid transparent; border-radius: 12px; padding: 10px 14px; font-weight: 900; cursor: pointer; display: inline-flex; align-items: center; gap: 8px; }
         .btn-back { background: #f5f7fb; color: #2d3436; border: 1px solid #eef2f7; border-radius: 12px; padding: 10px 14px; font-weight: 900; cursor: pointer; display: inline-flex; align-items: center; gap: 8px; }
         .cs-modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.55); display: none; align-items: center; justify-content: center; z-index: 9999; padding: 16px; }
@@ -131,7 +138,13 @@
                                         <div class="reply-text" id="replyText"></div>
                                         <button class="reply-cancel" id="replyCancel" type="button" aria-label="Cancel reply">&times;</button>
                                     </div>
+                                    <div class="media-bar" id="mediaBar">
+                                        <div class="media-text" id="mediaText"></div>
+                                        <button class="media-cancel" id="mediaCancel" type="button" aria-label="Remove media">&times;</button>
+                                    </div>
                                     <input id="composerInput" type="text" placeholder="Type your message..." autocomplete="off">
+                                    <input id="mediaInput" type="file" accept="image/*,video/*" style="display:none;">
+                                    <button class="btn-attach" id="attachBtn" type="button"><i class="fas fa-paperclip"></i></button>
                                     <button class="btn-send" id="sendBtn" type="button"><i class="fas fa-paper-plane"></i> To send</button>
                                     <button class="btn-back" id="backBtn" type="button"><i class="fas fa-arrow-left"></i> To go back</button>
                                 </div>
@@ -174,7 +187,8 @@
             selfName: '',
             serverLastId: 0,
             pollTimer: null,
-            onlineTimer: null
+            onlineTimer: null,
+            mediaFile: null
         };
 
         function isTruthy(v) {
@@ -245,6 +259,32 @@
 
         document.getElementById('replyCancel').addEventListener('click', clearReply);
 
+        function setMediaFile(file) {
+            state.mediaFile = file || null;
+            const bar = document.getElementById('mediaBar');
+            const text = document.getElementById('mediaText');
+            const input = document.getElementById('mediaInput');
+            if (!state.mediaFile) {
+                bar.style.display = 'none';
+                text.textContent = '';
+                if (input) input.value = '';
+                return;
+            }
+            const name = state.mediaFile && state.mediaFile.name ? String(state.mediaFile.name) : 'media';
+            text.textContent = `Media: ${name}`;
+            bar.style.display = 'flex';
+        }
+
+        document.getElementById('mediaCancel').addEventListener('click', () => setMediaFile(null));
+        document.getElementById('attachBtn').addEventListener('click', () => {
+            const input = document.getElementById('mediaInput');
+            if (input) input.click();
+        });
+        document.getElementById('mediaInput').addEventListener('change', (e) => {
+            const file = e && e.target && e.target.files && e.target.files[0] ? e.target.files[0] : null;
+            setMediaFile(file);
+        });
+
         function genUsers(count) {
             const first = ['Ali','Ahmed','Ayesha','Fatima','Zain','Hassan','Hamza','Sara','Umar','Bilal','Maryam','Noor','Hina','Asad','Usman','Musa','Kiran','Iqra','Saad','Daniyal','Rida','Sana','Haris','Farhan','Amna','Anaya','Zoya','Areeba','Aqsa','Huzaifa'];
             const last = ['Khan','Malik','Sheikh','Butt','Raza','Iqbal','Hussain','Chaudhry','Siddiqui','Qureshi','Javed','Nawaz','Rashid','Mirza','Yousaf','Saleem','Haq','Shah','Ansari','Bhatti','Rehman','Akhtar','Abbasi','Kashif','Rafiq','Aziz','Junaid','Noman','Haider','Mehmood'];
@@ -277,7 +317,7 @@
             return gap < 90;
         }
 
-        function addMessage({ user, text, replyTo, isYou, createdAt }) {
+        function addMessage({ user, text, replyTo, isYou, createdAt, mediaUrl, mediaKind, mediaName }) {
             const list = document.getElementById('chatList');
             const stick = isNearBottom();
             const row = document.createElement('li');
@@ -333,6 +373,23 @@
                 card.appendChild(quote);
             }
             card.appendChild(body);
+            if (mediaUrl) {
+                const box = document.createElement('div');
+                box.className = 'msg-media';
+                if (String(mediaKind || '').toLowerCase() === 'video') {
+                    const v = document.createElement('video');
+                    v.controls = true;
+                    v.src = mediaUrl;
+                    v.setAttribute('playsinline', 'true');
+                    box.appendChild(v);
+                } else {
+                    const img = document.createElement('img');
+                    img.src = mediaUrl;
+                    img.alt = mediaName ? String(mediaName) : 'media';
+                    box.appendChild(img);
+                }
+                card.appendChild(box);
+            }
 
             row.appendChild(avatar);
             row.appendChild(card);
@@ -389,7 +446,7 @@
                 const msgs = data && data.messages ? data.messages : [];
                 msgs.forEach(m => {
                     state.serverLastId = Math.max(state.serverLastId, Number(m.id) || 0);
-                    addMessage({ user: { name: m.sender_name }, text: m.message, replyTo: m.reply_to, createdAt: m.created_at });
+                    addMessage({ user: { name: m.sender_name }, text: m.message, replyTo: m.reply_to, createdAt: m.created_at, mediaUrl: m.media_url, mediaKind: m.media_kind, mediaName: m.media_name });
                 });
             } catch (e) {}
         }
@@ -404,7 +461,7 @@
                     const msgs = data && data.messages ? data.messages : [];
                     msgs.forEach(m => {
                         state.serverLastId = Math.max(state.serverLastId, Number(m.id) || 0);
-                        addMessage({ user: { name: m.sender_name }, text: m.message, replyTo: m.reply_to, createdAt: m.created_at });
+                        addMessage({ user: { name: m.sender_name }, text: m.message, replyTo: m.reply_to, createdAt: m.created_at, mediaUrl: m.media_url, mediaKind: m.media_kind, mediaName: m.media_name });
                     });
                 }
             } catch (e) {}
@@ -477,16 +534,26 @@
         async function sendMessage() {
             const input = document.getElementById('composerInput');
             const text = String(input.value || '').trim();
-            if (!text) return;
+            const file = state.mediaFile;
+            if (!text && !file) return;
             input.value = '';
             const replyTo = state.replyToName;
             clearReply();
             try {
-                const res = await fetch('/api/community/messages', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ message: text, reply_to: replyTo })
-                });
+                let res;
+                if (file) {
+                    const form = new FormData();
+                    form.append('media', file);
+                    form.append('message', text);
+                    form.append('reply_to', replyTo || '');
+                    res = await fetch('/api/community/messages/media', { method: 'POST', body: form });
+                } else {
+                    res = await fetch('/api/community/messages', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ message: text, reply_to: replyTo })
+                    });
+                }
                 const data = await res.json().catch(() => ({}));
                 if (!res.ok || !data || !data.success) {
                     showToast((data && data.error) ? data.error : 'Message failed', 'error');
@@ -494,7 +561,17 @@
                 }
                 const m = data.message;
                 if (m && m.id) state.serverLastId = Math.max(state.serverLastId, Number(m.id) || 0);
-                addMessage({ user: { name: 'You' }, text, replyTo, isYou: true, createdAt: (m && m.created_at) ? m.created_at : null });
+                addMessage({
+                    user: { name: 'You' },
+                    text,
+                    replyTo,
+                    isYou: true,
+                    createdAt: (m && m.created_at) ? m.created_at : null,
+                    mediaUrl: m ? m.media_url : null,
+                    mediaKind: m ? m.media_kind : null,
+                    mediaName: m ? m.media_name : null
+                });
+                if (file) setMediaFile(null);
             } catch (e) {
                 showToast('Message failed', 'error');
                 return;

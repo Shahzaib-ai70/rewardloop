@@ -26,6 +26,8 @@
         .field textarea { min-height: 110px; resize: vertical; }
         .reply-pill { margin-top: 10px; display: none; align-items: center; justify-content: space-between; gap: 10px; background: #f5f7fb; border: 1px solid #eef2f7; border-radius: 12px; padding: 10px 12px; font-weight: 800; color: #475569; }
         .reply-pill button { border: 0; background: transparent; cursor: pointer; font-weight: 900; color: #64748b; }
+        .media-pill { margin-top: 10px; display: none; align-items: center; justify-content: space-between; gap: 10px; background: #f5f7fb; border: 1px solid #eef2f7; border-radius: 12px; padding: 10px 12px; font-weight: 800; color: #475569; }
+        .media-pill button { border: 0; background: transparent; cursor: pointer; font-weight: 900; color: #64748b; }
 
         .msg-table { width: 100%; border-collapse: collapse; }
         .msg-table th, .msg-table td { padding: 12px; border-bottom: 1px solid #eef2f7; text-align: left; font-size: 0.92rem; vertical-align: top; }
@@ -90,6 +92,13 @@
                             <textarea id="postMessage" placeholder="Type message..."></textarea>
                         </div>
 
+                        <div class="media-pill" id="adminMediaPill">
+                            <div id="adminMediaText"></div>
+                            <button type="button" id="adminMediaCancel">&times;</button>
+                        </div>
+
+                        <input id="adminMediaInput" type="file" accept="image/*,video/*" style="display:none;">
+
                         <div class="field">
                             <label>Send As</label>
                             <select id="senderType">
@@ -103,7 +112,8 @@
                             <input id="fakeName" type="text" placeholder="e.g., Wesley Moreira J.">
                         </div>
 
-                        <div style="margin-top: 12px;">
+                        <div style="margin-top: 12px; display:flex; gap:10px; flex-wrap:wrap;">
+                            <button class="mini-btn mini-btn-ghost" id="adminAttachBtn" type="button"><i class="fas fa-paperclip"></i> Attach</button>
                             <button class="mini-btn mini-btn-primary" id="postBtn" type="button"><i class="fas fa-paper-plane"></i> Post</button>
                         </div>
                     </div>
@@ -139,7 +149,7 @@
             document.querySelector('.sidebar').classList.toggle('active');
         });
 
-        const state = { replyTo: '', pollTimer: null };
+        const state = { replyTo: '', pollTimer: null, mediaFile: null };
 
         function fmtTime(iso) {
             const d = iso ? new Date(iso) : new Date();
@@ -169,6 +179,32 @@
 
         document.getElementById('replyPillCancel').addEventListener('click', () => setReplyTo(''));
 
+        function setMedia(file) {
+            state.mediaFile = file || null;
+            const pill = document.getElementById('adminMediaPill');
+            const text = document.getElementById('adminMediaText');
+            const input = document.getElementById('adminMediaInput');
+            if (!state.mediaFile) {
+                pill.style.display = 'none';
+                text.textContent = '';
+                if (input) input.value = '';
+                return;
+            }
+            const name = state.mediaFile && state.mediaFile.name ? String(state.mediaFile.name) : 'media';
+            text.textContent = `Media: ${name}`;
+            pill.style.display = 'flex';
+        }
+
+        document.getElementById('adminMediaCancel').addEventListener('click', () => setMedia(null));
+        document.getElementById('adminAttachBtn').addEventListener('click', () => {
+            const input = document.getElementById('adminMediaInput');
+            if (input) input.click();
+        });
+        document.getElementById('adminMediaInput').addEventListener('change', (e) => {
+            const file = e && e.target && e.target.files && e.target.files[0] ? e.target.files[0] : null;
+            setMedia(file);
+        });
+
         async function loadMessages() {
             const res = await fetch('/api/admin/community/messages?limit=200');
             if (res.status === 401 || res.status === 403) {
@@ -197,7 +233,12 @@
                 sender.innerHTML = `<div style="font-weight:900; color:#2d3436;">${m.sender_name || ''}</div><div class="${tagClass(m.sender_type)}" style="margin-top:6px;">${String(m.sender_type || '').toUpperCase()}</div>${tagged}`;
                 const msg = document.createElement('td');
                 const reply = m.reply_to ? `<div style="margin-bottom:8px; background:#f5f7fb; border:1px solid #eef2f7; border-radius:12px; padding:10px; color:#64748b; font-weight:800; font-size:0.82rem;">Responding to ${m.reply_to}</div>` : '';
-                msg.innerHTML = `${reply}<div style="color:#475569; font-weight:700;">${m.message || ''}</div>`;
+                const media = m.media_url
+                    ? (String(m.media_kind || '').toLowerCase() === 'video'
+                        ? `<div style="margin-top:10px;"><video src="${m.media_url}" controls style="width:220px; max-width:100%; border-radius:12px; border:1px solid #eef2f7; background:#000;"></video></div>`
+                        : `<div style="margin-top:10px;"><a href="${m.media_url}" target="_blank" rel="noopener"><img src="${m.media_url}" alt="" style="width:220px; max-width:100%; max-height:140px; object-fit:cover; border-radius:12px; border:1px solid #eef2f7; background:#fff;"></a></div>`)
+                    : '';
+                msg.innerHTML = `${reply}<div style="color:#475569; font-weight:700;">${m.message || ''}</div>${media}`;
                 const time = document.createElement('td');
                 time.style.color = '#94a3b8';
                 time.style.fontWeight = '800';
@@ -241,15 +282,27 @@
 
         async function postMessage() {
             const message = String(document.getElementById('postMessage').value || '').trim();
-            if (!message) return showToast('Message is required', 'warning');
+            const file = state.mediaFile;
+            if (!message && !file) return showToast('Message or media is required', 'warning');
             const senderType = document.getElementById('senderType').value;
             const senderName = String(document.getElementById('fakeName').value || '').trim();
-            const payload = { message, sender_type: senderType, sender_name: senderName, reply_to: state.replyTo };
-            const res = await fetch('/api/admin/community/post', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
-            });
+            let res;
+            if (file) {
+                const form = new FormData();
+                form.append('message', message);
+                form.append('sender_type', senderType);
+                form.append('sender_name', senderName);
+                form.append('reply_to', state.replyTo);
+                form.append('media', file);
+                res = await fetch('/api/admin/community/post-media', { method: 'POST', body: form });
+            } else {
+                const payload = { message, sender_type: senderType, sender_name: senderName, reply_to: state.replyTo };
+                res = await fetch('/api/admin/community/post', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+            }
             if (res.status === 401 || res.status === 403) {
                 window.location.href = '/admin_login.html';
                 return;
@@ -261,6 +314,7 @@
             }
             document.getElementById('postMessage').value = '';
             setReplyTo('');
+            setMedia(null);
             showToast('Posted', 'success');
             loadMessages();
         }
