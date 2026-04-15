@@ -892,7 +892,7 @@ app.get('/api/admin/users/:id/double-profit-tasks', (req, res) => {
             };
 
             loadPlanStart((startIso) => {
-                const start = startIso || '1970-01-01T00:00:00.000Z';
+                const start = startIso || inferFromExpiry() || new Date().toISOString();
                 db.get(
                     "SELECT COUNT(*) as count FROM deposits WHERE user_id = ? AND gateway = 'Ad View' AND created_at >= ?",
                     [userId, start],
@@ -939,6 +939,138 @@ app.get('/api/admin/users/:id/double-profit-tasks', (req, res) => {
                                 );
                             }
                         );
+                    }
+                );
+            });
+        });
+    });
+});
+
+app.post('/api/user/double-profit/manual', upload.single('proof'), (req, res) => {
+    if (!req.session.user) return res.status(401).json({ error: 'Unauthorized' });
+    const userId = req.session.user.id;
+    const adId = req.body && req.body.ad_id !== undefined && req.body.ad_id !== null ? Number(req.body.ad_id) : null;
+    const offerIdRaw = req.body && req.body.offer_id !== undefined && req.body.offer_id !== null ? Number(req.body.offer_id) : null;
+    const methodId = req.body && req.body.method_id !== undefined && req.body.method_id !== null ? Number(req.body.method_id) : null;
+    const proofImage = req.file ? '/uploads/' + req.file.filename : null;
+    if (!Number.isFinite(adId) || adId <= 0) return res.status(400).json({ error: 'Invalid ad_id' });
+    if (!Number.isFinite(methodId) || methodId <= 0) return res.status(400).json({ error: 'Invalid payment method' });
+    if (!proofImage) return res.status(400).json({ error: 'Payment proof is required' });
+
+    db.get("SELECT id, plan_id, plan_expiry, plan_started_at, plan_ads_total, double_profit_disabled FROM users WHERE id = ?", [userId], (uErr, user) => {
+        if (uErr) return res.status(500).json({ error: 'DB Error' });
+        if (!user || !user.plan_id || new Date(user.plan_expiry) < new Date()) return res.status(400).json({ error: 'No active plan' });
+        if (Number(user.double_profit_disabled) === 1) return res.status(400).json({ error: 'Double profit disabled for this user' });
+
+        db.get("SELECT id, duration, daily_limit, double_profit_after_ads, double_profit_fee, double_profit_bonus_pct FROM plans WHERE id = ?", [user.plan_id], (pErr, plan) => {
+            if (pErr || !plan) return res.status(400).json({ error: 'Plan error' });
+
+            const totalAllowed = Number(user.plan_ads_total) > 0 ? Number(user.plan_ads_total) : (Number(plan.daily_limit) || 0);
+            if (totalAllowed <= 0) return res.status(400).json({ error: 'Plan error' });
+
+            const expiry = new Date(user.plan_expiry);
+            const isValidExpiry = !isNaN(expiry.getTime());
+            const durationDays = Number(plan.duration) || 0;
+
+            const parseIso = (v) => {
+                const d = v ? new Date(v) : null;
+                return d && !isNaN(d.getTime()) ? d.toISOString() : null;
+            };
+
+            const fromUser = parseIso(user.plan_started_at);
+
+            const inferFromExpiry = () => {
+                if (!isValidExpiry || durationDays <= 0) return null;
+                const start = new Date(expiry.getTime() - durationDays * 24 * 60 * 60 * 1000);
+                return start.toISOString();
+            };
+
+            const loadPlanStart = (cb) => {
+                if (fromUser) return cb(fromUser);
+                db.get(
+                    "SELECT created_at FROM deposits WHERE user_id = ? AND (gateway IN ('NicePay Subscription','Wallet Subscription') OR transaction_id LIKE 'SUB-%') AND status IN ('approved','completed') ORDER BY id DESC LIMIT 1",
+                    [userId],
+                    (sErr, sRow) => {
+                        if (!sErr && sRow && sRow.created_at) {
+                            const iso = parseIso(sRow.created_at);
+                            if (iso) return cb(iso);
+                        }
+                        cb(inferFromExpiry());
+                    }
+                );
+            };
+
+            loadPlanStart((startIso) => {
+                const start = startIso || inferFromExpiry() || new Date().toISOString();
+                db.get(
+                    "SELECT COUNT(*) as count FROM deposits WHERE user_id = ? AND gateway = 'Ad View' AND created_at >= ?",
+                    [userId, start],
+                    (cErr, cRow) => {
+                        if (cErr) return res.status(500).json({ error: 'DB Error' });
+                        const used = cRow && cRow.count ? Number(cRow.count) : 0;
+
+                        const pickOffer = (cb) => {
+                            if (Number.isFinite(offerIdRaw) && offerIdRaw > 0) {
+                                db.get(
+                                    "SELECT id, after_ads, fee, bonus_pct FROM double_profit_offers WHERE id = ? AND plan_id = ? AND status = 'active' LIMIT 1",
+                                    [offerIdRaw, user.plan_id],
+                                    (oErr, offer) => cb(oErr, offer)
+                                );
+                                return;
+                            }
+                            db.get(
+                                "SELECT id, after_ads, fee, bonus_pct FROM double_profit_offers WHERE plan_id = ? AND status = 'active' AND after_ads = ? ORDER BY id ASC LIMIT 1",
+                                [user.plan_id, used],
+                                (oErr, offer) => cb(oErr, offer)
+                            );
+                        };
+
+                        pickOffer((oErr, offer) => {
+                            if (oErr) return res.status(500).json({ error: 'DB Error' });
+
+                            const offerId = offer && offer.id ? Number(offer.id) : null;
+                            const afterAds = offer ? Number(offer.after_ads) || 0 : (Number(plan.double_profit_after_ads) || 0);
+                            const fee = offer ? Number(offer.fee) || 0 : (Number(plan.double_profit_fee) || 0);
+                            const bonusPct = offer ? Number(offer.bonus_pct) || 0 : (Number(plan.double_profit_bonus_pct) || 0);
+                            if (afterAds <= 0 || fee <= 0 || bonusPct <= 0) return res.status(400).json({ error: 'Double profit not available' });
+                            if (used !== afterAds) return res.status(400).json({ error: 'Not eligible yet' });
+
+                            db.get(
+                                "SELECT id, payment_status FROM double_profit_offer_purchases WHERE user_id = ? AND plan_id = ? AND offer_after_ads = ? AND used_at IS NULL AND created_at >= ? ORDER BY id DESC LIMIT 1",
+                                [userId, user.plan_id, afterAds, start],
+                                (xErr, existing) => {
+                                    if (xErr) return res.status(500).json({ error: 'DB Error' });
+                                    if (existing) {
+                                        const st = existing.payment_status ? String(existing.payment_status).toLowerCase() : 'paid';
+                                        if (st === 'paid') return res.json({ success: true });
+                                    }
+
+                                    db.get("SELECT id, name, min_amount, max_amount, status FROM payment_methods WHERE id = ? AND status = 'active' LIMIT 1", [methodId], (mErr, method) => {
+                                        if (mErr || !method) return res.status(400).json({ error: 'Invalid payment method' });
+                                        const minAmount = Number(method.min_amount) || 0;
+                                        const maxAmount = Number(method.max_amount) || 0;
+                                        if (minAmount > 0 && fee < minAmount) return res.status(400).json({ error: `Amount must be at least ${minAmount}` });
+                                        if (maxAmount > 0 && fee > maxAmount) return res.status(400).json({ error: `Amount must be at most ${maxAmount}` });
+
+                                        const transactionId = `DP-${user.plan_id}-${afterAds}-${Date.now()}-${userId}`;
+                                        const gateway = `Manual Double Profit (${method.name})`;
+                                        const nowIso = new Date().toISOString();
+
+                                        db.serialize(() => {
+                                            db.run("INSERT INTO deposits (user_id, amount, gateway, transaction_id, status, created_at, proof_image) VALUES (?, ?, ?, ?, ?, ?, ?)", [userId, fee, gateway, transactionId, 'pending', nowIso, proofImage]);
+                                            db.run(
+                                                "INSERT INTO double_profit_offer_purchases (user_id, plan_id, ad_id, offer_id, offer_after_ads, fee, bonus_pct, out_order_number, payment_status, paid_at, used_at, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, NULL, ?)",
+                                                [userId, user.plan_id, adId, offerId, afterAds, fee, bonusPct, transactionId, 'pending', nowIso],
+                                                (iErr) => {
+                                                    if (iErr) return res.status(500).json({ error: 'DB Error' });
+                                                    res.json({ success: true, transaction_id: transactionId });
+                                                }
+                                            );
+                                        });
+                                    });
+                                }
+                            );
+                        });
                     }
                 );
             });
@@ -3903,6 +4035,17 @@ app.post('/api/admin/deposits/status', bodyParser.json(), (req, res) => {
                 db.run("UPDATE deposits SET status = 'approved' WHERE id = ?", [id], (err) => {
                     if (err) return res.status(500).json({ error: 'DB Error updating deposit' });
                     
+                    // Double Profit manual payment: unlock DP purchase (do NOT add balance)
+                    if (deposit.transaction_id && deposit.transaction_id.startsWith('DP-')) {
+                        const paidAt = new Date().toISOString();
+                        db.run(
+                            "UPDATE double_profit_offer_purchases SET payment_status = 'paid', paid_at = COALESCE(paid_at, ?) WHERE out_order_number = ? AND user_id = ? AND payment_status != 'paid'",
+                            [paidAt, deposit.transaction_id, deposit.user_id],
+                            () => res.json({ success: true })
+                        );
+                        return;
+                    }
+
                     // Check if this is a Subscription Request (Starts with SUB-)
                     if (deposit.transaction_id && deposit.transaction_id.startsWith('SUB-')) {
                         // Extract Plan ID
