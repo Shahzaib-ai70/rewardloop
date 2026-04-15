@@ -686,6 +686,16 @@ function startCommunityFakeFeed() {
         'I’m waiting for my plan activation.',
         'Admin will approve soon, be patient.'
     ];
+    const plans = ['Silver', 'Gold', 'Diamond', 'Platinum', 'VIP', 'Standard'];
+    const suffixes = [
+        'Any update?',
+        'Please guide.',
+        'Thanks.',
+        'Right now.',
+        'Today.',
+        'This week.',
+        'Anyone else?'
+    ];
 
     const recent = [];
     const recentSet = new Set();
@@ -1863,18 +1873,26 @@ app.post('/api/admin/community/generate-fake', bodyParser.json(), (req, res) => 
     db.all("SELECT message FROM community_messages WHERE sender_type = 'fake' ORDER BY id DESC LIMIT 300", (rErr, rows) => {
         const recent = new Set((rows || []).map(r => (r && r.message ? String(r.message).trim() : '')).filter(Boolean));
         const usedInBatch = new Set();
+        const genMessage = () => {
+            let msg = String(pick(templates) || '').trim();
+            if (!msg) msg = 'Hello everyone!';
+            if (msg.toLowerCase().includes('what plan')) msg = `What plan are you using right now? ${pick(plans)}`;
+            if (msg.includes('VIP')) msg = msg.replaceAll('VIP', pick(plans));
+            if (msg.toLowerCase().includes('withdraw')) msg = `${msg} (PKR ${Math.floor(Math.random() * 900 + 100)})`;
+            if (msg.toLowerCase().includes('ads')) msg = `${msg} (${Math.floor(Math.random() * 9 + 1)} ads)`;
+            if (Math.random() < 0.55) msg = `${msg} ${pick(suffixes)}`;
+            return msg.trim();
+        };
         const pickFresh = () => {
             for (let i = 0; i < 25; i++) {
-                const t = pick(templates);
-                const key = String(t).trim();
+                const key = genMessage();
                 if (!key) continue;
                 if (recent.has(key)) continue;
                 if (usedInBatch.has(key)) continue;
                 usedInBatch.add(key);
                 return key;
             }
-            const t = pick(templates);
-            const key = String(t).trim();
+            const key = genMessage();
             usedInBatch.add(key);
             return key;
         };

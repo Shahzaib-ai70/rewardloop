@@ -474,15 +474,15 @@
             } catch {}
         }
 
-        function maybeAddServerMessage(m) {
+        function maybeAddServerMessage(m, force) {
             const senderType = m && m.sender_type ? String(m.sender_type) : '';
             const msgText = m && m.message !== undefined && m.message !== null ? String(m.message) : '';
             if (senderType === 'fake') {
                 const key = msgText.trim();
                 if (key) {
                     if (!state.seenSet) loadSeen();
-                    if (state.seenSet.has(key)) return;
-                    rememberSeen(key);
+                    if (!force && state.seenSet.has(key)) return false;
+                    if (!state.seenSet.has(key)) rememberSeen(key);
                 }
             }
             addMessage({
@@ -494,6 +494,7 @@
                 mediaKind: m.media_kind,
                 mediaName: m.media_name
             });
+            return true;
         }
 
         async function loadServerHistory() {
@@ -502,10 +503,31 @@
                 if (!res.ok) return;
                 const data = await res.json().catch(() => null);
                 const msgs = data && data.messages ? data.messages : [];
-                msgs.forEach(m => {
+                const fakeMsgs = msgs.filter(m => m && String(m.sender_type || '') === 'fake');
+                for (let i = fakeMsgs.length - 1; i > 0; i--) {
+                    const j = Math.floor(Math.random() * (i + 1));
+                    const tmp = fakeMsgs[i];
+                    fakeMsgs[i] = fakeMsgs[j];
+                    fakeMsgs[j] = tmp;
+                }
+                const realMsgs = msgs.filter(m => !(m && String(m.sender_type || '') === 'fake'));
+                const ordered = realMsgs.concat(fakeMsgs);
+
+                const addedIds = new Set();
+                let added = 0;
+                ordered.forEach(m => {
                     state.serverLastId = Math.max(state.serverLastId, Number(m.id) || 0);
-                    maybeAddServerMessage(m);
+                    if (m && m.id !== undefined && m.id !== null) addedIds.add(String(m.id));
+                    if (maybeAddServerMessage(m, false)) added++;
                 });
+                if (added < 15 && msgs.length) {
+                    for (const m of ordered) {
+                        if (added >= 15) break;
+                        const idKey = m && m.id !== undefined && m.id !== null ? String(m.id) : '';
+                        if (idKey && addedIds.has(idKey)) continue;
+                        if (maybeAddServerMessage(m, true)) added++;
+                    }
+                }
             } catch (e) {}
         }
 
@@ -519,7 +541,7 @@
                     const msgs = data && data.messages ? data.messages : [];
                     msgs.forEach(m => {
                         state.serverLastId = Math.max(state.serverLastId, Number(m.id) || 0);
-                        maybeAddServerMessage(m);
+                        maybeAddServerMessage(m, false);
                     });
                 }
             } catch (e) {}
