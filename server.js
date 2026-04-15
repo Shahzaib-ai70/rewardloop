@@ -1002,7 +1002,7 @@ app.post('/api/admin/users/:id/double-profit-tasks/complete', bodyParser.json(),
                 };
 
                 loadPlanStart((startIso) => {
-                    const start = startIso || '1970-01-01T00:00:00.000Z';
+                    const start = startIso || inferFromExpiry() || new Date().toISOString();
                     db.get(
                         "SELECT COUNT(*) as count FROM deposits WHERE user_id = ? AND gateway = 'Ad View' AND created_at >= ?",
                         [userId, start],
@@ -2749,7 +2749,7 @@ app.post('/api/user/ads/view', bodyParser.json(), (req, res) => {
                 };
 
                 loadPlanStart((startIso) => {
-                    const start = startIso || '1970-01-01T00:00:00.000Z';
+                    const start = startIso || inferFromExpiry() || new Date().toISOString();
 
                     db.get(
                         "SELECT id FROM deposits WHERE user_id = ? AND gateway = 'Ad View' AND transaction_id LIKE ? AND created_at >= ?",
