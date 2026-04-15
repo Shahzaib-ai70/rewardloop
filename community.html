@@ -191,7 +191,9 @@
             onlineTimer: null,
             mediaFile: null,
             seenSet: null,
-            seenArr: null
+            seenArr: null,
+            shuffleTimer: null,
+            noNewStreak: 0
         };
 
         function isTruthy(v) {
@@ -320,11 +322,13 @@
             return gap < 90;
         }
 
-        function addMessage({ user, text, replyTo, isYou, createdAt, mediaUrl, mediaKind, mediaName }) {
+        function addMessage({ user, text, replyTo, isYou, createdAt, mediaUrl, mediaKind, mediaName, senderType, messageId }) {
             const list = document.getElementById('chatList');
             const stick = isNearBottom();
             const row = document.createElement('li');
             row.className = 'msg-row';
+            if (senderType) row.dataset.senderType = String(senderType);
+            if (messageId !== undefined && messageId !== null) row.dataset.messageId = String(messageId);
 
             const avatar = document.createElement('div');
             avatar.className = isYou ? 'avatar avatar-you' : 'avatar';
@@ -404,6 +408,40 @@
             if (stick) box.scrollTop = box.scrollHeight;
         }
 
+        function shuffleFakeSlots() {
+            const list = document.getElementById('chatList');
+            if (!list) return;
+            const items = Array.from(list.children);
+            const fake = items.filter(li => li && li.dataset && li.dataset.senderType === 'fake');
+            if (fake.length < 2) return;
+            for (let i = fake.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                const t = fake[i];
+                fake[i] = fake[j];
+                fake[j] = t;
+            }
+            let fi = 0;
+            const rebuilt = [];
+            for (const li of items) {
+                if (li && li.dataset && li.dataset.senderType === 'fake') rebuilt.push(fake[fi++]);
+                else rebuilt.push(li);
+            }
+            while (list.firstChild) list.removeChild(list.firstChild);
+            for (const li of rebuilt) list.appendChild(li);
+        }
+
+        function startShuffle() {
+            if (state.shuffleTimer) clearInterval(state.shuffleTimer);
+            state.shuffleTimer = setInterval(shuffleFakeSlots, 7000);
+        }
+
+        function stopShuffle() {
+            if (state.shuffleTimer) {
+                clearInterval(state.shuffleTimer);
+                state.shuffleTimer = null;
+            }
+        }
+
         function startFakeChat() {
             const cfg = state.config || {};
             const enabled = isTruthy(cfg.community_fake_chat_enabled);
@@ -419,6 +457,7 @@
             };
             if (state.onlineTimer) clearTimeout(state.onlineTimer);
             tick();
+            startShuffle();
         }
 
         function adjustChatShell() {
@@ -466,7 +505,7 @@
             if (state.seenSet.has(t)) return;
             state.seenSet.add(t);
             state.seenArr.push(t);
-            const max = 500;
+            const max = 150;
             if (state.seenArr.length > max) {
                 const drop = state.seenArr.length - max;
                 const removed = state.seenArr.splice(0, drop);
@@ -495,7 +534,9 @@
                 createdAt: m.created_at,
                 mediaUrl: m.media_url,
                 mediaKind: m.media_kind,
-                mediaName: m.media_name
+                mediaName: m.media_name,
+                senderType,
+                messageId: m.id
             });
             return true;
         }
@@ -550,10 +591,26 @@
                 if (res.ok) {
                     const data = await res.json().catch(() => null);
                     const msgs = data && data.messages ? data.messages : [];
+                    let added = 0;
                     msgs.forEach(m => {
                         state.serverLastId = Math.max(state.serverLastId, Number(m.id) || 0);
-                        maybeAddServerMessage(m, false);
+                        if (maybeAddServerMessage(m, false)) added++;
                     });
+                    if (added === 0 && msgs.length) {
+                        state.noNewStreak += 1;
+                        if (state.noNewStreak >= 2) {
+                            let forced = 0;
+                            for (const m of msgs) {
+                                if (forced >= 2) break;
+                                if (m && String(m.sender_type || '') === 'fake') {
+                                    if (maybeAddServerMessage(m, true)) forced++;
+                                }
+                            }
+                            if (forced) state.noNewStreak = 0;
+                        }
+                    } else {
+                        state.noNewStreak = 0;
+                    }
                 }
             } catch (e) {}
             state.pollTimer = setTimeout(pollServer, 2000);
