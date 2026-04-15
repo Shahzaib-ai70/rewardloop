@@ -1818,6 +1818,81 @@ app.post('/api/admin/community/post-media', communityUpload.single('media'), (re
     );
 });
 
+app.post('/api/admin/community/generate-fake', bodyParser.json(), (req, res) => {
+    if (!req.session.user || req.session.user.role !== 'admin') return res.status(403).json({ error: 'Unauthorized' });
+    const countRaw = req.body && req.body.count !== undefined && req.body.count !== null ? Number(req.body.count) : 0;
+    const count = Number.isFinite(countRaw) ? Math.max(1, Math.min(5000, Math.floor(countRaw))) : 0;
+    if (!count) return res.status(400).json({ error: 'Invalid count' });
+
+    const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
+    const first = ['Ali','Ahmed','Ayesha','Fatima','Zain','Hassan','Hamza','Sara','Umar','Bilal','Maryam','Noor','Hina','Asad','Usman','Musa','Kiran','Iqra','Saad','Daniyal','Rida','Sana','Haris','Farhan','Amna','Anaya','Zoya','Areeba','Aqsa','Huzaifa'];
+    const last = ['Khan','Malik','Sheikh','Butt','Raza','Iqbal','Hussain','Chaudhry','Siddiqui','Qureshi','Javed','Nawaz','Rashid','Mirza','Yousaf','Saleem','Haq','Shah','Ansari','Bhatti','Rehman','Akhtar','Abbasi','Kashif','Rafiq','Aziz','Junaid','Noman','Haider','Mehmood'];
+    const templates = [
+        'Anyone got today’s ads completed?',
+        'Just withdrew successfully, thanks!',
+        'What plan are you using right now?',
+        'Good morning everyone!',
+        'I upgraded my plan and earnings improved.',
+        'Support replied fast today.',
+        'Don’t forget to check rewards tab.',
+        'My ads page is loading slow for me, anyone else?',
+        'Referral bonus just received.',
+        'Keep going, consistency matters.',
+        'What’s your target for this week?',
+        'Congrats on your withdrawal!',
+        'Remember to submit proof correctly.',
+        'Which wallet do you use for PKR?',
+        'I just joined, nice to meet you all.',
+        'Any tips for new users?',
+        'Stay active and complete daily tasks.',
+        'Let’s help each other.',
+        'How many ads per day on VIP?',
+        'Best time to do ads?',
+        'I like the new updates.',
+        'Please be careful with scammers.',
+        'Always use official links.',
+        'Anyone from Karachi here?',
+        'Pakistan community is strong!',
+        'Let’s share progress.',
+        'Today’s earnings: decent.',
+        'Keep the chat clean.',
+        'I’m waiting for my plan activation.',
+        'Admin will approve soon, be patient.'
+    ];
+
+    db.all("SELECT message FROM community_messages WHERE sender_type = 'fake' ORDER BY id DESC LIMIT 300", (rErr, rows) => {
+        const recent = new Set((rows || []).map(r => (r && r.message ? String(r.message).trim() : '')).filter(Boolean));
+        const usedInBatch = new Set();
+        const pickFresh = () => {
+            for (let i = 0; i < 25; i++) {
+                const t = pick(templates);
+                const key = String(t).trim();
+                if (!key) continue;
+                if (recent.has(key)) continue;
+                if (usedInBatch.has(key)) continue;
+                usedInBatch.add(key);
+                return key;
+            }
+            const t = pick(templates);
+            const key = String(t).trim();
+            usedInBatch.add(key);
+            return key;
+        };
+
+        const now = new Date().toISOString();
+        const stmt = db.prepare("INSERT INTO community_messages (sender_type, sender_user_id, sender_name, message, reply_to, media_url, media_kind, media_name, created_at) VALUES ('fake', NULL, ?, ?, NULL, NULL, NULL, NULL, ?)");
+        for (let i = 0; i < count; i++) {
+            const senderName = `${pick(first)} ${pick(last)} ${String(Math.floor(Math.random() * 90) + 10)}`;
+            const msg = pickFresh();
+            stmt.run(senderName, msg, now);
+        }
+        stmt.finalize((e) => {
+            if (e) return res.status(500).json({ error: 'DB Error' });
+            res.json({ success: true, inserted: count });
+        });
+    });
+});
+
 app.get('/api/withdraw/methods', (req, res) => {
     const map = {
         PKR: [

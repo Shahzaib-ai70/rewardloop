@@ -188,7 +188,9 @@
             serverLastId: 0,
             pollTimer: null,
             onlineTimer: null,
-            mediaFile: null
+            mediaFile: null,
+            seenSet: null,
+            seenArr: null
         };
 
         function isTruthy(v) {
@@ -438,15 +440,71 @@
             }
         }
 
+        function seenKey() {
+            const u = state.selfName ? String(state.selfName).trim() : '';
+            return `rl_comm_seen_${u || 'user'}`;
+        }
+
+        function loadSeen() {
+            try {
+                const raw = localStorage.getItem(seenKey());
+                const arr = raw ? JSON.parse(raw) : [];
+                state.seenArr = Array.isArray(arr) ? arr.filter(x => typeof x === 'string') : [];
+            } catch {
+                state.seenArr = [];
+            }
+            state.seenSet = new Set(state.seenArr);
+        }
+
+        function rememberSeen(text) {
+            const t = String(text || '').trim();
+            if (!t) return;
+            if (!state.seenSet) loadSeen();
+            if (state.seenSet.has(t)) return;
+            state.seenSet.add(t);
+            state.seenArr.push(t);
+            const max = 500;
+            if (state.seenArr.length > max) {
+                const drop = state.seenArr.length - max;
+                const removed = state.seenArr.splice(0, drop);
+                removed.forEach(x => state.seenSet.delete(x));
+            }
+            try {
+                localStorage.setItem(seenKey(), JSON.stringify(state.seenArr));
+            } catch {}
+        }
+
+        function maybeAddServerMessage(m) {
+            const senderType = m && m.sender_type ? String(m.sender_type) : '';
+            const msgText = m && m.message !== undefined && m.message !== null ? String(m.message) : '';
+            if (senderType === 'fake') {
+                const key = msgText.trim();
+                if (key) {
+                    if (!state.seenSet) loadSeen();
+                    if (state.seenSet.has(key)) return;
+                    rememberSeen(key);
+                }
+            }
+            addMessage({
+                user: { name: m.sender_name },
+                text: msgText,
+                replyTo: m.reply_to,
+                createdAt: m.created_at,
+                mediaUrl: m.media_url,
+                mediaKind: m.media_kind,
+                mediaName: m.media_name
+            });
+        }
+
         async function loadServerHistory() {
             try {
-                const res = await fetch('/api/community/messages?limit=60');
+                const res = await fetch('/api/community/messages?limit=200');
                 if (!res.ok) return;
                 const data = await res.json().catch(() => null);
                 const msgs = data && data.messages ? data.messages : [];
                 msgs.forEach(m => {
                     state.serverLastId = Math.max(state.serverLastId, Number(m.id) || 0);
-                    addMessage({ user: { name: m.sender_name }, text: m.message, replyTo: m.reply_to, createdAt: m.created_at, mediaUrl: m.media_url, mediaKind: m.media_kind, mediaName: m.media_name });
+                    maybeAddServerMessage(m);
                 });
             } catch (e) {}
         }
@@ -461,7 +519,7 @@
                     const msgs = data && data.messages ? data.messages : [];
                     msgs.forEach(m => {
                         state.serverLastId = Math.max(state.serverLastId, Number(m.id) || 0);
-                        addMessage({ user: { name: m.sender_name }, text: m.message, replyTo: m.reply_to, createdAt: m.created_at, mediaUrl: m.media_url, mediaKind: m.media_kind, mediaName: m.media_name });
+                        maybeAddServerMessage(m);
                     });
                 }
             } catch (e) {}
@@ -482,6 +540,7 @@
                 const status = await stRes.json();
                 state.joined = !!(status && status.joined);
                 state.selfName = status && status.username ? String(status.username) : '';
+                loadSeen();
 
                 if (!isTruthy(state.config.community_enabled)) {
                     setStatusBadge('Disabled');

@@ -82,6 +82,14 @@
                             <button class="mini-btn mini-btn-ghost" id="refreshBtn" type="button"><i class="fas fa-rotate"></i> Refresh</button>
                         </div>
 
+                        <div class="field">
+                            <label>Generate Fake Messages</label>
+                            <div style="display:flex; gap:10px; align-items:center;">
+                                <input id="genCount" type="number" min="1" max="5000" value="50" style="max-width:140px;">
+                                <button class="mini-btn mini-btn-ghost" id="genBtn" type="button"><i class="fas fa-wand-magic-sparkles"></i> Generate</button>
+                            </div>
+                        </div>
+
                         <div class="reply-pill" id="replyPill">
                             <div id="replyPillText"></div>
                             <button type="button" id="replyPillCancel">&times;</button>
@@ -321,6 +329,23 @@
 
         document.getElementById('refreshBtn').addEventListener('click', loadMessages);
         document.getElementById('postBtn').addEventListener('click', postMessage);
+        document.getElementById('genBtn').addEventListener('click', async () => {
+            const v = Number(document.getElementById('genCount').value);
+            const count = Number.isFinite(v) ? Math.max(1, Math.min(5000, Math.floor(v))) : 0;
+            if (!count) return showToast('Invalid count', 'warning');
+            const res = await fetch('/api/admin/community/generate-fake', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ count })
+            });
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok || !data.success) {
+                showToast((data && data.error) ? data.error : 'Failed', 'error');
+                return;
+            }
+            showToast(`Generated ${data.inserted || count} messages`, 'success');
+            loadMessages();
+        });
 
         document.getElementById('senderType').addEventListener('change', () => {
             const type = document.getElementById('senderType').value;
