@@ -1689,6 +1689,7 @@ app.get('/api/community/status', (req, res) => {
     db.get("SELECT username, community_joined, community_joined_at FROM users WHERE id = ? LIMIT 1", [req.session.user.id], (err, row) => {
         if (err) return res.status(500).json({ error: 'DB Error' });
         res.json({
+            user_id: req.session.user.id,
             username: row && row.username ? String(row.username) : '',
             joined: row && Number(row.community_joined) === 1,
             joined_at: row && row.community_joined_at ? String(row.community_joined_at) : null

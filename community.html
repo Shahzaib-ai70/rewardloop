@@ -185,6 +185,7 @@
             loopTimer: null,
             replyToName: '',
             selfName: '',
+            selfId: '',
             serverLastId: 0,
             pollTimer: null,
             onlineTimer: null,
@@ -441,6 +442,8 @@
         }
 
         function seenKey() {
+            const id = state.selfId ? String(state.selfId).trim() : '';
+            if (id) return `rl_comm_seen_id_${id}`;
             const u = state.selfName ? String(state.selfName).trim() : '';
             return `rl_comm_seen_${u || 'user'}`;
         }
@@ -513,19 +516,27 @@
                 const realMsgs = msgs.filter(m => !(m && String(m.sender_type || '') === 'fake'));
                 const ordered = realMsgs.concat(fakeMsgs);
 
-                const addedIds = new Set();
+                const renderedIds = new Set();
                 let added = 0;
                 ordered.forEach(m => {
                     state.serverLastId = Math.max(state.serverLastId, Number(m.id) || 0);
-                    if (m && m.id !== undefined && m.id !== null) addedIds.add(String(m.id));
-                    if (maybeAddServerMessage(m, false)) added++;
+                    const ok = maybeAddServerMessage(m, false);
+                    if (ok) {
+                        const idKey = m && m.id !== undefined && m.id !== null ? String(m.id) : '';
+                        if (idKey) renderedIds.add(idKey);
+                        added++;
+                    }
                 });
                 if (added < 15 && msgs.length) {
                     for (const m of ordered) {
                         if (added >= 15) break;
                         const idKey = m && m.id !== undefined && m.id !== null ? String(m.id) : '';
-                        if (idKey && addedIds.has(idKey)) continue;
-                        if (maybeAddServerMessage(m, true)) added++;
+                        if (idKey && renderedIds.has(idKey)) continue;
+                        const ok = maybeAddServerMessage(m, true);
+                        if (ok) {
+                            if (idKey) renderedIds.add(idKey);
+                            added++;
+                        }
                     }
                 }
             } catch (e) {}
@@ -562,6 +573,7 @@
                 const status = await stRes.json();
                 state.joined = !!(status && status.joined);
                 state.selfName = status && status.username ? String(status.username) : '';
+                state.selfId = status && status.user_id !== undefined && status.user_id !== null ? String(status.user_id) : '';
                 loadSeen();
 
                 if (!isTruthy(state.config.community_enabled)) {
