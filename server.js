@@ -1944,6 +1944,13 @@ function nicePaySign(params, key) {
     return crypto.createHash('md5').update(`${base}&key=${key}`).digest('hex').toUpperCase();
 }
 
+function nicePayAmountMatches(a, b) {
+    const x = Number(a);
+    const y = Number(b);
+    if (!Number.isFinite(x) || !Number.isFinite(y)) return true;
+    return Math.abs(x - y) < 0.0001;
+}
+
 function extractYouTubeIdFromUrl(url) {
     if (!url) return null;
     const s = String(url);
@@ -2218,7 +2225,7 @@ app.post('/api/nicepay/notify', (req, res) => {
     const key = (process.env.NICEPAY_KEY || '').trim();
     if (!key) return res.status(500).send('fail');
 
-    const expectedIp = (process.env.NICEPAY_CALLBACK_IP || '165.154.199.139').trim();
+    const expectedIp = (process.env.NICEPAY_CALLBACK_IP || '').trim();
     const clientIp = getRequestIp(req);
     if (process.env.NODE_ENV === 'production' && expectedIp) {
         const allow = expectedIp.split(',').map(s => s.trim()).filter(Boolean);
@@ -2242,7 +2249,7 @@ app.post('/api/nicepay/notify', (req, res) => {
         if (order.status === 'paid') return res.send('success');
 
         const realAmount = payload.real_amount !== undefined && payload.real_amount !== null ? Number(payload.real_amount) : null;
-        if (realAmount !== null && Number.isFinite(realAmount) && Number.isFinite(Number(order.amount)) && realAmount !== Number(order.amount)) {
+        if (realAmount !== null && Number.isFinite(realAmount) && !nicePayAmountMatches(realAmount, order.amount)) {
             db.run("UPDATE payment_orders SET status = ? WHERE id = ?", ['failed', order.id], () => res.send('success'));
             return;
         }
@@ -3418,7 +3425,7 @@ app.post('/api/admin/subscription-orders/sync', bodyParser.json(), async (req, r
         const amount = body && body.amount !== undefined && body.amount !== null ? Number(body.amount) : null;
         const finalAmount = Number.isFinite(realAmount) ? realAmount : (Number.isFinite(amount) ? amount : null);
 
-        if (finalAmount !== null && Number.isFinite(Number(order.amount)) && finalAmount !== Number(order.amount)) {
+        if (finalAmount !== null && !nicePayAmountMatches(finalAmount, order.amount)) {
             logNicePaySyncHistory({
                 outOrderNumber,
                 adminId: req.session.user && req.session.user.id,
