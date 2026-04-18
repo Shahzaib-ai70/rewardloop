@@ -146,6 +146,27 @@
                                 <tbody id="msgTbody"></tbody>
                             </table>
                         </div>
+
+                        <div style="display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap; margin-top: 18px;">
+                            <h3 class="section-title" style="margin:0;">Community Joined Users</h3>
+                            <div id="joinedCountBox" style="color:#94a3b8; font-weight:800;"></div>
+                        </div>
+                        <div style="display:flex; gap:10px; align-items:center; margin-top: 10px; flex-wrap:wrap;">
+                            <input id="joinedSearch" type="text" placeholder="Search username/email" style="max-width: 280px;">
+                            <button class="mini-btn mini-btn-ghost" id="joinedRefreshBtn" type="button"><i class="fas fa-rotate"></i> Refresh</button>
+                        </div>
+                        <div style="overflow:auto; margin-top: 10px;">
+                            <table class="msg-table">
+                                <thead>
+                                    <tr>
+                                        <th style="width:220px;">User</th>
+                                        <th>Email</th>
+                                        <th style="width:220px;">Joined At</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="joinedTbody"></tbody>
+                            </table>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -157,7 +178,7 @@
             document.querySelector('.sidebar').classList.toggle('active');
         });
 
-        const state = { replyTo: '', pollTimer: null, mediaFile: null };
+        const state = { replyTo: '', pollTimer: null, mediaFile: null, joinedSearchTimer: null };
 
         function fmtTime(iso) {
             const d = iso ? new Date(iso) : new Date();
@@ -288,6 +309,49 @@
             tbody.appendChild(frag);
         }
 
+        async function loadJoinedUsers() {
+            const q = String((document.getElementById('joinedSearch') && document.getElementById('joinedSearch').value) || '').trim();
+            const res = await fetch(`/api/admin/community/joined-users?limit=200&q=${encodeURIComponent(q)}`);
+            if (res.status === 401 || res.status === 403) {
+                window.location.href = '/admin_login.html';
+                return;
+            }
+            const ct = (res.headers.get('content-type') || '').toLowerCase();
+            if (!ct.includes('application/json')) {
+                window.location.href = '/admin_login.html';
+                return;
+            }
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok) {
+                showToast((data && data.error) ? data.error : 'Failed to load', 'error');
+                return;
+            }
+            const users = data.users || [];
+            const total = data.total !== undefined && data.total !== null ? Number(data.total) : users.length;
+            document.getElementById('joinedCountBox').textContent = `${total} joined`;
+            const tbody = document.getElementById('joinedTbody');
+            tbody.innerHTML = '';
+            const frag = document.createDocumentFragment();
+            users.forEach(u => {
+                const tr = document.createElement('tr');
+                const userTd = document.createElement('td');
+                userTd.innerHTML = `<div style="font-weight:900; color:#2d3436;">${u.username || ''}</div><div style="margin-top:6px; color:#94a3b8; font-weight:800; font-size:0.82rem;">ID: ${u.id}</div>`;
+                const emailTd = document.createElement('td');
+                emailTd.style.color = '#475569';
+                emailTd.style.fontWeight = '700';
+                emailTd.textContent = u.email || '';
+                const joinedTd = document.createElement('td');
+                joinedTd.style.color = '#94a3b8';
+                joinedTd.style.fontWeight = '800';
+                joinedTd.textContent = u.community_joined_at ? new Date(u.community_joined_at).toLocaleString() : '-';
+                tr.appendChild(userTd);
+                tr.appendChild(emailTd);
+                tr.appendChild(joinedTd);
+                frag.appendChild(tr);
+            });
+            tbody.appendChild(frag);
+        }
+
         async function postMessage() {
             const message = String(document.getElementById('postMessage').value || '').trim();
             const file = state.mediaFile;
@@ -328,6 +392,7 @@
         }
 
         document.getElementById('refreshBtn').addEventListener('click', loadMessages);
+        document.getElementById('joinedRefreshBtn').addEventListener('click', loadJoinedUsers);
         document.getElementById('postBtn').addEventListener('click', postMessage);
         document.getElementById('genBtn').addEventListener('click', async () => {
             const v = Number(document.getElementById('genCount').value);
@@ -354,11 +419,20 @@
 
         function startPoll() {
             if (state.pollTimer) clearInterval(state.pollTimer);
-            state.pollTimer = setInterval(loadMessages, 3000);
+            state.pollTimer = setInterval(() => {
+                loadMessages();
+                loadJoinedUsers();
+            }, 3000);
         }
 
         loadMessages();
+        loadJoinedUsers();
         startPoll();
+
+        document.getElementById('joinedSearch').addEventListener('input', () => {
+            if (state.joinedSearchTimer) clearTimeout(state.joinedSearchTimer);
+            state.joinedSearchTimer = setTimeout(loadJoinedUsers, 350);
+        });
     </script>
     <script src="js/theme.js"></script>
     <script src="js/translation.js"></script>
