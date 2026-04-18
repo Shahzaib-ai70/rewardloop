@@ -504,6 +504,8 @@
                             <div class="profile-name" id="profileName">...</div>
                             <div class="profile-country" id="profileCountry">...</div>
                             <div style="font-size: 0.8rem; color: #b2bec3;">Joined: <span id="joinDate">...</span></div>
+                            <div style="font-size: 0.8rem; color: #b2bec3;">Community: <span id="communityJoinStatus">...</span></div>
+                            <div style="font-size: 0.8rem; color: #b2bec3;">Community Joined At: <span id="communityJoinDate">...</span></div>
                             
                             <div class="profile-actions">
                                 <button onclick="loginAsUser()" class="action-btn-icon btn-login" title="Login as User"><i class="fas fa-sign-in-alt"></i></button>
@@ -1180,6 +1182,9 @@
                 document.getElementById('profileName').textContent = user.firstname + ' ' + user.lastname;
                 document.getElementById('profileCountry').textContent = user.country || 'Unknown';
                 document.getElementById('joinDate').textContent = new Date(user.created_at).toLocaleString();
+                const cJoined = Number(user.community_joined) === 1;
+                document.getElementById('communityJoinStatus').textContent = cJoined ? 'Joined' : 'Not Joined';
+                document.getElementById('communityJoinDate').textContent = user.community_joined_at ? new Date(user.community_joined_at).toLocaleString() : '-';
                 
                 // Balance
                 document.getElementById('uBalance').textContent = `PKR ${user.balance || 0}`;
