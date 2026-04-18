@@ -1922,14 +1922,20 @@ app.post('/api/admin/community/generate-fake', bodyParser.json(), (req, res) => 
 
         const now = new Date().toISOString();
         const stmt = db.prepare("INSERT INTO community_messages (sender_type, sender_user_id, sender_name, message, reply_to, media_url, media_kind, media_name, created_at) VALUES ('fake', NULL, ?, ?, NULL, NULL, NULL, NULL, ?)");
+        let inserted = 0;
+        let firstErr = null;
         for (let i = 0; i < count; i++) {
             const senderName = `${pick(first)} ${pick(last)} ${String(Math.floor(Math.random() * 90) + 10)}`;
             const msg = pickFresh();
-            stmt.run(senderName, msg, now);
+            stmt.run(senderName, msg, now, (e) => {
+                if (e && !firstErr) firstErr = e;
+                if (!e) inserted += 1;
+            });
         }
         stmt.finalize((e) => {
-            if (e) return res.status(500).json({ error: 'DB Error' });
-            res.json({ success: true, inserted: count });
+            const err = firstErr || e;
+            if (err) return res.status(500).json({ error: err && err.message ? String(err.message) : 'DB Error' });
+            res.json({ success: true, inserted });
         });
     });
 });

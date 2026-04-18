@@ -403,6 +403,16 @@
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ count })
             });
+            if (res.status === 401 || res.status === 403) {
+                window.location.href = '/admin_login.html';
+                return;
+            }
+            const ct = (res.headers.get('content-type') || '').toLowerCase();
+            if (!ct.includes('application/json')) {
+                const t = await res.text().catch(() => '');
+                showToast(t ? `Failed: ${t.slice(0, 80)}` : 'Failed', 'error');
+                return;
+            }
             const data = await res.json().catch(() => ({}));
             if (!res.ok || !data.success) {
                 showToast((data && data.error) ? data.error : 'Failed', 'error');
