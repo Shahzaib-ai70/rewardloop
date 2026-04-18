@@ -696,6 +696,16 @@ function startCommunityFakeFeed() {
         'This week.',
         'Anyone else?'
     ];
+    const plans = ['Silver', 'Gold', 'Diamond', 'Platinum', 'VIP', 'Standard'];
+    const suffixes = [
+        'Any update?',
+        'Please guide.',
+        'Thanks.',
+        'Right now.',
+        'Today.',
+        'This week.',
+        'Anyone else?'
+    ];
 
     const recent = [];
     const recentSet = new Set();
