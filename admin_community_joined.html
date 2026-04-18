@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Community Joined Users - Admin Panel</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script src="js/notifications.js"></script>
+    <style>
+        .admin-sidebar { background: #2d3436; color: #fff; }
+        .admin-sidebar .logo { color: #fff; }
+        .admin-sidebar .sidebar-menu li a { color: #b2bec3; }
+        .admin-sidebar .sidebar-menu li a:hover, .admin-sidebar .sidebar-menu li a.active { background: rgba(255,255,255,0.1); color: #fff; }
+        .admin-header { background: #fff; box-shadow: 0 2px 10px rgba(0,0,0,0.05); }
+        .msg-table { width: 100%; border-collapse: collapse; }
+        .msg-table th, .msg-table td { padding: 12px; border-bottom: 1px solid #eef2f7; text-align: left; font-size: 0.92rem; vertical-align: top; }
+        .msg-table th { color: #64748b; font-weight: 900; font-size: 0.85rem; }
+        .mini-btn { border: 1px solid #eef2f7; background: #fff; padding: 10px 12px; border-radius: 12px; font-weight: 800; cursor: pointer; display: inline-flex; align-items: center; gap: 8px; }
+        .mini-btn-ghost { background: #f5f7fb; }
+        .field { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-top: 10px; }
+        .field input { border: 1px solid #e5e7eb; border-radius: 12px; padding: 10px 12px; font-family: inherit; }
+    </style>
+</head>
+<body class="dashboard-body">
+    <aside class="sidebar admin-sidebar">
+        <div class="sidebar-header"><div class="logo"><i class="fas fa-shield-alt"></i> Admin Panel</div></div>
+        <ul class="sidebar-menu">
+            <li><a href="admin_dashboard.html"><i class="fas fa-tachometer-alt"></i> Dashboard</a></li>
+            <li><a href="admin_plans.html"><i class="fas fa-crown"></i> Manage Plans</a></li>
+            <li><a href="admin_portfolios.html"><i class="fas fa-briefcase"></i> Manage Portfolios</a></li>
+            <li><a href="admin_ads.html"><i class="fas fa-ad"></i> Manage Ads</a></li>
+            <li><a href="admin_users.html"><i class="fas fa-users"></i> Manage Users</a></li>
+            <li><a href="admin_reviews.html"><i class="fas fa-star"></i> Manage Reviews</a></li>
+            <li><a href="admin_referrals.html"><i class="fas fa-users-cog"></i> Referrals & Bonuses</a></li>
+            <li><a href="admin_deposits.html"><i class="fas fa-money-bill-wave"></i> Deposits</a></li>
+            <li><a href="admin_subscription_orders.html"><i class="fas fa-receipt"></i> Subscription Orders</a></li>
+            <li><a href="admin_withdrawals.html"><i class="fas fa-hand-holding-usd"></i> Withdrawals</a></li>
+            <li><a href="admin_support.html"><i class="fas fa-ticket-alt"></i> Support Tickets</a></li>
+            <li><a href="admin_community_user_messages.html"><i class="fas fa-comments"></i> Community Messages</a></li>
+            <li><a href="admin_community_joined.html" class="active"><i class="fas fa-user-check"></i> Community Joined</a></li>
+            <li><a href="admin_settings.html"><i class="fas fa-cogs"></i> System Settings</a></li>
+        </ul>
+        <div class="sidebar-footer"><a href="/admin/logout" class="logout-btn"><i class="fas fa-sign-out-alt"></i> Log Out</a></div>
+    </aside>
+
+    <main class="main-content">
+        <header class="dashboard-header admin-header">
+            <div class="menu-toggle"><i class="fas fa-bars"></i></div>
+            <div class="header-right">
+                <div id="google_translate_element"></div>
+                <div class="theme-toggle"><i class="fas fa-moon"></i></div>
+                <div class="user-profile"><span class="mr-2">Administrator</span><div class="user-avatar" style="background:#d63031;"><i class="fas fa-user-shield"></i></div></div>
+            </div>
+        </header>
+
+        <div class="content-wrapper">
+            <div class="card">
+                <div class="card-body">
+                    <div style="display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap;">
+                        <h3 class="section-title" style="margin:0;">Community Joined Users</h3>
+                        <div id="joinedCountBox" style="color:#94a3b8; font-weight:800;"></div>
+                    </div>
+                    <div class="field">
+                        <input id="joinedSearch" type="text" placeholder="Search username/email" style="max-width: 280px;">
+                        <button class="mini-btn mini-btn-ghost" id="joinedRefreshBtn" type="button"><i class="fas fa-rotate"></i> Refresh</button>
+                    </div>
+                    <div style="overflow:auto; margin-top: 10px;">
+                        <table class="msg-table">
+                            <thead>
+                                <tr>
+                                    <th style="width:220px;">User</th>
+                                    <th>Email</th>
+                                    <th style="width:220px;">Joined At</th>
+                                </tr>
+                            </thead>
+                            <tbody id="joinedTbody"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        document.querySelector('.menu-toggle').addEventListener('click', function() {
+            document.querySelector('.sidebar').classList.toggle('active');
+        });
+
+        let searchTimer = null;
+
+        async function loadJoinedUsers() {
+            const q = String((document.getElementById('joinedSearch') && document.getElementById('joinedSearch').value) || '').trim();
+            const res = await fetch(`/api/admin/community/joined-users?limit=200&q=${encodeURIComponent(q)}`);
+            if (res.status === 401 || res.status === 403) {
+                window.location.href = '/admin_login.html';
+                return;
+            }
+            const ct = (res.headers.get('content-type') || '').toLowerCase();
+            if (!ct.includes('application/json')) {
+                window.location.href = '/admin_login.html';
+                return;
+            }
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok) {
+                showToast((data && data.error) ? data.error : 'Failed to load', 'error');
+                return;
+            }
+            const users = data.users || [];
+            const total = data.total !== undefined && data.total !== null ? Number(data.total) : users.length;
+            document.getElementById('joinedCountBox').textContent = `${total} joined`;
+            const tbody = document.getElementById('joinedTbody');
+            tbody.innerHTML = '';
+            const frag = document.createDocumentFragment();
+            users.forEach(u => {
+                const tr = document.createElement('tr');
+                const userTd = document.createElement('td');
+                userTd.innerHTML = `<div style="font-weight:900; color:#2d3436;">${u.username || ''}</div><div style="margin-top:6px; color:#94a3b8; font-weight:800; font-size:0.82rem;">ID: ${u.id}</div>`;
+                const emailTd = document.createElement('td');
+                emailTd.style.color = '#475569';
+                emailTd.style.fontWeight = '700';
+                emailTd.textContent = u.email || '';
+                const joinedTd = document.createElement('td');
+                joinedTd.style.color = '#94a3b8';
+                joinedTd.style.fontWeight = '800';
+                joinedTd.textContent = u.community_joined_at ? new Date(u.community_joined_at).toLocaleString() : '-';
+                tr.appendChild(userTd);
+                tr.appendChild(emailTd);
+                tr.appendChild(joinedTd);
+                frag.appendChild(tr);
+            });
+            tbody.appendChild(frag);
+        }
+
+        document.getElementById('joinedRefreshBtn').addEventListener('click', loadJoinedUsers);
+        document.getElementById('joinedSearch').addEventListener('input', () => {
+            if (searchTimer) clearTimeout(searchTimer);
+            searchTimer = setTimeout(loadJoinedUsers, 350);
+        });
+
+        loadJoinedUsers();
+        setInterval(loadJoinedUsers, 5000);
+    </script>
+    <script src="js/theme.js"></script>
+    <script src="js/translation.js"></script>
+</body>
+</html>
+

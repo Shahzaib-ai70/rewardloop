@@ -1800,6 +1800,33 @@ app.get('/api/admin/community/joined-users', (req, res) => {
     });
 });
 
+app.get('/api/admin/community/user-messages', (req, res) => {
+    if (!req.session.user || req.session.user.role !== 'admin') return res.status(403).json({ error: 'Unauthorized' });
+    const limit = req.query && req.query.limit !== undefined && req.query.limit !== null ? Number(req.query.limit) : 200;
+    const safeLimit = Number.isFinite(limit) ? Math.max(1, Math.min(500, Math.floor(limit))) : 200;
+    const q = req.query && req.query.q !== undefined && req.query.q !== null ? String(req.query.q).trim() : '';
+    const like = q ? `%${q.toLowerCase()}%` : '';
+    const where = q ? "WHERE cm.sender_type = 'user' AND (LOWER(cm.sender_name) LIKE ? OR LOWER(u.email) LIKE ?)" : "WHERE cm.sender_type = 'user'";
+    const params = q ? [like, like] : [];
+
+    db.get(`SELECT COUNT(*) as c FROM community_messages cm LEFT JOIN users u ON u.id = cm.sender_user_id ${where}`, params, (cErr, cRow) => {
+        if (cErr) return res.status(500).json({ error: 'DB Error' });
+        db.all(
+            `SELECT cm.id, cm.sender_user_id, cm.sender_name, u.email as sender_email, cm.message, cm.reply_to, cm.media_url, cm.media_kind, cm.media_name, cm.created_at
+             FROM community_messages cm
+             LEFT JOIN users u ON u.id = cm.sender_user_id
+             ${where}
+             ORDER BY cm.id DESC
+             LIMIT ?`,
+            params.concat([safeLimit]),
+            (err, rows) => {
+                if (err) return res.status(500).json({ error: 'DB Error' });
+                res.json({ total: cRow && cRow.c ? Number(cRow.c) : 0, messages: (rows || []).slice().reverse() });
+            }
+        );
+    });
+});
+
 app.post('/api/admin/community/post', bodyParser.json(), (req, res) => {
     if (!req.session.user || req.session.user.role !== 'admin') return res.status(403).json({ error: 'Unauthorized' });
     const message = req.body && req.body.message !== undefined && req.body.message !== null ? String(req.body.message).trim() : '';
